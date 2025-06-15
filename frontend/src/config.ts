@@ -13,4 +13,4 @@ export const CONTRACT_ADDRESSES = {
 // Actualiza estas direcciones si obtienes diferentes valores al desplegar
 
 export const RPC_URL = "http://localhost:8545";
-export const CHAIN_ID = 1337;
+export const CHAIN_ID = 31337;

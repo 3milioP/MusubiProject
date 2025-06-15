@@ -46,7 +46,7 @@ echo -e "${GREEN}✓ npm $(npm -v) instalado correctamente${NC}"
 
 PROJECT_DIR=$(pwd)
 echo "Limpiando despliegues anteriores..."
-rm -rf ./ignition/deployments/chain-1337
+rm -rf ./ignition/deployments/chain-31337
 
 # Hardhat
 echo -e "\n${YELLOW}Instalando dependencias de Hardhat...${NC}"
@@ -146,11 +146,11 @@ echo -e "${BLUE}===========================================================${NC}
 PORT_USED=$(grep -o 'http://localhost:[0-9]*' frontend.log | head -1)
 echo -e "${YELLOW}Frontend: ${GREEN}$PORT_USED${NC}"
 echo -e "${YELLOW}Blockchain local: ${GREEN}http://localhost:8545${NC}"
-echo -e "${YELLOW}Chain ID: ${GREEN}1337${NC}"
+echo -e "${YELLOW}Chain ID: ${GREEN}31337${NC}"
 echo -e "\n${YELLOW}Para conectar MetaMask:${NC}"
 echo -e "  Nombre: Musubi Local"
 echo -e "  RPC URL: http://localhost:8545"
-echo -e "  Chain ID: 1337"
+echo -e "  Chain ID: 31337"
 echo -e "  Símbolo: ETH"
 echo -e "\n${YELLOW}Para importar una cuenta:${NC}"
 echo -e "  - Copia una clave privada de hardhat-node.log"

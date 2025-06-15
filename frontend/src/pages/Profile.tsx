@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   Typography, 
   Box, 
@@ -6,54 +6,116 @@ import {
   Card, 
   CardContent, 
   Button, 
-  Avatar,
-  Chip,
   TextField,
   FormControl,
   InputLabel,
   Select,
   MenuItem,
-  SelectChangeEvent
+  Switch,
+  FormControlLabel,
+  Alert,
+  CircularProgress,
+  Snackbar,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions
 } from '@mui/material';
+import { SelectChangeEvent } from '@mui/material/Select';
+import EditIcon from '@mui/icons-material/Edit';
+import SaveIcon from '@mui/icons-material/Save';
 import PersonIcon from '@mui/icons-material/Person';
 import BusinessIcon from '@mui/icons-material/Business';
-import EditIcon from '@mui/icons-material/Edit';
+import { useWeb3 } from '../contexts/Web3Context';
+import { useProfile } from '../hooks/useContracts';
+import { formatAddress } from '../utils/blockchain';
 
 const Profile = () => {
-  const [profileType, setProfileType] = useState('professional');
-  const [editMode, setEditMode] = useState(false);
+  const { isConnected, account } = useWeb3();
+  const { profile, loading, txState, registerProfile, updateProfile, clearTxState } = useProfile();
   
-  // Estado simulado para un MVP
-  const [profile, setProfile] = useState({
-    name: 'Juan Pérez',
-    email: 'juan.perez@email.com',
-    bio: 'Desarrollador Full Stack con 5 años de experiencia en tecnologías web modernas.',
-    location: 'Madrid, España',
-    website: 'https://juanperez.dev',
-    skills: ['JavaScript', 'React', 'Node.js', 'Python', 'Blockchain'],
-    experience: [
-      {
-        title: 'Senior Developer',
-        company: 'Tech Solutions',
-        period: '2021 - Presente',
-        description: 'Desarrollo de aplicaciones web escalables'
-      },
-      {
-        title: 'Frontend Developer',
-        company: 'Digital Agency',
-        period: '2019 - 2021',
-        description: 'Creación de interfaces de usuario modernas'
-      }
-    ]
+  const [editMode, setEditMode] = useState(false);
+  const [profileType, setProfileType] = useState<'individual' | 'company'>('individual');
+  const [formData, setFormData] = useState({
+    name: '',
+    bio: '',
+    location: '',
+    website: '',
+    skills: [] as string[]
   });
+  const [showRegisterDialog, setShowRegisterDialog] = useState(false);
+
+  // Cargar datos del perfil existente
+  useEffect(() => {
+    if (profile && profile.metadataURI) {
+      // En una implementación real, aquí cargarías los datos desde IPFS o un servidor
+      // Por ahora, usamos datos de ejemplo
+      setFormData({
+        name: profile.isCompany ? 'Mi Empresa' : 'Mi Nombre',
+        bio: 'Descripción del perfil...',
+        location: 'Ciudad, País',
+        website: 'https://mi-sitio.com',
+        skills: ['JavaScript', 'React', 'Blockchain']
+      });
+      setProfileType(profile.isCompany ? 'company' : 'individual');
+    }
+  }, [profile]);
 
   const handleProfileTypeChange = (event: SelectChangeEvent) => {
-    setProfileType(event.target.value);
+    setProfileType(event.target.value as 'individual' | 'company');
+  };
+
+  const handleInputChange = (field: string) => (event: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: event.target.value
+    }));
   };
 
   const toggleEditMode = () => {
     setEditMode(!editMode);
   };
+
+  const handleSave = async () => {
+    if (!isConnected) return;
+
+    try {
+      // En una implementación real, aquí subirías los datos a IPFS
+      const metadataURI = `ipfs://example-hash-${Date.now()}`;
+      
+      if (profile) {
+        await updateProfile(metadataURI);
+      } else {
+        await registerProfile(profileType === 'company', metadataURI);
+      }
+      
+      setEditMode(false);
+    } catch (error) {
+      console.error('Error saving profile:', error);
+    }
+  };
+
+  const handleRegisterProfile = () => {
+    setShowRegisterDialog(true);
+  };
+
+  const confirmRegisterProfile = async () => {
+    setShowRegisterDialog(false);
+    await handleSave();
+  };
+
+  if (!isConnected) {
+    return (
+      <Box>
+        <Typography variant="h4" component="h1" gutterBottom>
+          Mi Perfil
+        </Typography>
+        <Alert severity="warning">
+          Por favor, conecta tu wallet para ver y editar tu perfil.
+        </Alert>
+      </Box>
+    );
+  }
 
   return (
     <Box>
@@ -61,180 +123,222 @@ const Profile = () => {
         <Typography variant="h4" component="h1" gutterBottom>
           Mi Perfil
         </Typography>
-        <Button 
-          variant="contained" 
-          color="primary" 
-          startIcon={<EditIcon />}
-          onClick={toggleEditMode}
-        >
-          {editMode ? 'Guardar' : 'Editar Perfil'}
-        </Button>
+        {profile ? (
+          <Button 
+            variant="contained" 
+            startIcon={editMode ? <SaveIcon /> : <EditIcon />}
+            onClick={editMode ? handleSave : toggleEditMode}
+            disabled={txState.loading}
+          >
+            {txState.loading ? <CircularProgress size={20} /> : (editMode ? 'Guardar' : 'Editar')}
+          </Button>
+        ) : (
+          <Button 
+            variant="contained" 
+            onClick={handleRegisterProfile}
+            disabled={txState.loading}
+          >
+            {txState.loading ? <CircularProgress size={20} /> : 'Registrar Perfil'}
+          </Button>
+        )}
       </Box>
 
-      <Grid container spacing={3}>
-        <Grid item xs={12} md={4}>
-          <Card>
-            <CardContent sx={{ textAlign: 'center' }}>
-              <Avatar 
-                sx={{ 
-                  width: 120, 
-                  height: 120, 
-                  mx: 'auto', 
-                  mb: 2,
-                  bgcolor: 'primary.main',
-                  fontSize: '3rem'
-                }}
-              >
-                {profile.name.charAt(0)}
-              </Avatar>
-              
-              {editMode ? (
-                <TextField
-                  fullWidth
-                  value={profile.name}
-                  onChange={(e) => setProfile({...profile, name: e.target.value})}
-                  sx={{ mb: 2 }}
-                />
-              ) : (
-                <Typography variant="h5" gutterBottom>
-                  {profile.name}
+      {loading ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
+          <CircularProgress />
+        </Box>
+      ) : (
+        <Grid container spacing={3}>
+          {/* Información básica */}
+          <Grid item xs={12} md={8}>
+            <Card>
+              <CardContent>
+                <Typography variant="h6" gutterBottom>
+                  Información Básica
                 </Typography>
-              )}
+                
+                <Grid container spacing={2}>
+                  <Grid item xs={12}>
+                    <Typography variant="body2" color="textSecondary" gutterBottom>
+                      Dirección de Wallet
+                    </Typography>
+                    <Typography variant="body1" sx={{ fontFamily: 'monospace' }}>
+                      {account}
+                    </Typography>
+                  </Grid>
 
-              <FormControl fullWidth sx={{ mb: 2 }}>
-                <InputLabel>Tipo de Perfil</InputLabel>
-                <Select
-                  value={profileType}
-                  label="Tipo de Perfil"
-                  onChange={handleProfileTypeChange}
-                  disabled={!editMode}
-                >
-                  <MenuItem value="professional">
-                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                      <PersonIcon sx={{ mr: 1 }} />
-                      Profesional
-                    </Box>
-                  </MenuItem>
-                  <MenuItem value="company">
-                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                      <BusinessIcon sx={{ mr: 1 }} />
-                      Empresa
-                    </Box>
-                  </MenuItem>
-                </Select>
-              </FormControl>
+                  <Grid item xs={12} sm={6}>
+                    <FormControl fullWidth disabled={!editMode}>
+                      <InputLabel>Tipo de Perfil</InputLabel>
+                      <Select
+                        value={profileType}
+                        label="Tipo de Perfil"
+                        onChange={handleProfileTypeChange}
+                      >
+                        <MenuItem value="individual">Individual</MenuItem>
+                        <MenuItem value="company">Empresa</MenuItem>
+                      </Select>
+                    </FormControl>
+                  </Grid>
 
-              {editMode ? (
-                <TextField
-                  fullWidth
-                  value={profile.location}
-                  onChange={(e) => setProfile({...profile, location: e.target.value})}
-                  placeholder="Ubicación"
-                />
-              ) : (
-                <Typography variant="body2" color="text.secondary">
-                  {profile.location}
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      fullWidth
+                      label={profileType === 'company' ? 'Nombre de la Empresa' : 'Nombre Completo'}
+                      value={formData.name}
+                      onChange={handleInputChange('name')}
+                      disabled={!editMode}
+                    />
+                  </Grid>
+
+                  <Grid item xs={12}>
+                    <TextField
+                      fullWidth
+                      multiline
+                      rows={3}
+                      label="Biografía"
+                      value={formData.bio}
+                      onChange={handleInputChange('bio')}
+                      disabled={!editMode}
+                      placeholder="Cuéntanos sobre ti o tu empresa..."
+                    />
+                  </Grid>
+
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      fullWidth
+                      label="Ubicación"
+                      value={formData.location}
+                      onChange={handleInputChange('location')}
+                      disabled={!editMode}
+                    />
+                  </Grid>
+
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      fullWidth
+                      label="Sitio Web"
+                      value={formData.website}
+                      onChange={handleInputChange('website')}
+                      disabled={!editMode}
+                      placeholder="https://..."
+                    />
+                  </Grid>
+                </Grid>
+              </CardContent>
+            </Card>
+          </Grid>
+
+          {/* Estado del perfil */}
+          <Grid item xs={12} md={4}>
+            <Card>
+              <CardContent>
+                <Typography variant="h6" gutterBottom>
+                  Estado del Perfil
                 </Typography>
-              )}
-            </CardContent>
-          </Card>
-        </Grid>
-
-        <Grid item xs={12} md={8}>
-          <Card sx={{ mb: 3 }}>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>
-                Información Personal
-              </Typography>
-              
-              <Grid container spacing={2}>
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    fullWidth
-                    label="Email"
-                    value={profile.email}
-                    disabled={!editMode}
-                    onChange={(e) => setProfile({...profile, email: e.target.value})}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    fullWidth
-                    label="Sitio Web"
-                    value={profile.website}
-                    disabled={!editMode}
-                    onChange={(e) => setProfile({...profile, website: e.target.value})}
-                  />
-                </Grid>
-                <Grid item xs={12}>
-                  <TextField
-                    fullWidth
-                    label="Biografía"
-                    multiline
-                    rows={4}
-                    value={profile.bio}
-                    disabled={!editMode}
-                    onChange={(e) => setProfile({...profile, bio: e.target.value})}
-                  />
-                </Grid>
-              </Grid>
-            </CardContent>
-          </Card>
-
-          <Card sx={{ mb: 3 }}>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>
-                Habilidades
-              </Typography>
-              <Box>
-                {profile.skills.map((skill, index) => (
-                  <Chip 
-                    key={index}
-                    label={skill} 
-                    sx={{ mr: 1, mb: 1 }}
-                    color="primary"
-                    variant="outlined"
-                  />
-                ))}
-              </Box>
-              {editMode && (
-                <Button variant="outlined" sx={{ mt: 2 }}>
-                  Añadir Habilidad
-                </Button>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>
-                Experiencia Profesional
-              </Typography>
-              {profile.experience.map((exp, index) => (
-                <Box key={index} sx={{ mb: 3, pb: 2, borderBottom: index < profile.experience.length - 1 ? 1 : 0, borderColor: 'divider' }}>
-                  <Typography variant="subtitle1" fontWeight="bold">
-                    {exp.title}
-                  </Typography>
-                  <Typography variant="subtitle2" color="primary.main">
-                    {exp.company}
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    {exp.period}
-                  </Typography>
-                  <Typography variant="body2" sx={{ mt: 1 }}>
-                    {exp.description}
-                  </Typography>
+                
+                <Box sx={{ mb: 2 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                    {profileType === 'company' ? <BusinessIcon sx={{ mr: 1 }} /> : <PersonIcon sx={{ mr: 1 }} />}
+                    <Typography variant="body2">
+                      {profileType === 'company' ? 'Empresa' : 'Individual'}
+                    </Typography>
+                  </Box>
                 </Box>
-              ))}
-              {editMode && (
-                <Button variant="outlined">
-                  Añadir Experiencia
-                </Button>
-              )}
-            </CardContent>
-          </Card>
+
+                {profile ? (
+                  <Box>
+                    <FormControlLabel
+                      control={<Switch checked={profile.isActive} disabled />}
+                      label="Perfil Activo"
+                    />
+                    <Typography variant="body2" color="textSecondary" sx={{ mt: 1 }}>
+                      Tu perfil está registrado en la blockchain
+                    </Typography>
+                  </Box>
+                ) : (
+                  <Alert severity="info">
+                    No tienes un perfil registrado aún. Haz clic en "Registrar Perfil" para crear uno.
+                  </Alert>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Estadísticas del perfil */}
+            {profile && (
+              <Card sx={{ mt: 2 }}>
+                <CardContent>
+                  <Typography variant="h6" gutterBottom>
+                    Estadísticas
+                  </Typography>
+                  <Box sx={{ mb: 1 }}>
+                    <Typography variant="body2" color="textSecondary">
+                      Dirección Corta
+                    </Typography>
+                    <Typography variant="body2">
+                      {formatAddress(account || '')}
+                    </Typography>
+                  </Box>
+                  <Box sx={{ mb: 1 }}>
+                    <Typography variant="body2" color="textSecondary">
+                      Tipo
+                    </Typography>
+                    <Typography variant="body2">
+                      {profile.isCompany ? 'Empresa' : 'Individual'}
+                    </Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="body2" color="textSecondary">
+                      Estado
+                    </Typography>
+                    <Typography variant="body2" color={profile.isActive ? 'success.main' : 'error.main'}>
+                      {profile.isActive ? 'Activo' : 'Inactivo'}
+                    </Typography>
+                  </Box>
+                </CardContent>
+              </Card>
+            )}
+          </Grid>
         </Grid>
-      </Grid>
+      )}
+
+      {/* Dialog de confirmación para registro */}
+      <Dialog open={showRegisterDialog} onClose={() => setShowRegisterDialog(false)}>
+        <DialogTitle>Registrar Perfil</DialogTitle>
+        <DialogContent>
+          <Typography>
+            ¿Estás seguro de que quieres registrar tu perfil como {profileType === 'company' ? 'empresa' : 'individual'}?
+            Esta acción requerirá una transacción en la blockchain.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowRegisterDialog(false)}>Cancelar</Button>
+          <Button onClick={confirmRegisterProfile} variant="contained">
+            Confirmar
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Snackbar para notificaciones */}
+      <Snackbar
+        open={txState.success}
+        autoHideDuration={6000}
+        onClose={clearTxState}
+      >
+        <Alert onClose={clearTxState} severity="success" sx={{ width: '100%' }}>
+          {profile ? 'Perfil actualizado exitosamente' : 'Perfil registrado exitosamente'}
+        </Alert>
+      </Snackbar>
+
+      <Snackbar
+        open={!!txState.error}
+        autoHideDuration={6000}
+        onClose={clearTxState}
+      >
+        <Alert onClose={clearTxState} severity="error" sx={{ width: '100%' }}>
+          {txState.error}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };
