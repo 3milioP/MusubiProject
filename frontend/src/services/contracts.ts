@@ -76,7 +76,7 @@ export class KRMTokenService {
 
   constructor(provider: any, signer?: any) {
     this.contract = new ethers.Contract(
-      CONTRACT_ADDRESSES.krmToken,
+      CONTRACT_ADDRESSES.KRMToken,
       KRM_TOKEN_ABI,
       signer || provider
     );
@@ -114,7 +114,7 @@ export class ProfileRegistryService {
 
   constructor(provider: any, signer?: any) {
     this.contract = new ethers.Contract(
-      CONTRACT_ADDRESSES.profileRegistry,
+      CONTRACT_ADDRESSES.ProfileRegistry,
       PROFILE_REGISTRY_ABI,
       signer || provider
     );
@@ -160,7 +160,7 @@ export class SkillSystemService {
 
   constructor(provider: any, signer?: any) {
     this.contract = new ethers.Contract(
-      CONTRACT_ADDRESSES.skillSystem,
+      CONTRACT_ADDRESSES.SkillSystem,
       SKILL_SYSTEM_ABI,
       signer || provider
     );
@@ -250,7 +250,7 @@ export class TimeRegistryService {
 
   constructor(provider: any, signer?: any) {
     this.contract = new ethers.Contract(
-      CONTRACT_ADDRESSES.timeRegistry,
+      CONTRACT_ADDRESSES.TimeRegistry,
       TIME_REGISTRY_ABI,
       signer || provider
     );
@@ -267,7 +267,7 @@ export class TimeRegistryService {
           
           timeRecords.push({
             id: Number(recordId),
-            employee: record.employee,
+            employee: record.worker,
             company: record.company,
             startTime: Number(record.startTime),
             endTime: Number(record.endTime),
@@ -322,7 +322,7 @@ export class P2PMarketplaceService {
 
   constructor(provider: any, signer?: any) {
     this.contract = new ethers.Contract(
-      CONTRACT_ADDRESSES.p2pMarketplace,
+      CONTRACT_ADDRESSES.P2PMarketplace,
       P2P_MARKETPLACE_ABI,
       signer || provider
     );

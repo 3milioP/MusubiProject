@@ -23,7 +23,10 @@ export interface Skill {
   id: number;
   name: string;
   category: string;
-  isActive: boolean;
+  isValidated: boolean;
+  validatedBy: string;
+  validatedAt: number;
+  declaredAt: number;
 }
 
 export interface DeclaredSkill {
@@ -38,13 +41,13 @@ export interface DeclaredSkill {
 
 export interface TimeRecord {
   id: number;
-  employee: string;
+  worker: string;
   company: string;
-  startTime: number;
-  endTime: number;
   description: string;
-  skillIds: number[];
-  status: number; // 0: Pending, 1: Validated, 2: Rejected
+  duration: number;
+  timestamp: number;
+  isValidated: boolean;
+  validatedBy: string;
   validatedAt: number;
 }
 
@@ -53,34 +56,29 @@ export interface Service {
   provider: string;
   title: string;
   description: string;
-  pricePerHour: string;
-  skillIds: number[];
+  pricePerHour: number;
+  category: string;
   isActive: boolean;
-  // Datos adicionales del provider
-  providerName?: string;
-  providerRating?: number;
+  createdAt: number;
 }
 
 export interface Order {
   id: number;
-  serviceId: number;
+  service: Service;
   client: string;
   provider: string;
-  hours: number;
-  totalPrice: string;
-  description: string;
-  status: number; // 0: Pending, 1: Accepted, 2: Completed, 3: Cancelled
+  totalAmount: number;
+  status: number; // 0: Created, 1: Accepted, 2: Completed, 3: Cancelled
   createdAt: number;
   completedAt: number;
-  service?: Service;
 }
 
 export interface ContractAddresses {
-  krmToken: string;
-  profileRegistry: string;
-  skillSystem: string;
-  timeRegistry: string;
-  p2pMarketplace: string;
+  KRMToken: string;
+  ProfileRegistry: string;
+  SkillSystem: string;
+  TimeRegistry: string;
+  P2PMarketplace: string;
 }
 
 export interface TransactionState {

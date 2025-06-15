@@ -25,12 +25,14 @@ contract ProfileNFT is ERC721, AccessControl, ERC721Enumerable {
     constructor() ERC721("Musubi Profile", "MUSUPROF") {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(MINTER_ROLE, msg.sender);
-    }
+        _tokenIdCounter.increment(); // Empieza en 1, no 0
+    }   
 
     function safeMint(address to, string memory uri) public onlyRole(MINTER_ROLE) {
-        if (userProfiles[to] != 0) {
-            require(_exists(userProfiles[to]), "Token does not exist for update");
-            _setTokenURI(userProfiles[to], uri);
+        uint256 existingTokenId = userProfiles[to];
+        if (existingTokenId != 0) {
+            // Usuario ya tiene NFT, actualiza URI
+            _setTokenURI(existingTokenId, uri);
         } else {
             uint256 tokenId = _tokenIdCounter.current();
             _tokenIdCounter.increment();
@@ -40,10 +42,15 @@ contract ProfileNFT is ERC721, AccessControl, ERC721Enumerable {
         }
     }
 
+
+
     function updateProfileURI(address user, string memory uri) public onlyRole(MINTER_ROLE) {
         require(userProfiles[user] != 0, "Profile NFT does not exist");
-        _setTokenURI(userProfiles[user], uri);
+        uint256 tokenId = userProfiles[user];
+        _setTokenURI(tokenId, uri);
     }
+
+
 
     function getProfileTokenId(address user) public view returns (uint256) {
         return userProfiles[user];
@@ -80,7 +87,13 @@ contract ProfileNFT is ERC721, AccessControl, ERC721Enumerable {
             "Not owner or approved or minter"
         );
         _burn(tokenId);
+
+        // Limpia userProfiles si corresponde
+        if (userProfiles[owner] == tokenId) {
+            userProfiles[owner] = 0;
+        }
     }
+
 
     // Override to clean tokenURI mapping
     function _burn(uint256 tokenId) internal override(ERC721) {

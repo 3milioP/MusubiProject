@@ -35,15 +35,18 @@ describe("ProfileNFT Contract", function () {
   });
 
   describe("Minteo de NFTs", function () {
-    it("Debería permitir al minter mintear un NFT para un usuario", async function () {
-      const tokenURI = "ipfs://QmXnnyufdzAWL5CqZ2RnSNgPbvCc1ALT73s6epPrRnZ1Xy";
-      await profileNFT.safeMint(user1.address, tokenURI);
-      
-      expect(await profileNFT.balanceOf(user1.address)).to.equal(1);
-      expect(await profileNFT.ownerOf(0)).to.equal(user1.address);
-      expect(await profileNFT.tokenURI(0)).to.equal(tokenURI);
-      expect(await profileNFT.getProfileTokenId(user1.address)).to.equal(0);
-    });
+      it("Debería permitir al minter mintear un NFT para un usuario", async function () {
+        const tokenURI = "ipfs://QmXnnyufdzAWL5CqZ2RnSNgPbvCc1ALT73s6epPrRnZ1Xy";
+        await profileNFT.safeMint(user1.address, tokenURI);
+
+        const tokenId = await profileNFT.getProfileTokenId(user1.address);
+        expect(tokenId).to.be.gt(0);  // tokenId debe ser 1 o más
+
+        expect(await profileNFT.balanceOf(user1.address)).to.equal(1);
+        expect(await profileNFT.ownerOf(tokenId)).to.equal(user1.address);
+        expect(await profileNFT.tokenURI(tokenId)).to.equal(tokenURI);
+      });
+
 
     it("No debería permitir a usuarios no autorizados mintear NFTs", async function () {
       const tokenURI = "ipfs://QmXnnyufdzAWL5CqZ2RnSNgPbvCc1ALT73s6epPrRnZ1Xy";
@@ -56,20 +59,25 @@ describe("ProfileNFT Contract", function () {
     it("Debería incrementar el contador de tokens al mintear", async function () {
       const tokenURI1 = "ipfs://QmXnnyufdzAWL5CqZ2RnSNgPbvCc1ALT73s6epPrRnZ1Xy";
       const tokenURI2 = "ipfs://QmYwAPJzv5CZsnA625s3Xf2nemtYgPpHdWEz79ojWnPbdG";
-      
+
       await profileNFT.safeMint(user1.address, tokenURI1);
       expect(await profileNFT.totalSupply()).to.equal(1);
-      
+
       await profileNFT.safeMint(user2.address, tokenURI2);
-      expect(await profileNFT.totalSupply()).to.equal(2);
+      expect(await profileNFT.totalSupply()).to.equal(2); 
     });
+
 
     it("Debería emitir un evento Transfer al mintear un NFT", async function () {
       const tokenURI = "ipfs://QmXnnyufdzAWL5CqZ2RnSNgPbvCc1ALT73s6epPrRnZ1Xy";
-      
-      await expect(profileNFT.safeMint(user1.address, tokenURI))
+      const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
+
+      const tx = await profileNFT.safeMint(user1.address, tokenURI);
+      const tokenId = await profileNFT.getProfileTokenId(user1.address);
+
+      await expect(tx)
         .to.emit(profileNFT, "Transfer")
-        .withArgs(ethers.ZeroAddress, user1.address, 0);
+        .withArgs(ZERO_ADDRESS, user1.address, tokenId);
     });
 
     it("Debería actualizar el URI si el usuario ya tiene un NFT", async function () {
@@ -78,12 +86,15 @@ describe("ProfileNFT Contract", function () {
       
       // Primer mint
       await profileNFT.safeMint(user1.address, tokenURI1);
-      expect(await profileNFT.tokenURI(0)).to.equal(tokenURI1);
+      const tokenId = await profileNFT.getProfileTokenId(user1.address);
+      
+      expect(tokenId).to.be.gt(0); // Verifica que tokenId es válido
+      expect(await profileNFT.tokenURI(tokenId)).to.equal(tokenURI1);
       expect(await profileNFT.balanceOf(user1.address)).to.equal(1);
       
       // Segundo mint al mismo usuario debería actualizar URI
       await profileNFT.safeMint(user1.address, tokenURI2);
-      expect(await profileNFT.tokenURI(0)).to.equal(tokenURI2);
+      expect(await profileNFT.tokenURI(tokenId)).to.equal(tokenURI2);
       expect(await profileNFT.balanceOf(user1.address)).to.equal(1); // Solo un NFT
     });
   });
@@ -120,24 +131,24 @@ describe("ProfileNFT Contract", function () {
   });
 
   describe("Quemado de NFTs", function () {
-    let tokenId;
-    
+  let tokenId;
+
     beforeEach(async function () {
       const tokenURI = "ipfs://QmXnnyufdzAWL5CqZ2RnSNgPbvCc1ALT73s6epPrRnZ1Xy";
       await profileNFT.safeMint(user1.address, tokenURI);
-      tokenId = 0; // Primer token siempre es 0
+      tokenId = await profileNFT.getProfileTokenId(user1.address); // ¡usar el real tokenId, no 0!
     });
 
     it("Debería permitir al propietario quemar su NFT", async function () {
       await profileNFT.connect(user1).burn(tokenId);
-      
+
       expect(await profileNFT.balanceOf(user1.address)).to.equal(0);
       await expect(profileNFT.ownerOf(tokenId)).to.be.revertedWith("ERC721: invalid token ID");
     });
 
     it("Debería permitir al minter quemar cualquier NFT", async function () {
       await profileNFT.burn(tokenId);
-      
+
       expect(await profileNFT.balanceOf(user1.address)).to.equal(0);
       await expect(profileNFT.ownerOf(tokenId)).to.be.revertedWith("ERC721: invalid token ID");
     });
@@ -148,5 +159,6 @@ describe("ProfileNFT Contract", function () {
       ).to.be.revertedWith("Not owner or approved or minter");
     });
   });
+
 });
 

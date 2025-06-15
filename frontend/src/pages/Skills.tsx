@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   Typography, 
   Box, 
@@ -6,151 +6,185 @@ import {
   Card, 
   CardContent, 
   Button, 
+  CardActions,
   Chip,
   LinearProgress,
-  List,
-  ListItem,
-  ListItemText,
-  ListItemIcon,
-  ListItemSecondaryAction,
-  IconButton,
+  TextField,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
-  TextField,
   FormControl,
   InputLabel,
   Select,
   MenuItem,
-  Divider,
-  Alert
+  Alert,
+  Snackbar,
+  IconButton,
+  Tooltip
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
+import DeleteIcon from '@mui/icons-material/Delete';
 import VerifiedIcon from '@mui/icons-material/Verified';
 import PendingIcon from '@mui/icons-material/Pending';
-import DeleteIcon from '@mui/icons-material/Delete';
-import CodeIcon from '@mui/icons-material/Code';
-import BusinessCenterIcon from '@mui/icons-material/BusinessCenter';
-import LanguageIcon from '@mui/icons-material/Language';
-import DesignServicesIcon from '@mui/icons-material/DesignServices';
+import { useWeb3 } from '../contexts/Web3Context';
+import { useSkills } from '../hooks/useContracts';
+
+interface Skill {
+  id: number;
+  name: string;
+  category: string;
+  isValidated: boolean;
+  validatedBy: string;
+  validatedAt: number;
+  declaredAt: number;
+}
 
 const Skills = () => {
-  const [loading, setLoading] = useState(true);
+  const { account, isConnected } = useWeb3();
+  const { 
+    userSkills, 
+    loading, 
+    txState, 
+    createSkill, 
+    declareSkill,
+    loadUserSkills
+  } = useSkills();
+
   const [openDialog, setOpenDialog] = useState(false);
-  const [newSkill, setNewSkill] = useState({
-    name: '',
-    category: 'development',
-    level: 'intermediate'
-  });
-  
-  // Estado simulado para un MVP
-  const [skills, setSkills] = useState<any[]>([]);
+  const [newSkill, setNewSkill] = useState({ name: '', category: '' });
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
+  const [transactionLoading, setTransactionLoading] = useState(false);
 
-  // Simular carga de datos
+  const categories = [
+    'Desarrollo',
+    'Diseño',
+    'Marketing',
+    'Consultoría',
+    'Finanzas',
+    'Educación',
+    'Salud',
+    'Legal',
+    'Ingeniería',
+    'Otros'
+  ];
+
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setSkills([
-        { id: 1, name: 'Solidity', category: 'development', level: 'advanced', karma: 85, status: 'validated', validations: 3 },
-        { id: 2, name: 'React', category: 'development', level: 'expert', karma: 120, status: 'validated', validations: 4 },
-        { id: 3, name: 'Project Management', category: 'business', level: 'intermediate', karma: 65, status: 'validated', validations: 2 },
-        { id: 4, name: 'UI/UX Design', category: 'design', level: 'beginner', karma: 30, status: 'validated', validations: 1 },
-        { id: 5, name: 'Python', category: 'development', level: 'intermediate', karma: 0, status: 'pending', validations: 0 },
-        { id: 6, name: 'English', category: 'language', level: 'advanced', karma: 0, status: 'pending', validations: 0 }
-      ]);
-      setLoading(false);
-    }, 1500);
+    if (isConnected && account) {
+      loadUserSkills();
+    }
+  }, [isConnected, account, loadUserSkills]);
 
-    return () => clearTimeout(timer);
-  }, []);
+  const handleAddSkill = async () => {
+    if (!newSkill.name.trim() || !newSkill.category) {
+      setSnackbar({
+        open: true,
+        message: 'Por favor completa todos los campos',
+        severity: 'error'
+      });
+      return;
+    }
 
-  const handleOpenDialog = () => {
-    setOpenDialog(true);
-  };
+    if (!isConnected) {
+      setSnackbar({
+        open: true,
+        message: 'Por favor conecta tu wallet',
+        severity: 'error'
+      });
+      return;
+    }
 
-  const handleCloseDialog = () => {
-    setOpenDialog(false);
-  };
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setNewSkill({
-      ...newSkill,
-      [name]: value
-    });
-  };
-
-  const handleSelectChange = (e: any) => {
-    const { name, value } = e.target;
-    setNewSkill({
-      ...newSkill,
-      [name]: value
-    });
-  };
-
-  const handleAddSkill = () => {
-    // Aquí iría la lógica para añadir en blockchain
-    console.log('Añadiendo skill:', newSkill);
-    
-    // Simulación para MVP
-    const newId = skills.length + 1;
-    setSkills([
-      ...skills,
-      {
-        id: newId,
-        name: newSkill.name,
-        category: newSkill.category,
-        level: newSkill.level,
-        karma: 0,
-        status: 'pending',
-        validations: 0
-      }
-    ]);
-    
-    setNewSkill({
-      name: '',
-      category: 'development',
-      level: 'intermediate'
-    });
-    
-    setOpenDialog(false);
-  };
-
-  const getCategoryIcon = (category: string) => {
-    switch (category) {
-      case 'development':
-        return <CodeIcon />;
-      case 'business':
-        return <BusinessCenterIcon />;
-      case 'language':
-        return <LanguageIcon />;
-      case 'design':
-        return <DesignServicesIcon />;
-      default:
-        return <CodeIcon />;
+    setTransactionLoading(true);
+    try {
+      await createSkill(newSkill.name, newSkill.category);
+      setSnackbar({
+        open: true,
+        message: 'Habilidad creada exitosamente',
+        severity: 'success'
+      });
+      setNewSkill({ name: '', category: '' });
+      setOpenDialog(false);
+      // Refresh skills after successful creation
+      setTimeout(() => {
+        loadUserSkills();
+      }, 2000);
+    } catch (error: any) {
+      console.error('Error creating skill:', error);
+      setSnackbar({
+        open: true,
+        message: error.message || 'Error al crear la habilidad',
+        severity: 'error'
+      });
+    } finally {
+      setTransactionLoading(false);
     }
   };
 
-  const getLevelColor = (level: string) => {
-    switch (level) {
-      case 'beginner':
-        return 'info';
-      case 'intermediate':
-        return 'success';
-      case 'advanced':
-        return 'warning';
-      case 'expert':
-        return 'error';
-      default:
-        return 'default';
+  const handleRequestValidation = async (skillId: number) => {
+    if (!isConnected) {
+      setSnackbar({
+        open: true,
+        message: 'Por favor conecta tu wallet',
+        severity: 'error'
+      });
+      return;
+    }
+
+    setTransactionLoading(true);
+    try {
+      await declareSkill(skillId, 1); // Intermediate level
+      setSnackbar({
+        open: true,
+        message: 'Habilidad declarada exitosamente',
+        severity: 'success'
+      });
+      // Refresh skills after successful request
+      setTimeout(() => {
+        loadUserSkills();
+      }, 2000);
+    } catch (error: any) {
+      console.error('Error declaring skill:', error);
+      setSnackbar({
+        open: true,
+        message: error.message || 'Error al declarar habilidad',
+        severity: 'error'
+      });
+    } finally {
+      setTransactionLoading(false);
     }
   };
 
-  const getStatusIcon = (status: string) => {
-    return status === 'validated' ? 
-      <VerifiedIcon color="success" /> : 
-      <PendingIcon color="warning" />;
+  const handleCloseSnackbar = () => {
+    setSnackbar({ ...snackbar, open: false });
   };
+
+  const formatDate = (timestamp: number) => {
+    if (timestamp === 0) return 'No validada';
+    return new Date(timestamp * 1000).toLocaleDateString();
+  };
+
+  const getSkillStatusColor = (skill: any) => {
+    if (skill.isValidated) return 'success';
+    return 'default';
+  };
+
+  const getSkillStatusIcon = (skill: any) => {
+    if (skill.isValidated) return <VerifiedIcon />;
+    return <PendingIcon />;
+  };
+
+  if (!isConnected) {
+    return (
+      <Box>
+        <Typography variant="h4" component="h1" gutterBottom>
+          Habilidades
+        </Typography>
+        <Alert severity="warning" sx={{ mt: 2 }}>
+          Por favor conecta tu wallet para ver y gestionar tus habilidades.
+        </Alert>
+      </Box>
+    );
+  }
 
   return (
     <Box>
@@ -162,194 +196,182 @@ const Skills = () => {
           variant="contained" 
           color="primary" 
           startIcon={<AddIcon />}
-          onClick={handleOpenDialog}
+          onClick={() => setOpenDialog(true)}
+          disabled={transactionLoading}
         >
-          Añadir Habilidad
+          Declarar Habilidad
         </Button>
       </Box>
+
+      {txState.error && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {txState.error}
+        </Alert>
+      )}
 
       {loading ? (
         <Box sx={{ width: '100%', mt: 4 }}>
           <LinearProgress />
+          <Typography variant="body2" sx={{ mt: 2, textAlign: 'center' }}>
+            Cargando habilidades desde la blockchain...
+          </Typography>
         </Box>
       ) : (
-        <Grid container spacing={3}>
-          <Grid item xs={12} md={8}>
-            <Card>
+        <>
+          {userSkills.length === 0 ? (
+            <Card sx={{ mt: 4, textAlign: 'center', py: 4 }}>
               <CardContent>
                 <Typography variant="h6" gutterBottom>
-                  Habilidades Declaradas
+                  No tienes habilidades declaradas
                 </Typography>
-                
-                <List>
-                  {skills.map((skill) => (
-                    <React.Fragment key={skill.id}>
-                      <ListItem>
-                        <ListItemIcon>
-                          {getCategoryIcon(skill.category)}
-                        </ListItemIcon>
-                        <ListItemText 
-                          primary={skill.name}
-                          secondary={
-                            <Box sx={{ display: 'flex', alignItems: 'center', mt: 0.5 }}>
-                              <Chip 
-                                label={skill.level} 
-                                size="small" 
-                                color={getLevelColor(skill.level) as any}
-                                sx={{ mr: 1 }}
-                              />
-                              {skill.status === 'validated' && (
-                                <Chip 
-                                  label={`${skill.karma} Karma`} 
-                                  size="small" 
-                                  color="primary"
-                                />
-                              )}
-                            </Box>
-                          }
-                        />
-                        <ListItemSecondaryAction>
-                          <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                            {getStatusIcon(skill.status)}
-                            <IconButton edge="end" aria-label="delete" sx={{ ml: 1 }}>
-                              <DeleteIcon />
-                            </IconButton>
-                          </Box>
-                        </ListItemSecondaryAction>
-                      </ListItem>
-                      <Divider variant="inset" component="li" />
-                    </React.Fragment>
-                  ))}
-                </List>
-              </CardContent>
-            </Card>
-          </Grid>
-          
-          <Grid item xs={12} md={4}>
-            <Card sx={{ mb: 3 }}>
-              <CardContent>
-                <Typography variant="h6" gutterBottom>
-                  Resumen
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  Declara tus primeras habilidades para comenzar a construir tu perfil profesional
                 </Typography>
-                
-                <Box sx={{ mb: 2 }}>
-                  <Typography variant="body2" color="text.secondary" gutterBottom>
-                    Total de habilidades
-                  </Typography>
-                  <Typography variant="h4">
-                    {skills.length}
-                  </Typography>
-                </Box>
-                
-                <Box sx={{ mb: 2 }}>
-                  <Typography variant="body2" color="text.secondary" gutterBottom>
-                    Habilidades validadas
-                  </Typography>
-                  <Typography variant="h4">
-                    {skills.filter(s => s.status === 'validated').length}
-                  </Typography>
-                </Box>
-                
-                <Box>
-                  <Typography variant="body2" color="text.secondary" gutterBottom>
-                    Karma total
-                  </Typography>
-                  <Typography variant="h4">
-                    {skills.reduce((sum, skill) => sum + skill.karma, 0)}
-                  </Typography>
-                </Box>
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardContent>
-                <Typography variant="h6" gutterBottom>
-                  Solicitar Validación
-                </Typography>
-                
-                <Alert severity="info" sx={{ mb: 2 }}>
-                  Solicita a empresas o instituciones que validen tus habilidades para aumentar tu Karma.
-                </Alert>
-                
                 <Button 
-                  variant="outlined" 
+                  variant="contained" 
                   color="primary" 
-                  fullWidth
+                  startIcon={<AddIcon />}
+                  onClick={() => setOpenDialog(true)}
                 >
-                  Solicitar Validación
+                  Declarar Primera Habilidad
                 </Button>
               </CardContent>
             </Card>
-          </Grid>
-        </Grid>
+          ) : (
+            <Grid container spacing={3}>
+              {userSkills.map((skill) => (
+                <Grid item xs={12} md={6} lg={4} key={skill.id}>
+                  <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+                    <CardContent sx={{ flexGrow: 1 }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+                        <Typography variant="h6" gutterBottom>
+                          {skill.skill?.name || 'Habilidad'}
+                        </Typography>
+                        <Chip 
+                          icon={getSkillStatusIcon(skill)}
+                          label={skill.isValidated ? 'Validada' : 'Pendiente'}
+                          color={getSkillStatusColor(skill)}
+                          size="small"
+                        />
+                      </Box>
+                      
+                      <Chip 
+                        label={skill.skill?.category || 'Sin categoría'} 
+                        size="small" 
+                        sx={{ mb: 2 }} 
+                      />
+
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                        <strong>Nivel:</strong> {['Principiante', 'Intermedio', 'Avanzado'][skill.declaredLevel]}
+                      </Typography>
+
+                      {skill.isValidated && (
+                        <>
+                          <Typography variant="body2" color="text.secondary" sx={{ 
+                            fontFamily: 'monospace', 
+                            fontSize: '0.75rem',
+                            wordBreak: 'break-all'
+                          }}>
+                            <strong>Validada por:</strong> {skill.validatedBy}
+                          </Typography>
+                        </>
+                      )}
+                    </CardContent>
+
+                    <CardActions>
+                      {!skill.isValidated && (
+                        <Button 
+                          size="small" 
+                          color="primary"
+                          onClick={() => handleRequestValidation(skill.skillId)}
+                          disabled={transactionLoading}
+                        >
+                          Solicitar Validación
+                        </Button>
+                      )}
+                      <Box sx={{ flexGrow: 1 }} />
+                      <Tooltip title="Eliminar habilidad">
+                        <IconButton 
+                          size="small" 
+                          color="error"
+                          disabled={transactionLoading}
+                        >
+                          <DeleteIcon />
+                        </IconButton>
+                      </Tooltip>
+                    </CardActions>
+                  </Card>
+                </Grid>
+              ))}
+            </Grid>
+          )}
+        </>
       )}
 
-      {/* Diálogo para añadir habilidad */}
-      <Dialog open={openDialog} onClose={handleCloseDialog}>
-        <DialogTitle>Añadir Nueva Habilidad</DialogTitle>
+      {/* Dialog para declarar nueva habilidad */}
+      <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Declarar Nueva Habilidad</DialogTitle>
         <DialogContent>
-          <TextField
-            autoFocus
-            margin="dense"
-            id="name"
-            name="name"
-            label="Nombre de la habilidad"
-            type="text"
-            fullWidth
-            variant="outlined"
-            value={newSkill.name}
-            onChange={handleInputChange}
-            sx={{ mb: 2 }}
-          />
-          
-          <FormControl fullWidth sx={{ mb: 2 }}>
-            <InputLabel id="category-label">Categoría</InputLabel>
-            <Select
-              labelId="category-label"
-              id="category"
-              name="category"
-              value={newSkill.category}
-              label="Categoría"
-              onChange={handleSelectChange}
-            >
-              <MenuItem value="development">Desarrollo</MenuItem>
-              <MenuItem value="business">Negocios</MenuItem>
-              <MenuItem value="design">Diseño</MenuItem>
-              <MenuItem value="language">Idiomas</MenuItem>
-            </Select>
-          </FormControl>
-          
-          <FormControl fullWidth>
-            <InputLabel id="level-label">Nivel</InputLabel>
-            <Select
-              labelId="level-label"
-              id="level"
-              name="level"
-              value={newSkill.level}
-              label="Nivel"
-              onChange={handleSelectChange}
-            >
-              <MenuItem value="beginner">Principiante</MenuItem>
-              <MenuItem value="intermediate">Intermedio</MenuItem>
-              <MenuItem value="advanced">Avanzado</MenuItem>
-              <MenuItem value="expert">Experto</MenuItem>
-            </Select>
-          </FormControl>
+          <Box sx={{ pt: 2 }}>
+            <TextField
+              fullWidth
+              label="Nombre de la Habilidad"
+              value={newSkill.name}
+              onChange={(e) => setNewSkill({ ...newSkill, name: e.target.value })}
+              variant="outlined"
+              sx={{ mb: 2 }}
+              placeholder="ej. React, Solidity, Diseño UX..."
+            />
+            <FormControl fullWidth>
+              <InputLabel>Categoría</InputLabel>
+              <Select 
+                value={newSkill.category}
+                label="Categoría"
+                onChange={(e) => setNewSkill({ ...newSkill, category: e.target.value })}
+              >
+                {categories.map((category) => (
+                  <MenuItem key={category} value={category}>
+                    {category}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleCloseDialog}>Cancelar</Button>
           <Button 
-            onClick={handleAddSkill} 
-            variant="contained" 
-            color="primary"
-            disabled={!newSkill.name}
+            onClick={() => setOpenDialog(false)}
+            disabled={transactionLoading}
           >
-            Añadir
+            Cancelar
+          </Button>
+          <Button 
+            variant="contained" 
+            onClick={handleAddSkill}
+            disabled={transactionLoading}
+          >
+            {transactionLoading ? 'Declarando...' : 'Declarar Habilidad'}
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Snackbar para notificaciones */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={handleCloseSnackbar}
+      >
+        <Alert 
+          onClose={handleCloseSnackbar} 
+          severity={snackbar.severity}
+          sx={{ width: '100%' }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };
 
 export default Skills;
+

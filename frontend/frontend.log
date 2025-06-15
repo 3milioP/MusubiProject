@@ -3,7 +3,9 @@
 > vite
 
 
-  VITE v4.5.14  ready in 91 ms
+  VITE v4.5.14  ready in 122 ms
 
   ➜  Local:   http://localhost:5173/
   ➜  Network: http://192.168.1.217:5173/
+2:52:12 PM [vite] ✨ new dependencies optimized: @mui/icons-material/ContentCopy, @mui/icons-material/Launch, @mui/icons-material/ShoppingCart
+2:52:12 PM [vite] ✨ optimized dependencies changed. reloading

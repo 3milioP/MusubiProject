@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   Typography, 
   Box, 
@@ -21,7 +21,10 @@ import {
   DialogTitle,
   DialogContent,
   DialogContentText,
-  DialogActions
+  DialogActions,
+  Chip,
+  IconButton,
+  Tooltip
 } from '@mui/material';
 import SecurityIcon from '@mui/icons-material/Security';
 import LanguageIcon from '@mui/icons-material/Language';
@@ -29,38 +32,87 @@ import NotificationsIcon from '@mui/icons-material/Notifications';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 import DeleteIcon from '@mui/icons-material/Delete';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import LaunchIcon from '@mui/icons-material/Launch';
+import { useWeb3 } from '../contexts/Web3Context';
 
 const Settings = () => {
-  const [walletAddress] = useState('0x742d35Cc6634C0532925a3b844Bc454e4438f44e');
+  const { account, isConnected, chainId, balance, connectWallet, disconnectWallet } = useWeb3();
   const [language, setLanguage] = useState('es');
   const [openDialog, setOpenDialog] = useState(false);
+  const [copySuccess, setCopySuccess] = useState(false);
+  
+  // Configuraciones locales (en una app real, estas se guardarían en localStorage o backend)
   const [notifications, setNotifications] = useState({
     email: true,
     push: false,
     sms: false
   });
+  
   const [privacy, setPrivacy] = useState({
     profileVisible: true,
     skillsVisible: true,
     experienceVisible: true
   });
 
+  useEffect(() => {
+    // Cargar configuraciones desde localStorage
+    const savedLanguage = localStorage.getItem('musubi_language');
+    const savedNotifications = localStorage.getItem('musubi_notifications');
+    const savedPrivacy = localStorage.getItem('musubi_privacy');
+
+    if (savedLanguage) setLanguage(savedLanguage);
+    if (savedNotifications) setNotifications(JSON.parse(savedNotifications));
+    if (savedPrivacy) setPrivacy(JSON.parse(savedPrivacy));
+  }, []);
+
   const handleLanguageChange = (event: any) => {
-    setLanguage(event.target.value);
+    const newLanguage = event.target.value;
+    setLanguage(newLanguage);
+    localStorage.setItem('musubi_language', newLanguage);
   };
 
   const handleNotificationChange = (type: keyof typeof notifications) => {
-    setNotifications(prev => ({
-      ...prev,
-      [type]: !prev[type]
-    }));
+    const newNotifications = {
+      ...notifications,
+      [type]: !notifications[type]
+    };
+    setNotifications(newNotifications);
+    localStorage.setItem('musubi_notifications', JSON.stringify(newNotifications));
   };
 
   const handlePrivacyChange = (type: keyof typeof privacy) => {
-    setPrivacy(prev => ({
-      ...prev,
-      [type]: !prev[type]
-    }));
+    const newPrivacy = {
+      ...privacy,
+      [type]: !privacy[type]
+    };
+    setPrivacy(newPrivacy);
+    localStorage.setItem('musubi_privacy', JSON.stringify(newPrivacy));
+  };
+
+  const handleCopyAddress = async () => {
+    if (account) {
+      try {
+        await navigator.clipboard.writeText(account);
+        setCopySuccess(true);
+        setTimeout(() => setCopySuccess(false), 2000);
+      } catch (err) {
+        console.error('Error copying address:', err);
+      }
+    }
+  };
+
+  const handleViewOnExplorer = () => {
+    if (account) {
+      // Para red local, no hay explorer, pero en mainnet sería etherscan.io
+      const explorerUrl = chainId === 31337 
+        ? `#` // Red local no tiene explorer
+        : `https://etherscan.io/address/${account}`;
+      
+      if (chainId !== 31337) {
+        window.open(explorerUrl, '_blank');
+      }
+    }
   };
 
   const handleDeleteAccount = () => {
@@ -68,10 +120,54 @@ const Settings = () => {
   };
 
   const confirmDeleteAccount = () => {
-    // Aquí iría la lógica para eliminar la cuenta
-    console.log('Eliminando cuenta...');
+    // En una app real, esto eliminaría los datos del usuario del backend
+    // Por ahora solo limpiamos localStorage y desconectamos wallet
+    localStorage.removeItem('musubi_language');
+    localStorage.removeItem('musubi_notifications');
+    localStorage.removeItem('musubi_privacy');
+    disconnectWallet();
     setOpenDialog(false);
   };
+
+  const getNetworkName = (chainId: number) => {
+    switch (chainId) {
+      case 1: return 'Ethereum Mainnet';
+      case 3: return 'Ropsten Testnet';
+      case 4: return 'Rinkeby Testnet';
+      case 5: return 'Goerli Testnet';
+      case 31337: return 'Hardhat Local';
+      default: return `Red ${chainId}`;
+    }
+  };
+
+  const getNetworkColor = (chainId: number) => {
+    switch (chainId) {
+      case 1: return 'success';
+      case 31337: return 'info';
+      default: return 'warning';
+    }
+  };
+
+  if (!isConnected) {
+    return (
+      <Box>
+        <Typography variant="h4" component="h1" gutterBottom>
+          Configuración
+        </Typography>
+        <Alert severity="warning" sx={{ mt: 2 }}>
+          Por favor conecta tu wallet para acceder a la configuración.
+        </Alert>
+        <Button 
+          variant="contained" 
+          color="primary" 
+          onClick={connectWallet}
+          sx={{ mt: 2 }}
+        >
+          Conectar Wallet
+        </Button>
+      </Box>
+    );
+  }
 
   return (
     <Box>
@@ -90,25 +186,67 @@ const Settings = () => {
                 </Typography>
               </Box>
               
-              <Alert severity="info" sx={{ mb: 2 }}>
+              <Alert severity="success" sx={{ mb: 2 }}>
                 Tu wallet está conectada y verificada
               </Alert>
               
-              <Typography variant="body2" color="text.secondary" gutterBottom>
-                Dirección actual:
-              </Typography>
-              <Typography variant="body2" sx={{ 
-                fontFamily: 'monospace', 
-                bgcolor: 'grey.100', 
-                p: 1, 
-                borderRadius: 1,
-                wordBreak: 'break-all'
-              }}>
-                {walletAddress}
-              </Typography>
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="body2" color="text.secondary" gutterBottom>
+                  Dirección:
+                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Typography variant="body2" sx={{ 
+                    fontFamily: 'monospace', 
+                    bgcolor: 'grey.100', 
+                    p: 1, 
+                    borderRadius: 1,
+                    wordBreak: 'break-all',
+                    flexGrow: 1
+                  }}>
+                    {account}
+                  </Typography>
+                  <Tooltip title={copySuccess ? "¡Copiado!" : "Copiar dirección"}>
+                    <IconButton size="small" onClick={handleCopyAddress}>
+                      <ContentCopyIcon />
+                    </IconButton>
+                  </Tooltip>
+                  {chainId !== 31337 && (
+                    <Tooltip title="Ver en explorador">
+                      <IconButton size="small" onClick={handleViewOnExplorer}>
+                        <LaunchIcon />
+                      </IconButton>
+                    </Tooltip>
+                  )}
+                </Box>
+              </Box>
+
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="body2" color="text.secondary" gutterBottom>
+                  Red:
+                </Typography>
+                <Chip 
+                  label={getNetworkName(chainId || 0)}
+                  color={getNetworkColor(chainId || 0) as any}
+                  size="small"
+                />
+              </Box>
+
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="body2" color="text.secondary" gutterBottom>
+                  Balance ETH:
+                </Typography>
+                <Typography variant="h6">
+                  {balance ? parseFloat(balance).toFixed(4) : '0.0000'} ETH
+                </Typography>
+              </Box>
               
-              <Button variant="outlined" sx={{ mt: 2 }}>
-                Cambiar Wallet
+              <Button 
+                variant="outlined" 
+                color="error"
+                onClick={disconnectWallet}
+                sx={{ mt: 2 }}
+              >
+                Desconectar Wallet
               </Button>
             </CardContent>
           </Card>
@@ -263,10 +401,10 @@ const Settings = () => {
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <Box>
                   <Typography variant="subtitle1" color="error">
-                    Eliminar Cuenta
+                    Eliminar Datos Locales
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    Eliminar permanentemente tu cuenta y todos los datos asociados
+                    Eliminar configuraciones locales y desconectar wallet
                   </Typography>
                 </Box>
                 <Button 
@@ -275,7 +413,7 @@ const Settings = () => {
                   startIcon={<DeleteIcon />}
                   onClick={handleDeleteAccount}
                 >
-                  Eliminar Cuenta
+                  Limpiar Datos
                 </Button>
               </Box>
             </CardContent>
@@ -283,13 +421,13 @@ const Settings = () => {
         </Grid>
       </Grid>
 
-      {/* Dialog de confirmación para eliminar cuenta */}
+      {/* Dialog de confirmación para eliminar datos */}
       <Dialog open={openDialog} onClose={() => setOpenDialog(false)}>
-        <DialogTitle>¿Eliminar cuenta?</DialogTitle>
+        <DialogTitle>¿Eliminar datos locales?</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            Esta acción eliminará permanentemente tu cuenta y todos los datos asociados. 
-            No podrás recuperar esta información una vez eliminada.
+            Esta acción eliminará todas tus configuraciones locales y desconectará tu wallet. 
+            Tus datos en la blockchain permanecerán intactos.
           </DialogContentText>
         </DialogContent>
         <DialogActions>
