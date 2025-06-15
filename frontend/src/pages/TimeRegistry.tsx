@@ -35,7 +35,7 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import PendingIcon from '@mui/icons-material/Pending';
 import CancelIcon from '@mui/icons-material/Cancel';
 import VisibilityIcon from '@mui/icons-material/Visibility';
-import es from 'date-fns/locale/es';
+import { es } from 'date-fns/locale';
 
 const TimeRegistry = () => {
   const [loading, setLoading] = useState(true);

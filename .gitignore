@@ -1,5 +1,6 @@
 # Ignorar dependencias
-node_modules/
+frontend/node_modules/
+hardhat-dev/node_modules/
 
 # Ignorar compilaciones
 dist/

@@ -1,0 +1,29 @@
+/* Estilos específicos para el componente App */
+.App {
+  text-align: center;
+}
+
+.App-header {
+  background-color: #282c34;
+  padding: 20px;
+  color: white;
+}
+
+.App-link {
+  color: #61dafb;
+}
+
+/* Estilos para el layout principal */
+.main-content {
+  transition: margin-left 0.2s ease-in-out;
+}
+
+/* Estilos para cards y componentes */
+.card-hover {
+  transition: transform 0.2s ease-in-out;
+}
+
+.card-hover:hover {
+  transform: translateY(-2px);
+}
+

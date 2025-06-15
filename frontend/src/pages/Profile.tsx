@@ -1,16 +1,14 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { 
   Typography, 
   Box, 
   Grid, 
   Card, 
   CardContent, 
-  TextField, 
   Button, 
   Avatar,
-  Paper,
-  Divider,
   Chip,
+  TextField,
   FormControl,
   InputLabel,
   Select,
@@ -19,7 +17,6 @@ import {
 } from '@mui/material';
 import PersonIcon from '@mui/icons-material/Person';
 import BusinessIcon from '@mui/icons-material/Business';
-import SchoolIcon from '@mui/icons-material/School';
 import EditIcon from '@mui/icons-material/Edit';
 
 const Profile = () => {
@@ -28,14 +25,26 @@ const Profile = () => {
   
   // Estado simulado para un MVP
   const [profile, setProfile] = useState({
-    name: 'Carlos Rodríguez',
-    email: 'carlos@example.com',
-    bio: 'Desarrollador blockchain con 5 años de experiencia en smart contracts y DApps. Especializado en Solidity y ecosistema Ethereum.',
-    company: 'Blockchain Solutions',
-    position: 'Senior Developer',
+    name: 'Juan Pérez',
+    email: 'juan.perez@email.com',
+    bio: 'Desarrollador Full Stack con 5 años de experiencia en tecnologías web modernas.',
     location: 'Madrid, España',
-    website: 'https://carlosrodriguez.dev',
-    avatar: 'https://randomuser.me/api/portraits/men/32.jpg'
+    website: 'https://juanperez.dev',
+    skills: ['JavaScript', 'React', 'Node.js', 'Python', 'Blockchain'],
+    experience: [
+      {
+        title: 'Senior Developer',
+        company: 'Tech Solutions',
+        period: '2021 - Presente',
+        description: 'Desarrollo de aplicaciones web escalables'
+      },
+      {
+        title: 'Frontend Developer',
+        company: 'Digital Agency',
+        period: '2019 - 2021',
+        description: 'Creación de interfaces de usuario modernas'
+      }
+    ]
   });
 
   const handleProfileTypeChange = (event: SelectChangeEvent) => {
@@ -46,262 +55,182 @@ const Profile = () => {
     setEditMode(!editMode);
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setProfile({
-      ...profile,
-      [name]: value
-    });
-  };
-
-  const handleSaveProfile = () => {
-    // Aquí iría la lógica para guardar en blockchain
-    console.log('Guardando perfil:', profile);
-    setEditMode(false);
-  };
-
   return (
     <Box>
       <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Typography variant="h4" component="h1" gutterBottom>
           Mi Perfil
         </Typography>
-        <FormControl sx={{ minWidth: 200 }}>
-          <InputLabel id="profile-type-label">Tipo de Perfil</InputLabel>
-          <Select
-            labelId="profile-type-label"
-            id="profile-type"
-            value={profileType}
-            label="Tipo de Perfil"
-            onChange={handleProfileTypeChange}
-          >
-            <MenuItem value="professional">Profesional</MenuItem>
-            <MenuItem value="company">Empresa</MenuItem>
-            <MenuItem value="academy">Academia</MenuItem>
-          </Select>
-        </FormControl>
+        <Button 
+          variant="contained" 
+          color="primary" 
+          startIcon={<EditIcon />}
+          onClick={toggleEditMode}
+        >
+          {editMode ? 'Guardar' : 'Editar Perfil'}
+        </Button>
       </Box>
 
-      <Grid container spacing={4}>
+      <Grid container spacing={3}>
         <Grid item xs={12} md={4}>
-          <Card sx={{ height: '100%' }}>
-            <CardContent sx={{ textAlign: 'center', py: 4 }}>
+          <Card>
+            <CardContent sx={{ textAlign: 'center' }}>
               <Avatar 
-                src={profile.avatar} 
                 sx={{ 
                   width: 120, 
                   height: 120, 
                   mx: 'auto', 
                   mb: 2,
-                  border: '4px solid',
-                  borderColor: 'primary.main'
+                  bgcolor: 'primary.main',
+                  fontSize: '3rem'
                 }}
               >
-                <PersonIcon fontSize="large" />
+                {profile.name.charAt(0)}
               </Avatar>
               
-              <Typography variant="h5" gutterBottom>
-                {profile.name}
-              </Typography>
-              
-              <Typography variant="body1" color="text.secondary" gutterBottom>
-                {profile.position} en {profile.company}
-              </Typography>
-              
-              <Typography variant="body2" color="text.secondary" gutterBottom>
-                {profile.location}
-              </Typography>
-              
-              <Box sx={{ mt: 2 }}>
-                <Chip 
-                  icon={<PersonIcon />} 
-                  label="Profesional" 
-                  color="primary" 
-                  sx={{ mr: 1 }} 
+              {editMode ? (
+                <TextField
+                  fullWidth
+                  value={profile.name}
+                  onChange={(e) => setProfile({...profile, name: e.target.value})}
+                  sx={{ mb: 2 }}
                 />
-                <Chip 
-                  icon={<BusinessIcon />} 
-                  label="Verificado" 
-                  color="success" 
+              ) : (
+                <Typography variant="h5" gutterBottom>
+                  {profile.name}
+                </Typography>
+              )}
+
+              <FormControl fullWidth sx={{ mb: 2 }}>
+                <InputLabel>Tipo de Perfil</InputLabel>
+                <Select
+                  value={profileType}
+                  label="Tipo de Perfil"
+                  onChange={handleProfileTypeChange}
+                  disabled={!editMode}
+                >
+                  <MenuItem value="professional">
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                      <PersonIcon sx={{ mr: 1 }} />
+                      Profesional
+                    </Box>
+                  </MenuItem>
+                  <MenuItem value="company">
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                      <BusinessIcon sx={{ mr: 1 }} />
+                      Empresa
+                    </Box>
+                  </MenuItem>
+                </Select>
+              </FormControl>
+
+              {editMode ? (
+                <TextField
+                  fullWidth
+                  value={profile.location}
+                  onChange={(e) => setProfile({...profile, location: e.target.value})}
+                  placeholder="Ubicación"
                 />
-              </Box>
-              
-              <Button 
-                variant="outlined" 
-                startIcon={<EditIcon />} 
-                sx={{ mt: 3 }}
-                onClick={toggleEditMode}
-              >
-                {editMode ? 'Cancelar Edición' : 'Editar Perfil'}
-              </Button>
+              ) : (
+                <Typography variant="body2" color="text.secondary">
+                  {profile.location}
+                </Typography>
+              )}
             </CardContent>
           </Card>
         </Grid>
-        
+
         <Grid item xs={12} md={8}>
-          <Card sx={{ height: '100%' }}>
+          <Card sx={{ mb: 3 }}>
             <CardContent>
-              <Box sx={{ mb: 3 }}>
-                <Typography variant="h6" gutterBottom>
-                  Información Personal
-                </Typography>
-                
-                {editMode ? (
-                  <Grid container spacing={2}>
-                    <Grid item xs={12} sm={6}>
-                      <TextField
-                        fullWidth
-                        label="Nombre"
-                        name="name"
-                        value={profile.name}
-                        onChange={handleInputChange}
-                        margin="normal"
-                      />
-                    </Grid>
-                    <Grid item xs={12} sm={6}>
-                      <TextField
-                        fullWidth
-                        label="Email"
-                        name="email"
-                        value={profile.email}
-                        onChange={handleInputChange}
-                        margin="normal"
-                      />
-                    </Grid>
-                    <Grid item xs={12}>
-                      <TextField
-                        fullWidth
-                        label="Biografía"
-                        name="bio"
-                        value={profile.bio}
-                        onChange={handleInputChange}
-                        margin="normal"
-                        multiline
-                        rows={4}
-                      />
-                    </Grid>
-                    <Grid item xs={12} sm={6}>
-                      <TextField
-                        fullWidth
-                        label="Empresa"
-                        name="company"
-                        value={profile.company}
-                        onChange={handleInputChange}
-                        margin="normal"
-                      />
-                    </Grid>
-                    <Grid item xs={12} sm={6}>
-                      <TextField
-                        fullWidth
-                        label="Posición"
-                        name="position"
-                        value={profile.position}
-                        onChange={handleInputChange}
-                        margin="normal"
-                      />
-                    </Grid>
-                    <Grid item xs={12} sm={6}>
-                      <TextField
-                        fullWidth
-                        label="Ubicación"
-                        name="location"
-                        value={profile.location}
-                        onChange={handleInputChange}
-                        margin="normal"
-                      />
-                    </Grid>
-                    <Grid item xs={12} sm={6}>
-                      <TextField
-                        fullWidth
-                        label="Sitio Web"
-                        name="website"
-                        value={profile.website}
-                        onChange={handleInputChange}
-                        margin="normal"
-                      />
-                    </Grid>
-                    <Grid item xs={12}>
-                      <Box sx={{ mt: 2, textAlign: 'right' }}>
-                        <Button 
-                          variant="contained" 
-                          color="primary"
-                          onClick={handleSaveProfile}
-                        >
-                          Guardar Cambios
-                        </Button>
-                      </Box>
-                    </Grid>
-                  </Grid>
-                ) : (
-                  <Box>
-                    <Typography variant="body1" paragraph>
-                      {profile.bio}
-                    </Typography>
-                    
-                    <Grid container spacing={2}>
-                      <Grid item xs={12} sm={6}>
-                        <Typography variant="subtitle2" color="text.secondary">
-                          Email
-                        </Typography>
-                        <Typography variant="body1" gutterBottom>
-                          {profile.email}
-                        </Typography>
-                      </Grid>
-                      <Grid item xs={12} sm={6}>
-                        <Typography variant="subtitle2" color="text.secondary">
-                          Sitio Web
-                        </Typography>
-                        <Typography variant="body1" gutterBottom>
-                          {profile.website}
-                        </Typography>
-                      </Grid>
-                    </Grid>
-                  </Box>
-                )}
-              </Box>
+              <Typography variant="h6" gutterBottom>
+                Información Personal
+              </Typography>
               
-              <Divider sx={{ my: 3 }} />
-              
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Email"
+                    value={profile.email}
+                    disabled={!editMode}
+                    onChange={(e) => setProfile({...profile, email: e.target.value})}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Sitio Web"
+                    value={profile.website}
+                    disabled={!editMode}
+                    onChange={(e) => setProfile({...profile, website: e.target.value})}
+                  />
+                </Grid>
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    label="Biografía"
+                    multiline
+                    rows={4}
+                    value={profile.bio}
+                    disabled={!editMode}
+                    onChange={(e) => setProfile({...profile, bio: e.target.value})}
+                  />
+                </Grid>
+              </Grid>
+            </CardContent>
+          </Card>
+
+          <Card sx={{ mb: 3 }}>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>
+                Habilidades
+              </Typography>
               <Box>
-                <Typography variant="h6" gutterBottom>
-                  Estadísticas de Karma
-                </Typography>
-                
-                <Paper variant="outlined" sx={{ p: 2, bgcolor: 'background.default' }}>
-                  <Grid container spacing={2}>
-                    <Grid item xs={4}>
-                      <Box sx={{ textAlign: 'center' }}>
-                        <Typography variant="h4" color="primary">
-                          450
-                        </Typography>
-                        <Typography variant="body2">
-                          Karma Total
-                        </Typography>
-                      </Box>
-                    </Grid>
-                    <Grid item xs={4}>
-                      <Box sx={{ textAlign: 'center' }}>
-                        <Typography variant="h4" color="primary">
-                          8
-                        </Typography>
-                        <Typography variant="body2">
-                          Skills Validadas
-                        </Typography>
-                      </Box>
-                    </Grid>
-                    <Grid item xs={4}>
-                      <Box sx={{ textAlign: 'center' }}>
-                        <Typography variant="h4" color="primary">
-                          124
-                        </Typography>
-                        <Typography variant="body2">
-                          Horas Registradas
-                        </Typography>
-                      </Box>
-                    </Grid>
-                  </Grid>
-                </Paper>
+                {profile.skills.map((skill, index) => (
+                  <Chip 
+                    key={index}
+                    label={skill} 
+                    sx={{ mr: 1, mb: 1 }}
+                    color="primary"
+                    variant="outlined"
+                  />
+                ))}
               </Box>
+              {editMode && (
+                <Button variant="outlined" sx={{ mt: 2 }}>
+                  Añadir Habilidad
+                </Button>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>
+                Experiencia Profesional
+              </Typography>
+              {profile.experience.map((exp, index) => (
+                <Box key={index} sx={{ mb: 3, pb: 2, borderBottom: index < profile.experience.length - 1 ? 1 : 0, borderColor: 'divider' }}>
+                  <Typography variant="subtitle1" fontWeight="bold">
+                    {exp.title}
+                  </Typography>
+                  <Typography variant="subtitle2" color="primary.main">
+                    {exp.company}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {exp.period}
+                  </Typography>
+                  <Typography variant="body2" sx={{ mt: 1 }}>
+                    {exp.description}
+                  </Typography>
+                </Box>
+              ))}
+              {editMode && (
+                <Button variant="outlined">
+                  Añadir Experiencia
+                </Button>
+              )}
             </CardContent>
           </Card>
         </Grid>
@@ -311,3 +240,4 @@ const Profile = () => {
 };
 
 export default Profile;
+

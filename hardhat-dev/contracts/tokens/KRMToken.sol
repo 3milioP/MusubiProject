@@ -51,7 +51,7 @@ contract KRMToken is ERC20, ERC20Burnable, ERC20Pausable, AccessControl {
     }
 
     function updateReflectionFee(uint256 newFee) public onlyRole(DEFAULT_ADMIN_ROLE) {
-        require(newFee <= 500, "Fee too high"); // Máximo 5%
+        require(newFee <= 1000, "Fee too high"); // Máximo 10%
         reflectionFee = newFee;
         emit ReflectionFeeUpdated(newFee);
     }
@@ -63,46 +63,44 @@ contract KRMToken is ERC20, ERC20Burnable, ERC20Pausable, AccessControl {
     }
 
     function transfer(address to, uint256 amount) public override returns (bool) {
-        if (!hasRole(MINTER_ROLE, msg.sender) && !hasRole(MINTER_ROLE, to)) {
-            require(to != treasuryWallet && msg.sender != treasuryWallet, "No reflection with treasury");
-
-            uint256 fee = (amount * reflectionFee) / 10000;
-            uint256 netAmount = amount - fee;
-
-            _transfer(msg.sender, treasuryWallet, fee);
-            _transfer(msg.sender, to, netAmount);
+        address owner = _msgSender();
+        
+        // No aplicar comisión si es el treasury, minter, o transferencia a treasury
+        if (owner == treasuryWallet || to == treasuryWallet || hasRole(MINTER_ROLE, owner) || hasRole(MINTER_ROLE, to)) {
+            _transfer(owner, to, amount);
             return true;
-        } else {
-            return super.transfer(to, amount);
         }
+
+        // Aplicar comisión de reflexión
+        uint256 fee = (amount * reflectionFee) / 10000;
+        uint256 netAmount = amount - fee;
+
+        _transfer(owner, treasuryWallet, fee);
+        _transfer(owner, to, netAmount);
+        return true;
     }
 
     function transferFrom(address from, address to, uint256 amount) public override returns (bool) {
-        if (!hasRole(MINTER_ROLE, from) && !hasRole(MINTER_ROLE, to)) {
-            require(to != treasuryWallet && from != treasuryWallet, "No reflection with treasury");
+        address spender = _msgSender();
+        _spendAllowance(from, spender, amount);
 
-            uint256 fee = (amount * reflectionFee) / 10000;
-            uint256 netAmount = amount - fee;
-
-            _spendAllowance(from, _msgSender(), amount);
-            _transfer(from, treasuryWallet, fee);
-            _transfer(from, to, netAmount);
+        // No aplicar comisión si es el treasury, minter, o transferencia a treasury
+        if (from == treasuryWallet || to == treasuryWallet || hasRole(MINTER_ROLE, from) || hasRole(MINTER_ROLE, to)) {
+            _transfer(from, to, amount);
             return true;
-        } else {
-            return super.transferFrom(from, to, amount);
         }
+
+        // Aplicar comisión de reflexión
+        uint256 fee = (amount * reflectionFee) / 10000;
+        uint256 netAmount = amount - fee;
+
+        _transfer(from, treasuryWallet, fee);
+        _transfer(from, to, netAmount);
+        return true;
     }
 
     function _beforeTokenTransfer(address from, address to, uint256 amount) internal virtual override(ERC20, ERC20Pausable) {
         super._beforeTokenTransfer(from, to, amount);
-
-        if (from != address(0) && to != address(0)) {
-            if (!hasRole(MINTER_ROLE, from) && !hasRole(MINTER_ROLE, to)) {
-                require(to != treasuryWallet && from != treasuryWallet, "No reflection with treasury");
-
-                uint256 fee = (amount * reflectionFee) / 10000;
-                _transfer(from, treasuryWallet, fee);
-            }
-        }
     }
 }
+

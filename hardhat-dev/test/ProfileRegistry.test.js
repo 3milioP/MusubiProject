@@ -16,248 +16,156 @@ describe("ProfileRegistry Contract", function () {
     // Desplegar el contrato ProfileRegistry
     ProfileRegistry = await ethers.getContractFactory("ProfileRegistry");
     profileRegistry = await ProfileRegistry.deploy();
-    await profileRegistry.deployed();
+    await profileRegistry.waitForDeployment();
   });
 
   describe("Registro de perfiles", function () {
     it("Debería permitir registrar un perfil profesional", async function () {
-      await profileRegistry.connect(professional).registerProfessional(
-        "John Doe",
-        "Software Developer",
-        "john@example.com",
-        "https://example.com/john"
-      );
+      const metadataURI = "ipfs://QmXnnyufdzAWL5CqZ2RnSNgPbvCc1ALT73s6epPrRnZ1Xy";
+      
+      await profileRegistry.connect(professional).registerProfile(false, metadataURI);
 
-      const profile = await profileRegistry.getProfessionalProfile(professional.address);
-      expect(profile.name).to.equal("John Doe");
-      expect(profile.title).to.equal("Software Developer");
-      expect(profile.email).to.equal("john@example.com");
-      expect(profile.profileUrl).to.equal("https://example.com/john");
-      expect(profile.isRegistered).to.equal(true);
+      const profile = await profileRegistry.profiles(professional.address);
+      expect(profile.wallet).to.equal(professional.address);
+      expect(profile.isActive).to.equal(true);
+      expect(profile.isCompany).to.equal(false);
+      expect(profile.karma).to.equal(0);
+      expect(profile.metadataURI).to.equal(metadataURI);
     });
 
     it("Debería permitir registrar un perfil de empresa", async function () {
-      await profileRegistry.connect(company).registerCompany(
-        "Tech Corp",
-        "Technology",
-        "contact@techcorp.com",
-        "https://techcorp.com"
-      );
+      const metadataURI = "ipfs://QmYwAPJzv5CZsnA625s3Xf2nemtYgPpHdWEz79ojWnPbdG";
+      
+      await profileRegistry.connect(company).registerProfile(true, metadataURI);
 
-      const profile = await profileRegistry.getCompanyProfile(company.address);
-      expect(profile.name).to.equal("Tech Corp");
-      expect(profile.industry).to.equal("Technology");
-      expect(profile.email).to.equal("contact@techcorp.com");
-      expect(profile.website).to.equal("https://techcorp.com");
-      expect(profile.isRegistered).to.equal(true);
+      const profile = await profileRegistry.profiles(company.address);
+      expect(profile.wallet).to.equal(company.address);
+      expect(profile.isActive).to.equal(true);
+      expect(profile.isCompany).to.equal(true);
+      expect(profile.karma).to.equal(0);
+      expect(profile.metadataURI).to.equal(metadataURI);
     });
 
-    it("No debería permitir registrar un perfil profesional duplicado", async function () {
-      await profileRegistry.connect(professional).registerProfessional(
-        "John Doe",
-        "Software Developer",
-        "john@example.com",
-        "https://example.com/john"
-      );
-
+    it("No debería permitir registrar un perfil duplicado", async function () {
+      const metadataURI = "ipfs://QmXnnyufdzAWL5CqZ2RnSNgPbvCc1ALT73s6epPrRnZ1Xy";
+      
+      await profileRegistry.connect(professional).registerProfile(false, metadataURI);
+      
       await expect(
-        profileRegistry.connect(professional).registerProfessional(
-          "John Smith",
-          "Developer",
-          "john@example.com",
-          "https://example.com/john"
-        )
-      ).to.be.revertedWith("Profile already registered");
+        profileRegistry.connect(professional).registerProfile(false, metadataURI)
+      ).to.be.revertedWith("Profile already exists");
     });
 
-    it("No debería permitir registrar un perfil de empresa duplicado", async function () {
-      await profileRegistry.connect(company).registerCompany(
-        "Tech Corp",
-        "Technology",
-        "contact@techcorp.com",
-        "https://techcorp.com"
-      );
-
-      await expect(
-        profileRegistry.connect(company).registerCompany(
-          "Tech Corp 2",
-          "IT",
-          "info@techcorp.com",
-          "https://techcorp.com/info"
-        )
-      ).to.be.revertedWith("Profile already registered");
+    it("Debería emitir un evento al registrar un perfil", async function () {
+      const metadataURI = "ipfs://QmXnnyufdzAWL5CqZ2RnSNgPbvCc1ALT73s6epPrRnZ1Xy";
+      
+      await expect(profileRegistry.connect(professional).registerProfile(false, metadataURI))
+        .to.emit(profileRegistry, "ProfileRegistered")
+        .withArgs(professional.address, false);
     });
   });
 
   describe("Actualización de perfiles", function () {
     beforeEach(async function () {
-      // Registrar perfiles para las pruebas
-      await profileRegistry.connect(professional).registerProfessional(
-        "John Doe",
-        "Software Developer",
-        "john@example.com",
-        "https://example.com/john"
-      );
-
-      await profileRegistry.connect(company).registerCompany(
-        "Tech Corp",
-        "Technology",
-        "contact@techcorp.com",
-        "https://techcorp.com"
-      );
+      const metadataURI = "ipfs://QmXnnyufdzAWL5CqZ2RnSNgPbvCc1ALT73s6epPrRnZ1Xy";
+      await profileRegistry.connect(professional).registerProfile(false, metadataURI);
     });
 
-    it("Debería permitir actualizar un perfil profesional", async function () {
-      await profileRegistry.connect(professional).updateProfessionalProfile(
-        "John Smith",
-        "Senior Developer",
-        "johnsmith@example.com",
-        "https://example.com/johnsmith"
-      );
+    it("Debería permitir actualizar un perfil existente", async function () {
+      const newMetadataURI = "ipfs://QmYwAPJzv5CZsnA625s3Xf2nemtYgPpHdWEz79ojWnPbdG";
+      
+      await profileRegistry.connect(professional).updateProfile(newMetadataURI);
 
-      const profile = await profileRegistry.getProfessionalProfile(professional.address);
-      expect(profile.name).to.equal("John Smith");
-      expect(profile.title).to.equal("Senior Developer");
-      expect(profile.email).to.equal("johnsmith@example.com");
-      expect(profile.profileUrl).to.equal("https://example.com/johnsmith");
+      const profile = await profileRegistry.profiles(professional.address);
+      expect(profile.metadataURI).to.equal(newMetadataURI);
     });
 
-    it("Debería permitir actualizar un perfil de empresa", async function () {
-      await profileRegistry.connect(company).updateCompanyProfile(
-        "Tech Corp International",
-        "IT Services",
-        "global@techcorp.com",
-        "https://techcorp.global"
-      );
-
-      const profile = await profileRegistry.getCompanyProfile(company.address);
-      expect(profile.name).to.equal("Tech Corp International");
-      expect(profile.industry).to.equal("IT Services");
-      expect(profile.email).to.equal("global@techcorp.com");
-      expect(profile.website).to.equal("https://techcorp.global");
-    });
-
-    it("No debería permitir actualizar un perfil profesional no registrado", async function () {
+    it("No debería permitir actualizar un perfil no existente", async function () {
+      const newMetadataURI = "ipfs://QmYwAPJzv5CZsnA625s3Xf2nemtYgPpHdWEz79ojWnPbdG";
+      
       await expect(
-        profileRegistry.connect(addrs[0]).updateProfessionalProfile(
-          "Random User",
-          "Unknown",
-          "random@example.com",
-          "https://example.com/random"
-        )
-      ).to.be.revertedWith("Profile not registered");
+        profileRegistry.connect(addrs[0]).updateProfile(newMetadataURI)
+      ).to.be.revertedWith("Profile does not exist");
     });
 
-    it("No debería permitir actualizar un perfil de empresa no registrado", async function () {
-      await expect(
-        profileRegistry.connect(addrs[0]).updateCompanyProfile(
-          "Fake Corp",
-          "Fake Industry",
-          "fake@example.com",
-          "https://fake.com"
-        )
-      ).to.be.revertedWith("Profile not registered");
+    it("Debería emitir un evento al actualizar un perfil", async function () {
+      const newMetadataURI = "ipfs://QmYwAPJzv5CZsnA625s3Xf2nemtYgPpHdWEz79ojWnPbdG";
+      
+      await expect(profileRegistry.connect(professional).updateProfile(newMetadataURI))
+        .to.emit(profileRegistry, "ProfileUpdated")
+        .withArgs(professional.address);
     });
   });
 
   describe("Verificación de perfiles", function () {
     beforeEach(async function () {
-      // Registrar perfiles para las pruebas
-      await profileRegistry.connect(professional).registerProfessional(
-        "John Doe",
-        "Software Developer",
-        "john@example.com",
-        "https://example.com/john"
-      );
-
-      await profileRegistry.connect(company).registerCompany(
-        "Tech Corp",
-        "Technology",
-        "contact@techcorp.com",
-        "https://techcorp.com"
-      );
+      const metadataURI = "ipfs://QmXnnyufdzAWL5CqZ2RnSNgPbvCc1ALT73s6epPrRnZ1Xy";
+      await profileRegistry.connect(professional).registerProfile(false, metadataURI);
     });
 
-    it("Debería verificar correctamente si un profesional está registrado", async function () {
-      expect(await profileRegistry.isProfessionalRegistered(professional.address)).to.equal(true);
-      expect(await profileRegistry.isProfessionalRegistered(addrs[0].address)).to.equal(false);
+    it("Debería permitir al verificador verificar un perfil", async function () {
+      await profileRegistry.verifyProfile(professional.address);
+      
+      expect(await profileRegistry.verifiedProfiles(professional.address)).to.be.true;
     });
 
-    it("Debería verificar correctamente si una empresa está registrada", async function () {
-      expect(await profileRegistry.isCompanyRegistered(company.address)).to.equal(true);
-      expect(await profileRegistry.isCompanyRegistered(addrs[0].address)).to.equal(false);
+    it("No debería permitir a usuarios no autorizados verificar perfiles", async function () {
+      await expect(
+        profileRegistry.connect(professional).verifyProfile(professional.address)
+      ).to.be.reverted;
+    });
+
+    it("No debería permitir verificar un perfil no existente", async function () {
+      await expect(
+        profileRegistry.verifyProfile(addrs[0].address)
+      ).to.be.revertedWith("Profile does not exist");
+    });
+
+    it("No debería permitir verificar un perfil ya verificado", async function () {
+      await profileRegistry.verifyProfile(professional.address);
+      
+      await expect(
+        profileRegistry.verifyProfile(professional.address)
+      ).to.be.revertedWith("Profile already verified");
+    });
+
+    it("Debería emitir un evento al verificar un perfil", async function () {
+      await expect(profileRegistry.verifyProfile(professional.address))
+        .to.emit(profileRegistry, "ProfileVerified")
+        .withArgs(professional.address, owner.address);
     });
   });
 
-  describe("Eventos", function () {
-    it("Debería emitir evento al registrar un profesional", async function () {
-      await expect(
-        profileRegistry.connect(professional).registerProfessional(
-          "John Doe",
-          "Software Developer",
-          "john@example.com",
-          "https://example.com/john"
-        )
-      )
-        .to.emit(profileRegistry, "ProfessionalRegistered")
-        .withArgs(professional.address, "John Doe");
+  describe("Gestión de karma", function () {
+    beforeEach(async function () {
+      const metadataURI = "ipfs://QmXnnyufdzAWL5CqZ2RnSNgPbvCc1ALT73s6epPrRnZ1Xy";
+      await profileRegistry.connect(professional).registerProfile(false, metadataURI);
+      
+      // Otorgar rol ADMIN_ROLE al owner para poder actualizar karma
+      const ADMIN_ROLE = await profileRegistry.ADMIN_ROLE();
+      await profileRegistry.grantRole(ADMIN_ROLE, owner.address);
     });
 
-    it("Debería emitir evento al registrar una empresa", async function () {
-      await expect(
-        profileRegistry.connect(company).registerCompany(
-          "Tech Corp",
-          "Technology",
-          "contact@techcorp.com",
-          "https://techcorp.com"
-        )
-      )
-        .to.emit(profileRegistry, "CompanyRegistered")
-        .withArgs(company.address, "Tech Corp");
+    it("Debería permitir al admin actualizar el karma", async function () {
+      const newKarma = 100;
+      
+      await profileRegistry.updateKarma(professional.address, newKarma);
+
+      const profile = await profileRegistry.profiles(professional.address);
+      expect(profile.karma).to.equal(newKarma);
     });
 
-    it("Debería emitir evento al actualizar un perfil profesional", async function () {
-      // Primero registramos el perfil
-      await profileRegistry.connect(professional).registerProfessional(
-        "John Doe",
-        "Software Developer",
-        "john@example.com",
-        "https://example.com/john"
-      );
-
-      // Luego actualizamos y verificamos el evento
+    it("No debería permitir a usuarios no autorizados actualizar el karma", async function () {
       await expect(
-        profileRegistry.connect(professional).updateProfessionalProfile(
-          "John Smith",
-          "Senior Developer",
-          "johnsmith@example.com",
-          "https://example.com/johnsmith"
-        )
-      )
-        .to.emit(profileRegistry, "ProfessionalProfileUpdated")
-        .withArgs(professional.address, "John Smith");
+        profileRegistry.connect(professional).updateKarma(professional.address, 100)
+      ).to.be.reverted;
     });
 
-    it("Debería emitir evento al actualizar un perfil de empresa", async function () {
-      // Primero registramos el perfil
-      await profileRegistry.connect(company).registerCompany(
-        "Tech Corp",
-        "Technology",
-        "contact@techcorp.com",
-        "https://techcorp.com"
-      );
-
-      // Luego actualizamos y verificamos el evento
+    it("No debería permitir actualizar karma de perfil no existente", async function () {
       await expect(
-        profileRegistry.connect(company).updateCompanyProfile(
-          "Tech Corp International",
-          "IT Services",
-          "global@techcorp.com",
-          "https://techcorp.global"
-        )
-      )
-        .to.emit(profileRegistry, "CompanyProfileUpdated")
-        .withArgs(company.address, "Tech Corp International");
+        profileRegistry.updateKarma(addrs[0].address, 100)
+      ).to.be.revertedWith("Profile does not exist");
     });
   });
 });
+
