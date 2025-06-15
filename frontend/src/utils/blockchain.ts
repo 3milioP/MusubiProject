@@ -113,7 +113,7 @@ export const waitForTransaction = async (
   }
 };
 
-// Obtener balance de ETH
+// Obtener balance de KRM
 export const getEthBalance = async (provider: any, address: string): Promise<string> => {
   try {
     const balance = await provider.getBalance(address);
@@ -157,8 +157,8 @@ export const switchToNetwork = async (chainId: number): Promise<void> => {
             chainId: '0x539',
             chainName: 'Hardhat Local',
             nativeCurrency: {
-              name: 'ETH',
-              symbol: 'ETH',
+              name: 'KRM',
+              symbol: 'KRM',
               decimals: 18
             },
             rpcUrls: ['http://localhost:8545'],

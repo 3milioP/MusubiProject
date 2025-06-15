@@ -261,7 +261,7 @@ const MetaMaskTutorial: React.FC<MetaMaskTutorialProps> = ({ onComplete, onSkip 
               </Grid>
               <Grid item xs={12} sm={6}>
                 <Typography variant="body2" color="textSecondary">Símbolo de moneda:</Typography>
-                <Typography variant="body1" sx={{ fontFamily: 'monospace' }}>ETH</Typography>
+                <Typography variant="body1" sx={{ fontFamily: 'monospace' }}>KRM</Typography>
               </Grid>
             </Grid>
           </Card>

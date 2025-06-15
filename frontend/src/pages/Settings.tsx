@@ -233,10 +233,10 @@ const Settings = () => {
 
               <Box sx={{ mb: 2 }}>
                 <Typography variant="body2" color="text.secondary" gutterBottom>
-                  Balance ETH:
+                  Balance KRM:
                 </Typography>
                 <Typography variant="h6">
-                  {balance ? parseFloat(balance).toFixed(4) : '0.0000'} ETH
+                  {balance ? parseFloat(balance).toFixed(4) : '0.0000'} KRM
                 </Typography>
               </Box>
               
