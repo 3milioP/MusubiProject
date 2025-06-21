@@ -1,4 +1,36 @@
 Traceback (most recent call last):
-  File "/Users/emilio/MUSUBI-API/MusubiProject/musubi-api/src/main.py", line 6, in <module>
-    from flask import Flask, send_from_directory
-ModuleNotFoundError: No module named 'flask'
+  File "/Users/emilio/MUSUBI-API/MusubiProject/musubi-api/src/main.py", line 10, in <module>
+    from src.routes.contracts import contracts_bp
+  File "/Users/emilio/MUSUBI-API/MusubiProject/musubi-api/src/routes/contracts.py", line 5, in <module>
+    from src.config.contracts import (
+  File "/Users/emilio/MUSUBI-API/MusubiProject/musubi-api/src/config/contracts.py", line 6, in <module>
+    from web3 import Web3
+  File "/Users/emilio/Library/Python/3.9/lib/python/site-packages/web3/__init__.py", line 8, in <module>
+    from web3.main import (
+  File "/Users/emilio/Library/Python/3.9/lib/python/site-packages/web3/main.py", line 78, in <module>
+    from web3._utils.module import (
+  File "/Users/emilio/Library/Python/3.9/lib/python/site-packages/web3/_utils/module.py", line 19, in <module>
+    from web3.module import (
+  File "/Users/emilio/Library/Python/3.9/lib/python/site-packages/web3/module.py", line 23, in <module>
+    from web3._utils.filters import (
+  File "/Users/emilio/Library/Python/3.9/lib/python/site-packages/web3/_utils/filters.py", line 44, in <module>
+    from web3._utils.events import (
+  File "/Users/emilio/Library/Python/3.9/lib/python/site-packages/web3/_utils/events.py", line 92, in <module>
+    from web3.utils.abi import (
+  File "/Users/emilio/Library/Python/3.9/lib/python/site-packages/web3/utils/__init__.py", line 35, in <module>
+    from .async_exception_handling import (
+  File "/Users/emilio/Library/Python/3.9/lib/python/site-packages/web3/utils/async_exception_handling.py", line 6, in <module>
+    from aiohttp import (
+  File "/Users/emilio/Library/Python/3.9/lib/python/site-packages/aiohttp/__init__.py", line 6, in <module>
+    from .client import (
+  File "/Users/emilio/Library/Python/3.9/lib/python/site-packages/aiohttp/client.py", line 40, in <module>
+    from . import hdrs, http, payload
+  File "/Users/emilio/Library/Python/3.9/lib/python/site-packages/aiohttp/http.py", line 7, in <module>
+    from .http_parser import (
+  File "/Users/emilio/Library/Python/3.9/lib/python/site-packages/aiohttp/http_parser.py", line 28, in <module>
+    from .base_protocol import BaseProtocol
+  File "/Users/emilio/Library/Python/3.9/lib/python/site-packages/aiohttp/base_protocol.py", line 5, in <module>
+    from .helpers import set_exception
+  File "/Users/emilio/Library/Python/3.9/lib/python/site-packages/aiohttp/helpers.py", line 59, in <module>
+    import async_timeout
+ModuleNotFoundError: No module named 'async_timeout'

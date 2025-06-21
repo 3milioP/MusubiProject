@@ -29,19 +29,19 @@ API_PID=""
 # Banner del sistema
 show_banner() {
     clear
-    echo -e "${CYAN}╔═════════════════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${CYAN}║                                                                     ║${NC}"
-    echo -e "${CYAN}║  ${BOLD}${BLUE}       ███╗   ███╗██╗   ██╗███████╗██╗   ██╗██████╗ ██╗${NC}${CYAN}            ║${NC}"
-    echo -e "${CYAN}║  ${BOLD}${BLUE}       ████╗ ████║██║   ██║██╔════╝██║   ██║██╔══██╗██║${NC}${CYAN}            ║${NC}"
-    echo -e "${CYAN}║  ${BOLD}${BLUE}       ██╔████╔██║██║   ██║███████╗██║   ██║██████╔╝██║${NC}${CYAN}            ║${NC}"
-    echo -e "${CYAN}║  ${BOLD}${BLUE}       ██║╚██╔╝██║██║   ██║╚════██║██║   ██║██╔══██╗██║${NC}${CYAN}            ║${NC}"
-    echo -e "${CYAN}║  ${BOLD}${BLUE}       ██║ ╚═╝ ██║╚██████╔╝███████║╚██████╔╝██████╔╝██║${NC}${CYAN}            ║${NC}"
-    echo -e "${CYAN}║  ${BOLD}${BLUE}       ╚═╝     ╚═╝ ╚═════╝ ╚══════╝ ╚═════╝ ╚═════╝ ╚═╝${NC}${CYAN}            ║${NC}"
-    echo -e "${CYAN}║                                                                     ║${NC}"
-    echo -e "${CYAN}║  ${BOLD}${YELLOW}Sistema de Despliegue Centralizado v2.0${NC}${CYAN}                            ║${NC}"
-    echo -e "${CYAN}║  ${PURPLE}Plataforma Descentralizada de Intercambio de Tiempo y Habilidades${NC}${CYAN}  ║${NC}"
-    echo -e "${CYAN}║                                                                     ║${NC}"
-    echo -e "${CYAN}╚═════════════════════════════════════════════════════════════════════╝${NC}"
+    echo -e "${CYAN}╔══════════════════════════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${CYAN}║                                                                              ║${NC}"
+    echo -e "${CYAN}║  ${BOLD}${BLUE}███╗   ███╗██╗   ██╗███████╗██╗   ██╗██████╗ ██╗${NC}${CYAN}                           ║${NC}"
+    echo -e "${CYAN}║  ${BOLD}${BLUE}████╗ ████║██║   ██║██╔════╝██║   ██║██╔══██╗██║${NC}${CYAN}                           ║${NC}"
+    echo -e "${CYAN}║  ${BOLD}${BLUE}██╔████╔██║██║   ██║███████╗██║   ██║██████╔╝██║${NC}${CYAN}                           ║${NC}"
+    echo -e "${CYAN}║  ${BOLD}${BLUE}██║╚██╔╝██║██║   ██║╚════██║██║   ██║██╔══██╗██║${NC}${CYAN}                           ║${NC}"
+    echo -e "${CYAN}║  ${BOLD}${BLUE}██║ ╚═╝ ██║╚██████╔╝███████║╚██████╔╝██████╔╝██║${NC}${CYAN}                           ║${NC}"
+    echo -e "${CYAN}║  ${BOLD}${BLUE}╚═╝     ╚═╝ ╚═════╝ ╚══════╝ ╚═════╝ ╚═════╝ ╚═╝${NC}${CYAN}                           ║${NC}"
+    echo -e "${CYAN}║                                                                              ║${NC}"
+    echo -e "${CYAN}║  ${BOLD}${YELLOW}Sistema de Despliegue Centralizado v2.0${NC}${CYAN}                                   ║${NC}"
+    echo -e "${CYAN}║  ${PURPLE}Plataforma Descentralizada de Intercambio de Tiempo y Habilidades${NC}${CYAN}        ║${NC}"
+    echo -e "${CYAN}║                                                                              ║${NC}"
+    echo -e "${CYAN}╚══════════════════════════════════════════════════════════════════════════════╝${NC}"
     echo ""
 }
 
@@ -151,11 +151,26 @@ install_dependencies() {
         "api")
             if command -v python3 &> /dev/null && [[ -f "$PROJECT_DIR/musubi-api/requirements.txt" ]]; then
                 cd "$PROJECT_DIR/musubi-api" || return 1
-                python3 -m pip install -r requirements.txt --quiet || {
-                    echo -e "${YELLOW}⚠️  Error instalando dependencias de la API${NC}"
-                    return 1
+                
+                # Actualizar pip primero
+                echo -e "${BLUE}  📦 Actualizando pip...${NC}"
+                python3 -m pip install --upgrade pip --quiet || {
+                    echo -e "${YELLOW}⚠️  No se pudo actualizar pip, continuando...${NC}"
+                }
+                
+                # Instalar dependencias con manejo de errores mejorado
+                echo -e "${BLUE}  📦 Instalando dependencias de Python...${NC}"
+                python3 -m pip install -r requirements.txt --quiet --no-deps || {
+                    echo -e "${YELLOW}⚠️  Error con --no-deps, intentando instalación normal...${NC}"
+                    python3 -m pip install -r requirements.txt --quiet || {
+                        echo -e "${YELLOW}⚠️  Error instalando dependencias de la API${NC}"
+                        echo -e "${YELLOW}  💡 Continuando sin APIs REST...${NC}"
+                        return 1
+                    }
                 }
                 echo -e "${GREEN}  ✓ Dependencias de la API instaladas${NC}"
+            else
+                echo -e "${YELLOW}⚠️  Python3 o requirements.txt no encontrado, saltando APIs${NC}"
             fi
             ;;
     esac

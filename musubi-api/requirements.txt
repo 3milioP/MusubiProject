@@ -9,7 +9,7 @@ certifi==2025.6.15
 cffi==1.17.1
 charset-normalizer==3.4.2
 ckzg==2.1.1
-click==8.2.1
+click>=8.0.0,<9.0.0
 cryptography==36.0.2
 cytoolz==1.0.1
 eth-account==0.13.7
