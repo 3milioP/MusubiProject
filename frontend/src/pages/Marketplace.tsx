@@ -61,15 +61,14 @@ const Marketplace = () => {
   const { account, isConnected } = useWeb3();
   const { 
     services, 
-    orders, 
+    userOrders: orders, // Corrigiendo: useMarketplace exporta userOrders, no orders
     loading, 
-    error, 
+    txState,
     createService, 
     createOrder,
-    acceptOrder,
-    completeOrder,
-    refreshServices,
-    refreshOrders
+    loadServices,
+    loadUserServices,
+    loadUserOrders
   } = useMarketplace();
 
   const [tabValue, setTabValue] = useState(0);
@@ -306,18 +305,8 @@ const Marketplace = () => {
     order.provider.toLowerCase() === account?.toLowerCase()
   );
 
-  if (!isConnected) {
-    return (
-      <Box>
-        <Typography variant="h4" component="h1" gutterBottom>
-          Marketplace
-        </Typography>
-        <Alert severity="warning" sx={{ mt: 2 }}>
-          Por favor conecta tu wallet para acceder al marketplace.
-        </Alert>
-      </Box>
-    );
-  }
+  // Mostrar interfaz básica incluso sin wallet conectada
+  const showBasicInterface = !isConnected;
 
   return (
     <Box>
@@ -330,15 +319,21 @@ const Marketplace = () => {
           color="primary" 
           startIcon={<AddIcon />}
           onClick={() => setOpenServiceDialog(true)}
-          disabled={transactionLoading}
+          disabled={transactionLoading || !isConnected}
         >
           Publicar Servicio
         </Button>
       </Box>
 
-      {error && (
+      {showBasicInterface && (
+        <Alert severity="info" sx={{ mb: 3 }}>
+          Conecta tu wallet para publicar servicios y realizar órdenes. Puedes explorar los servicios disponibles sin conectar.
+        </Alert>
+      )}
+
+      {txState.error && (
         <Alert severity="error" sx={{ mb: 2 }}>
-          {error}
+          {txState.error}
         </Alert>
       )}
 

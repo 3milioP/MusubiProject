@@ -63,8 +63,10 @@ export const useKRMToken = () => {
   };
 
   useEffect(() => {
-    loadBalance();
-  }, [loadBalance]);
+    if (service && account) {
+      loadBalance();
+    }
+  }, [service, account]); // Dependencias específicas
 
   return {
     balance,
@@ -141,8 +143,10 @@ export const useProfile = () => {
   };
 
   useEffect(() => {
-    loadProfile();
-  }, [loadProfile]);
+    if (service && account) {
+      loadProfile();
+    }
+  }, [service, account]); // Dependencias específicas
 
   return {
     profile,
@@ -232,9 +236,11 @@ export const useSkills = () => {
   };
 
   useEffect(() => {
-    loadSkills();
-    loadUserSkills();
-  }, [loadSkills, loadUserSkills]);
+    if (service && account) {
+      loadSkills();
+      loadUserSkills();
+    }
+  }, [service, account]); // Dependencias específicas en lugar de las funciones
 
   return {
     skills,
@@ -320,8 +326,10 @@ export const useTimeRegistry = () => {
   };
 
   useEffect(() => {
-    loadTimeRecords();
-  }, [loadTimeRecords]);
+    if (service && account) {
+      loadTimeRecords();
+    }
+  }, [service, account]); // Dependencias específicas
 
   return {
     timeRecords,
@@ -432,10 +440,12 @@ export const useMarketplace = () => {
   };
 
   useEffect(() => {
-    loadServices();
-    loadUserServices();
-    loadUserOrders();
-  }, [loadServices, loadUserServices, loadUserOrders]);
+    if (service && account) {
+      loadServices();
+      loadUserServices();
+      loadUserOrders();
+    }
+  }, [service, account]); // Dependencias específicas
 
   return {
     services,

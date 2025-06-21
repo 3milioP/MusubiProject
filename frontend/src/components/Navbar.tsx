@@ -79,9 +79,22 @@ const Navbar: React.FC<NavbarProps> = ({ onMenuClick }) => {
             <MenuIcon />
           </IconButton>
           
-          <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-            Musubi
-          </Typography>
+          {/* Logo y título */}
+          <Box sx={{ display: 'flex', alignItems: 'center', flexGrow: 1 }}>
+            <img 
+              src="/musubi-logo.png" 
+              alt="Musubi Logo" 
+              style={{ 
+                height: '32px', 
+                width: '32px', 
+                marginRight: '12px',
+                filter: 'invert(1)' // Hacer el logo blanco en la navbar oscura
+              }} 
+            />
+            <Typography variant="h6" component="div">
+              Musubi
+            </Typography>
+          </Box>
 
           {/* Información de red */}
           {isConnected && chainId && (

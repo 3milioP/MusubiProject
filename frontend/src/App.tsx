@@ -21,7 +21,7 @@ import Dashboard from './pages/Dashboard';
 import Profile from './pages/Profile';
 import Skills from './pages/Skills';
 import TimeRegistry from './pages/TimeRegistry';
-import Marketplace from './pages/Marketplace';
+import MarketplaceSimple from './pages/MarketplaceSimple';
 import Settings from './pages/Settings';
 
 const theme = createTheme({
@@ -48,7 +48,7 @@ const menuItems = [
 
 // Componente principal de la aplicación
 const AppContent = () => {
-  const [mobileOpen, setMobileOpen] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(true); // Abierto por defecto
   const [activeComponent, setActiveComponent] = useState('dashboard');
   
   const { isConnected } = useWeb3();
@@ -90,7 +90,7 @@ const AppContent = () => {
       case 'timeregistry':
         return <TimeRegistry />;
       case 'marketplace':
-        return <Marketplace />;
+        return <MarketplaceSimple />;
       case 'settings':
         return <Settings />;
       default:
@@ -138,7 +138,7 @@ const AppContent = () => {
       
       <Box
         component="nav"
-        sx={{ width: { sm: drawerWidth }, flexShrink: { sm: 0 } }}
+        sx={{ width: { sm: mobileOpen ? drawerWidth : 0 }, flexShrink: { sm: 0 } }}
       >
         <Drawer
           variant="temporary"
@@ -155,12 +155,16 @@ const AppContent = () => {
           {drawer}
         </Drawer>
         <Drawer
-          variant="permanent"
+          variant="persistent"
+          open={mobileOpen}
           sx={{
             display: { xs: 'none', sm: 'block' },
-            '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth },
+            '& .MuiDrawer-paper': { 
+              boxSizing: 'border-box', 
+              width: drawerWidth,
+              transition: 'width 0.3s ease-in-out'
+            },
           }}
-          open
         >
           {drawer}
         </Drawer>
@@ -171,9 +175,13 @@ const AppContent = () => {
         sx={{
           flexGrow: 1,
           p: 3,
-          width: { sm: `calc(100% - ${drawerWidth}px)` },
+          width: { 
+            xs: '100%',
+            sm: mobileOpen ? `calc(100% - ${drawerWidth}px)` : '100%'
+          },
           minHeight: '100vh',
-          backgroundColor: '#f5f5f5'
+          backgroundColor: '#f5f5f5',
+          transition: 'width 0.3s ease-in-out'
         }}
       >
         <Toolbar />
