@@ -7,6 +7,7 @@ dist/
 build/
 artifacts/
 cache/
+hardhat-dev/package-lock.json
 
 # Ignorar archivos de entorno
 .env
