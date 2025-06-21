@@ -20,7 +20,7 @@ import {
 
 // Hook para KRM Token
 export const useKRMToken = () => {
-  const { provider, signer, account } = useWeb3();
+  const { provider, signer, account, isConnected } = useWeb3();
   const [balance, setBalance] = useState<string>('0');
   const [loading, setLoading] = useState(false);
   const [txState, setTxState] = useState<TransactionState>({
@@ -29,28 +29,34 @@ export const useKRMToken = () => {
     success: false
   });
 
-  const service = provider ? new KRMTokenService(provider, signer) : null;
-
   const loadBalance = useCallback(async () => {
-    if (!service || !account) return;
+    // Solo cargar si hay conexión completa
+    if (!isConnected || !provider || !account) {
+      setBalance('0');
+      return;
+    }
     
     try {
       setLoading(true);
+      // Crear servicio solo cuando se necesita
+      const service = new KRMTokenService(provider, signer);
       const userBalance = await service.getBalance(account);
       setBalance(userBalance);
     } catch (error) {
       console.error('Error loading KRM balance:', error);
+      setBalance('0');
     } finally {
       setLoading(false);
     }
-  }, [service, account]);
+  }, [provider, signer, account, isConnected]);
 
   const transfer = async (to: string, amount: string) => {
-    if (!service) throw new Error('Service not available');
+    if (!isConnected || !provider || !signer) throw new Error('Wallet not connected');
     
     setTxState({ loading: true, error: null, success: false });
     
     try {
+      const service = new KRMTokenService(provider, signer);
       const tx = await service.transfer(to, amount);
       await tx.wait();
       setTxState({ loading: false, error: null, success: true });
@@ -63,10 +69,13 @@ export const useKRMToken = () => {
   };
 
   useEffect(() => {
-    if (service && account) {
+    if (isConnected && provider && account) {
       loadBalance();
+    } else {
+      setBalance('0');
+      setLoading(false);
     }
-  }, [service, account]); // Dependencias específicas
+  }, [isConnected, provider, account, loadBalance]);
 
   return {
     balance,
@@ -80,7 +89,7 @@ export const useKRMToken = () => {
 
 // Hook para Profile Registry
 export const useProfile = () => {
-  const { provider, signer, account } = useWeb3();
+  const { provider, signer, account, isConnected } = useWeb3();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(false);
   const [txState, setTxState] = useState<TransactionState>({
@@ -89,31 +98,37 @@ export const useProfile = () => {
     success: false
   });
 
-  const service = provider ? new ProfileRegistryService(provider, signer) : null;
-
   const loadProfile = useCallback(async (address?: string) => {
-    if (!service) return;
+    // Solo cargar si hay conexión completa
+    if (!isConnected || !provider) {
+      setProfile(null);
+      return;
+    }
     
     const targetAddress = address || account;
     if (!targetAddress) return;
     
     try {
       setLoading(true);
+      // Crear servicio solo cuando se necesita
+      const service = new ProfileRegistryService(provider, signer);
       const userProfile = await service.getProfile(targetAddress);
       setProfile(userProfile);
     } catch (error) {
       console.error('Error loading profile:', error);
+      setProfile(null);
     } finally {
       setLoading(false);
     }
-  }, [service, account]);
+  }, [provider, signer, account, isConnected]);
 
   const registerProfile = async (isCompany: boolean, metadataURI: string) => {
-    if (!service) throw new Error('Service not available');
+    if (!isConnected || !provider || !signer) throw new Error('Wallet not connected');
     
     setTxState({ loading: true, error: null, success: false });
     
     try {
+      const service = new ProfileRegistryService(provider, signer);
       const tx = await service.registerProfile(isCompany, metadataURI);
       await tx.wait();
       setTxState({ loading: false, error: null, success: true });
@@ -126,11 +141,12 @@ export const useProfile = () => {
   };
 
   const updateProfile = async (metadataURI: string) => {
-    if (!service) throw new Error('Service not available');
+    if (!isConnected || !provider || !signer) throw new Error('Wallet not connected');
     
     setTxState({ loading: true, error: null, success: false });
     
     try {
+      const service = new ProfileRegistryService(provider, signer);
       const tx = await service.updateProfile(metadataURI);
       await tx.wait();
       setTxState({ loading: false, error: null, success: true });
@@ -143,10 +159,13 @@ export const useProfile = () => {
   };
 
   useEffect(() => {
-    if (service && account) {
+    if (isConnected && provider && account) {
       loadProfile();
+    } else {
+      setProfile(null);
+      setLoading(false);
     }
-  }, [service, account]); // Dependencias específicas
+  }, [isConnected, provider, account, loadProfile]);
 
   return {
     profile,
@@ -161,7 +180,7 @@ export const useProfile = () => {
 
 // Hook para Skills
 export const useSkills = () => {
-  const { provider, signer, account } = useWeb3();
+  const { provider, signer, account, isConnected } = useWeb3();
   const [skills, setSkills] = useState<Skill[]>([]);
   const [userSkills, setUserSkills] = useState<DeclaredSkill[]>([]);
   const [loading, setLoading] = useState(false);
@@ -171,42 +190,55 @@ export const useSkills = () => {
     success: false
   });
 
-  const service = provider ? new SkillSystemService(provider, signer) : null;
-
   const loadSkills = useCallback(async () => {
-    if (!service) return;
+    // Solo cargar si hay conexión completa
+    if (!isConnected || !provider) {
+      setSkills([]);
+      return;
+    }
     
     try {
       setLoading(true);
+      // Crear servicio solo cuando se necesita
+      const service = new SkillSystemService(provider, signer);
       const allSkills = await service.getAllSkills();
       setSkills(allSkills);
     } catch (error) {
       console.error('Error loading skills:', error);
+      setSkills([]);
     } finally {
       setLoading(false);
     }
-  }, [service]);
+  }, [provider, signer, isConnected]);
 
   const loadUserSkills = useCallback(async (address?: string) => {
-    if (!service) return;
+    // Solo cargar si hay conexión completa
+    if (!isConnected || !provider) {
+      setUserSkills([]);
+      return;
+    }
     
     const targetAddress = address || account;
     if (!targetAddress) return;
     
     try {
+      // Crear servicio solo cuando se necesita
+      const service = new SkillSystemService(provider, signer);
       const declaredSkills = await service.getUserDeclaredSkills(targetAddress);
       setUserSkills(declaredSkills);
     } catch (error) {
       console.error('Error loading user skills:', error);
+      setUserSkills([]);
     }
-  }, [service, account]);
+  }, [provider, signer, account, isConnected]);
 
   const createSkill = async (name: string, category: string) => {
-    if (!service) throw new Error('Service not available');
+    if (!isConnected || !provider || !signer) throw new Error('Wallet not connected');
     
     setTxState({ loading: true, error: null, success: false });
     
     try {
+      const service = new SkillSystemService(provider, signer);
       const tx = await service.createSkill(name, category);
       await tx.wait();
       setTxState({ loading: false, error: null, success: true });
@@ -219,11 +251,12 @@ export const useSkills = () => {
   };
 
   const declareSkill = async (skillId: number, level: number) => {
-    if (!service) throw new Error('Service not available');
+    if (!isConnected || !provider || !signer) throw new Error('Wallet not connected');
     
     setTxState({ loading: true, error: null, success: false });
     
     try {
+      const service = new SkillSystemService(provider, signer);
       const tx = await service.declareSkill(skillId, level);
       await tx.wait();
       setTxState({ loading: false, error: null, success: true });
@@ -236,11 +269,17 @@ export const useSkills = () => {
   };
 
   useEffect(() => {
-    if (service && account) {
+    if (isConnected && provider) {
       loadSkills();
-      loadUserSkills();
+      if (account) {
+        loadUserSkills();
+      }
+    } else {
+      setSkills([]);
+      setUserSkills([]);
+      setLoading(false);
     }
-  }, [service, account]); // Dependencias específicas en lugar de las funciones
+  }, [isConnected, provider, account, loadSkills, loadUserSkills]);
 
   return {
     skills,
@@ -257,7 +296,7 @@ export const useSkills = () => {
 
 // Hook para Time Registry
 export const useTimeRegistry = () => {
-  const { provider, signer, account } = useWeb3();
+  const { provider, signer, account, isConnected } = useWeb3();
   const [timeRecords, setTimeRecords] = useState<TimeRecord[]>([]);
   const [loading, setLoading] = useState(false);
   const [txState, setTxState] = useState<TransactionState>({
@@ -266,24 +305,29 @@ export const useTimeRegistry = () => {
     success: false
   });
 
-  const service = provider ? new TimeRegistryService(provider, signer) : null;
-
   const loadTimeRecords = useCallback(async (address?: string) => {
-    if (!service) return;
+    // Solo cargar si hay conexión completa
+    if (!isConnected || !provider) {
+      setTimeRecords([]);
+      return;
+    }
     
     const targetAddress = address || account;
     if (!targetAddress) return;
     
     try {
       setLoading(true);
+      // Crear servicio solo cuando se necesita
+      const service = new TimeRegistryService(provider, signer);
       const records = await service.getUserTimeRecords(targetAddress);
       setTimeRecords(records);
     } catch (error) {
       console.error('Error loading time records:', error);
+      setTimeRecords([]);
     } finally {
       setLoading(false);
     }
-  }, [service, account]);
+  }, [provider, signer, account, isConnected]);
 
   const registerTime = async (
     company: string,
@@ -292,11 +336,12 @@ export const useTimeRegistry = () => {
     description: string,
     skillIds: number[]
   ) => {
-    if (!service) throw new Error('Service not available');
+    if (!isConnected || !provider || !signer) throw new Error('Wallet not connected');
     
     setTxState({ loading: true, error: null, success: false });
     
     try {
+      const service = new TimeRegistryService(provider, signer);
       const tx = await service.registerTime(company, startTime, endTime, description, skillIds);
       await tx.wait();
       setTxState({ loading: false, error: null, success: true });
@@ -309,11 +354,12 @@ export const useTimeRegistry = () => {
   };
 
   const validateTimeRecord = async (recordId: number) => {
-    if (!service) throw new Error('Service not available');
+    if (!isConnected || !provider || !signer) throw new Error('Wallet not connected');
     
     setTxState({ loading: true, error: null, success: false });
     
     try {
+      const service = new TimeRegistryService(provider, signer);
       const tx = await service.validateTimeRecord(recordId);
       await tx.wait();
       setTxState({ loading: false, error: null, success: true });
@@ -326,10 +372,13 @@ export const useTimeRegistry = () => {
   };
 
   useEffect(() => {
-    if (service && account) {
+    if (isConnected && provider && account) {
       loadTimeRecords();
+    } else {
+      setTimeRecords([]);
+      setLoading(false);
     }
-  }, [service, account]); // Dependencias específicas
+  }, [isConnected, provider, account, loadTimeRecords]);
 
   return {
     timeRecords,
@@ -344,7 +393,7 @@ export const useTimeRegistry = () => {
 
 // Hook para Marketplace
 export const useMarketplace = () => {
-  const { provider, signer, account } = useWeb3();
+  const { provider, signer, account, isConnected } = useWeb3();
   const [services, setServices] = useState<Service[]>([]);
   const [userServices, setUserServices] = useState<Service[]>([]);
   const [userOrders, setUserOrders] = useState<Order[]>([]);
@@ -355,49 +404,68 @@ export const useMarketplace = () => {
     success: false
   });
 
-  const service = provider ? new P2PMarketplaceService(provider, signer) : null;
-
   const loadServices = useCallback(async () => {
-    if (!service) return;
+    // Solo cargar si hay conexión completa
+    if (!isConnected || !provider) {
+      setServices([]);
+      return;
+    }
     
     try {
       setLoading(true);
+      // Crear servicio solo cuando se necesita
+      const service = new P2PMarketplaceService(provider, signer);
       const allServices = await service.getAllServices();
       setServices(allServices);
     } catch (error) {
       console.error('Error loading services:', error);
+      setServices([]);
     } finally {
       setLoading(false);
     }
-  }, [service]);
+  }, [provider, signer, isConnected]);
 
   const loadUserServices = useCallback(async (address?: string) => {
-    if (!service) return;
+    // Solo cargar si hay conexión completa
+    if (!isConnected || !provider) {
+      setUserServices([]);
+      return;
+    }
     
     const targetAddress = address || account;
     if (!targetAddress) return;
     
     try {
+      // Crear servicio solo cuando se necesita
+      const service = new P2PMarketplaceService(provider, signer);
       const providerServices = await service.getProviderServices(targetAddress);
       setUserServices(providerServices);
     } catch (error) {
       console.error('Error loading user services:', error);
+      setUserServices([]);
     }
-  }, [service, account]);
+  }, [provider, signer, account, isConnected]);
 
   const loadUserOrders = useCallback(async (address?: string) => {
-    if (!service) return;
+    // Solo cargar si hay conexión completa
+    if (!isConnected || !provider) {
+      setUserOrders([]);
+      return;
+    }
     
     const targetAddress = address || account;
     if (!targetAddress) return;
     
     try {
+      // Crear servicio solo cuando se necesita
+      const service = new P2PMarketplaceService(provider, signer);
       const clientOrders = await service.getClientOrders(targetAddress);
       setUserOrders(clientOrders);
     } catch (error) {
       console.error('Error loading user orders:', error);
+      setUserOrders([]);
     }
-  }, [service, account]);
+  }, [provider, signer, account, isConnected]);
 
   const createService = async (
     title: string,
@@ -405,11 +473,12 @@ export const useMarketplace = () => {
     pricePerHour: string,
     skillIds: number[]
   ) => {
-    if (!service) throw new Error('Service not available');
+    if (!isConnected || !provider || !signer) throw new Error('Wallet not connected');
     
     setTxState({ loading: true, error: null, success: false });
     
     try {
+      const service = new P2PMarketplaceService(provider, signer);
       const tx = await service.createService(title, description, pricePerHour, skillIds);
       await tx.wait();
       setTxState({ loading: false, error: null, success: true });
@@ -423,11 +492,12 @@ export const useMarketplace = () => {
   };
 
   const createOrder = async (serviceId: number, hours: number, description: string) => {
-    if (!service) throw new Error('Service not available');
+    if (!isConnected || !provider || !signer) throw new Error('Wallet not connected');
     
     setTxState({ loading: true, error: null, success: false });
     
     try {
+      const service = new P2PMarketplaceService(provider, signer);
       const tx = await service.createOrder(serviceId, hours, description);
       await tx.wait();
       setTxState({ loading: false, error: null, success: true });
@@ -440,12 +510,19 @@ export const useMarketplace = () => {
   };
 
   useEffect(() => {
-    if (service && account) {
+    if (isConnected && provider) {
       loadServices();
-      loadUserServices();
-      loadUserOrders();
+      if (account) {
+        loadUserServices();
+        loadUserOrders();
+      }
+    } else {
+      setServices([]);
+      setUserServices([]);
+      setUserOrders([]);
+      setLoading(false);
     }
-  }, [service, account]); // Dependencias específicas
+  }, [isConnected, provider, account, loadServices, loadUserServices, loadUserOrders]);
 
   return {
     services,

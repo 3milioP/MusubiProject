@@ -1,4 +1,3 @@
-// Contexto de Web3 para manejo de wallet y conexión blockchain
 import React, { createContext, useContext, useReducer, useEffect, ReactNode } from 'react';
 import { Web3State } from '../types';
 import { isMetaMaskInstalled, getMetaMaskProvider, parseTransactionError } from '../utils/blockchain';
@@ -149,6 +148,7 @@ export const Web3Provider: React.FC<Web3ProviderProps> = ({ children }) => {
 
   // Efecto para manejar cambios de cuenta
   useEffect(() => {
+    // Solo agregar listeners si MetaMask está disponible
     if (!isMetaMaskInstalled() || !window.ethereum) return;
 
     const handleAccountsChanged = (accounts: string[]) => {
@@ -163,23 +163,34 @@ export const Web3Provider: React.FC<Web3ProviderProps> = ({ children }) => {
       dispatch({ type: 'CHAIN_CHANGED', payload: parseInt(chainId, 16) });
     };
 
-    // Agregar listeners
-    window.ethereum.on('accountsChanged', handleAccountsChanged);
-    window.ethereum.on('chainChanged', handleChainChanged);
+    // Agregar listeners solo si están disponibles
+    try {
+      window.ethereum.on('accountsChanged', handleAccountsChanged);
+      window.ethereum.on('chainChanged', handleChainChanged);
+    } catch (error) {
+      // Silenciar errores de listeners si MetaMask no está completamente disponible
+      console.debug('MetaMask listeners not available');
+    }
 
     // Cleanup
     return () => {
-      if (window.ethereum?.removeListener) {
-        window.ethereum.removeListener('accountsChanged', handleAccountsChanged);
-        window.ethereum.removeListener('chainChanged', handleChainChanged);
+      try {
+        if (window.ethereum?.removeListener) {
+          window.ethereum.removeListener('accountsChanged', handleAccountsChanged);
+          window.ethereum.removeListener('chainChanged', handleChainChanged);
+        }
+      } catch (error) {
+        // Silenciar errores de cleanup
+        console.debug('Error removing MetaMask listeners');
       }
     };
   }, []);
 
-  // Efecto para reconectar automáticamente
+  // Efecto para auto-conectar
   useEffect(() => {
     const wasConnected = localStorage.getItem('musubi_wallet_connected');
     
+    // Solo intentar auto-conectar si MetaMask está disponible
     if (wasConnected && isMetaMaskInstalled() && window.ethereum) {
       // Intentar reconectar automáticamente
       const autoConnect = async () => {
@@ -201,7 +212,9 @@ export const Web3Provider: React.FC<Web3ProviderProps> = ({ children }) => {
             localStorage.removeItem('musubi_wallet_connected');
           }
         } catch (error) {
+          // Silenciar errores de auto-conexión
           localStorage.removeItem('musubi_wallet_connected');
+          console.debug('Auto-connect failed, MetaMask may not be ready');
         }
       };
 

@@ -186,31 +186,47 @@ run_tests() {
     
     cd "$PROJECT_DIR/hardhat-dev" || exit 1
     
+    # Función para ejecutar comando con timeout usando bash
+    run_with_timeout() {
+        local timeout_duration=$1
+        shift
+        local cmd="$@"
+        
+        # Verificar si timeout está disponible
+        if command -v timeout >/dev/null 2>&1; then
+            timeout $timeout_duration $cmd
+        else
+            # Alternativa sin timeout - ejecutar directamente
+            echo -e "${YELLOW}  ⚠️  Comando timeout no disponible, ejecutando sin límite de tiempo...${NC}"
+            $cmd
+        fi
+    }
+    
     # Configurar timeout según la red
-    local timeout=300  # 5 minutos por defecto
+    local timeout_duration=300  # 5 minutos por defecto
     case $network in
-        "local") timeout=180 ;;      # 3 minutos para local
-        "sepolia"|"polygon-amoy") timeout=600 ;;  # 10 minutos para testnet
-        "polygon") timeout=900 ;;    # 15 minutos para mainnet
+        "local") timeout_duration=180 ;;      # 3 minutos para local
+        "sepolia"|"polygon-amoy") timeout_duration=600 ;;  # 10 minutos para testnet
+        "polygon") timeout_duration=900 ;;    # 15 minutos para mainnet
     esac
     
     # Ejecutar tests según el tipo
     case $test_type in
         "unit")
             echo -e "${BLUE}  🔬 Ejecutando tests unitarios...${NC}"
-            timeout $timeout npx hardhat test --grep "Unit" || return 1
+            run_with_timeout $timeout_duration npx hardhat test --grep "Unit" || return 1
             ;;
         "integration")
             echo -e "${BLUE}  🔗 Ejecutando tests de integración...${NC}"
-            timeout $timeout npx hardhat test --grep "Integration" || return 1
+            run_with_timeout $timeout_duration npx hardhat test --grep "Integration" || return 1
             ;;
         "smoke")
             echo -e "${BLUE}  💨 Ejecutando smoke tests...${NC}"
-            timeout $timeout npx hardhat test --grep "Smoke" || return 1
+            run_with_timeout $timeout_duration npx hardhat test --grep "Smoke" || return 1
             ;;
         "all"|*)
             echo -e "${BLUE}  🧪 Ejecutando todos los tests...${NC}"
-            timeout $timeout npx hardhat test || return 1
+            run_with_timeout $timeout_duration npx hardhat test || return 1
             ;;
     esac
     

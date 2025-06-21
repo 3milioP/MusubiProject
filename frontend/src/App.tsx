@@ -65,10 +65,8 @@ const AppContent = () => {
 
   const handleMenuItemClick = (component: string) => {
     setActiveComponent(component);
-    // Cerrar el drawer móvil cuando se selecciona un item
-    if (mobileOpen) {
-      setMobileOpen(false);
-    }
+    // No cerrar el sidebar automáticamente al hacer click en un item
+    // El sidebar solo debe cerrarse con el botón toggle
   };
 
   const handleOnboardingComplete = () => {
