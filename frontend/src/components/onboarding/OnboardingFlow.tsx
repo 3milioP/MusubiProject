@@ -2,8 +2,9 @@ import React, { useState } from 'react';
 import WelcomeScreen from './WelcomeScreen';
 import MetaMaskTutorial from '../tutorial/MetaMaskTutorial';
 import MusubiTutorial from '../tutorial/MusubiTutorial';
+import MusubiIntroTutorial from '../tutorial/MusubiIntroTutorial';
 
-export type OnboardingStep = 'welcome' | 'metamask' | 'musubi' | 'complete';
+export type OnboardingStep = 'welcome' | 'intro' | 'metamask' | 'musubi' | 'complete';
 
 interface OnboardingFlowProps {
   onComplete: () => void;
@@ -13,12 +14,16 @@ const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete }) => {
   const [currentStep, setCurrentStep] = useState<OnboardingStep>('welcome');
 
   const handleWelcomeGetStarted = () => {
-    setCurrentStep('metamask');
+    setCurrentStep('intro');
   };
 
   const handleWelcomeSkip = () => {
     setCurrentStep('complete');
     onComplete();
+  };
+
+  const handleIntroComplete = () => {
+    setCurrentStep('metamask');
   };
 
   const handleMetaMaskComplete = () => {
@@ -42,6 +47,12 @@ const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete }) => {
           <WelcomeScreen
             onGetStarted={handleWelcomeGetStarted}
             onSkipTutorial={handleWelcomeSkip}
+          />
+        );
+      case 'intro':
+        return (
+          <MusubiIntroTutorial
+            onComplete={handleIntroComplete}
           />
         );
       case 'metamask':
