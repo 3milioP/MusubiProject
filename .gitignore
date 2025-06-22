@@ -13,6 +13,7 @@ node_modules/
 # Python dependencies
 musubi-api/__pycache__/
 musubi-api/src/__pycache__/
+musubi-api/src/*/__pycache__/
 musubi-api/.venv/
 musubi-api/venv/
 musubi-api/env/
@@ -167,3 +168,29 @@ hardhat-dev/abis.json
 # Local configuration overrides
 config.local.js
 config.local.json
+
+# =============================================================================
+# ARCHIVOS DE IPFS
+# =============================================================================
+# IPFS local storage
+.ipfs/
+ipfs-data/
+
+# =============================================================================
+# ARCHIVOS DE CURSOR
+# =============================================================================
+# Cursor IDE
+.cursor/
+
+# =============================================================================
+# ARCHIVOS DE TESTING TEMPORALES
+# =============================================================================
+# Test HTML files
+test-*.html
+frontend/public/test-*.html
+
+# =============================================================================
+# ARCHIVOS DE CONFIGURACIÓN LOCAL
+# =============================================================================
+# Local API configuration
+musubi-api/src/config/api_config.local.json
