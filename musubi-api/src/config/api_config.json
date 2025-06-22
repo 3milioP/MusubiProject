@@ -1,0 +1,41 @@
+{
+  "networks": {
+    "local": {
+      "rpc_url": "http://localhost:8545",
+      "chain_id": 31337,
+      "name": "Musubi Local"
+    },
+    "sepolia": {
+      "name": "Sepolia Testnet",
+      "rpc_url": "https://sepolia.infura.io/v3/",
+      "chain_id": 11155111,
+      "explorer_url": "https://sepolia.etherscan.io"
+    },
+    "polygon_amoy": {
+      "name": "Polygon Amoy Testnet",
+      "rpc_url": "https://polygon-amoy.infura.io/v3/",
+      "chain_id": 80002,
+      "explorer_url": "https://amoy.polygonscan.com"
+    },
+    "polygon": {
+      "name": "Polygon Mainnet",
+      "rpc_url": "https://polygon-mainnet.infura.io/v3/",
+      "chain_id": 137,
+      "explorer_url": "https://polygonscan.com"
+    }
+  },
+  "contract_addresses": {
+    "local": {
+      "IPFSRegistry": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
+      "KRMToken": "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512",
+      "ProfileRegistry": "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0",
+      "P2PMarketplace": "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9",
+      "SkillSystem": "0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9",
+      "ProfileNFT": "0x0165878A594ca255338adfa4d48449f69242Eb8F",
+      "TimeRegistry": "0xa513E6E4b8f2a923D98304ec87F64353C4D5C853"
+    }
+  },
+  "active_network": "local",
+  "last_sync": "/Users/emilio/MUSUBI-FRESH/MusubiProject/musubi-api",
+  "artifacts_path": "/Users/emilio/MUSUBI-FRESH/MusubiProject/hardhat-dev/artifacts/contracts"
+}

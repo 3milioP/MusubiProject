@@ -2,7 +2,7 @@
 API endpoints para el sistema de habilidades
 """
 from flask import Blueprint, jsonify, request
-from src.config.contracts import get_contract_instance
+from config.contracts import get_contract_instance
 from web3 import Web3
 
 skills_bp = Blueprint('skills', __name__)

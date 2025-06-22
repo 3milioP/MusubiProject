@@ -59,16 +59,21 @@ interface Order {
 
 const Marketplace = () => {
   const { account, isConnected } = useWeb3();
-  const { 
-    services, 
-    userOrders: orders, // Corrigiendo: useMarketplace exporta userOrders, no orders
-    loading, 
+  const {
+    services,
+    userServices,
+    orders,
+    userOrders,
+    loading,
     txState,
-    createService, 
+    createService,
     createOrder,
+    acceptOrder,
+    completeOrder,
     loadServices,
     loadUserServices,
-    loadUserOrders
+    loadOrders,
+    clearTxState
   } = useMarketplace();
 
   const [tabValue, setTabValue] = useState(0);
@@ -104,12 +109,23 @@ const Marketplace = () => {
     'Otros'
   ];
 
+  // Función para refrescar datos
+  const refreshServices = () => {
+    loadServices();
+    loadUserServices();
+  };
+
+  const refreshOrders = () => {
+    loadOrders();
+  };
+
+  // Cargar datos cuando se conecte la wallet
   useEffect(() => {
     if (isConnected && account) {
       refreshServices();
       refreshOrders();
     }
-  }, [isConnected, account, refreshServices, refreshOrders]);
+  }, [isConnected, account, loadServices, loadUserServices, loadOrders]);
 
   const handleTabChange = (_: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
@@ -139,8 +155,8 @@ const Marketplace = () => {
       await createService(
         newService.title,
         newService.description,
-        newService.pricePerHour,
-        newService.category
+        newService.pricePerHour.toString(),
+        [] // skillIds - array vacío por ahora
       );
       setSnackbar({
         open: true,
@@ -186,7 +202,7 @@ const Marketplace = () => {
     setTransactionLoading(true);
     try {
       const totalAmount = selectedService.pricePerHour * newOrder.estimatedHours;
-      await createOrder(selectedService.id, totalAmount);
+      await createOrder(selectedService.id, totalAmount, `Orden de ${totalAmount} horas`);
       setSnackbar({
         open: true,
         message: 'Orden creada exitosamente',

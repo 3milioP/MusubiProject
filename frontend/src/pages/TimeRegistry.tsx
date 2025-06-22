@@ -94,8 +94,8 @@ const TimeRegistry = () => {
     try {
       await registerTime(
         newRecord.company,
-        Date.now(),
-        Date.now() + (newRecord.duration * 3600000), // Convert hours to milliseconds
+        Math.floor(Date.now() / 1000), // Convertir a segundos
+        Math.floor((Date.now() + (newRecord.duration * 3600000)) / 1000), // Convertir a segundos
         newRecord.description,
         []
       );

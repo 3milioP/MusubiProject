@@ -7,17 +7,32 @@ import {
   CardContent, 
   Alert,
   Skeleton,
-  Chip
+  Chip,
+  Button,
+  CircularProgress,
+  Divider,
+  List,
+  ListItem,
+  ListItemText,
+  Paper
 } from '@mui/material';
 import { 
   AccountBalanceWallet, 
   Work, 
   AccessTime,
-  CheckCircle
+  CheckCircle,
+  Refresh,
+  TrendingUp,
+  Person,
+  Business,
+  AccountBalance,
+  Warning
 } from '@mui/icons-material';
 import { useWeb3 } from '../contexts/Web3Context';
+import { useOnboarding } from '../contexts/OnboardingContext';
 import { useKRMToken, useProfile, useSkills, useTimeRegistry, useMarketplace } from '../hooks/useContracts';
 import { formatTokenAmount, formatAddress } from '../utils/blockchain';
+import { CONTRACT_ADDRESSES } from '../config';
 
 interface StatCardProps {
   title: string;
@@ -56,12 +71,15 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, icon, color, loading 
 );
 
 const Dashboard = () => {
+  console.log('🧭 Dashboard - Renderizando...');
+  
   const { isConnected, account, chainId } = useWeb3();
-  const { balance, loading: krmLoading } = useKRMToken();
-  const { profile, loading: profileLoading } = useProfile();
-  const { userSkills, loading: skillsLoading } = useSkills();
-  const { timeRecords, loading: timeLoading } = useTimeRegistry();
-  const { userServices, userOrders, loading: marketplaceLoading } = useMarketplace();
+  const { hasRegisteredProfile } = useOnboarding();
+  const { balance, loading: krmLoading, loadBalance } = useKRMToken();
+  const { profile, loading: profileLoading, loadProfile } = useProfile();
+  const { userSkills, loading: skillsLoading, loadUserSkills } = useSkills();
+  const { timeRecords, loading: timeLoading, loadTimeRecords } = useTimeRegistry();
+  const { userServices, userOrders, loading: marketplaceLoading, loadUserServices, loadOrders } = useMarketplace();
 
   const [stats, setStats] = useState({
     totalEarnings: '0',
@@ -70,27 +88,76 @@ const Dashboard = () => {
     validatedSkills: 0
   });
 
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [navigationLog, setNavigationLog] = useState<string[]>([]);
+  const [walletEvents, setWalletEvents] = useState<string[]>([]);
+  const [krmBalance, setKrmBalance] = useState<string>('0');
+
+  // Log del estado de carga
   useEffect(() => {
-    if (!isConnected) return;
+    console.log('📊 Dashboard - Estado de carga:', {
+      krmLoading,
+      profileLoading,
+      skillsLoading,
+      timeLoading,
+      marketplaceLoading,
+      isConnected,
+      hasAccount: !!account
+    });
+  }, [krmLoading, profileLoading, skillsLoading, timeLoading, marketplaceLoading, isConnected, account]);
+
+  useEffect(() => {
+    if (!isConnected) {
+      console.log('🔌 Dashboard - No conectado, saliendo...');
+      return;
+    }
+
+    console.log('🔄 Dashboard - Calculando estadísticas...');
 
     // Calcular estadísticas reales
     const validatedSkills = userSkills.filter(skill => skill.isValidated).length;
     const totalHours = timeRecords.reduce((total, record) => {
-      const duration = (record.endTime - record.startTime) / 3600; // Convertir a horas
+      const duration = record.duration / 3600; // Convertir a horas
       return total + duration;
     }, 0);
     const completedProjects = userOrders.filter(order => order.status === 2).length; // Status 2 = Completed
     const totalEarnings = userOrders
       .filter(order => order.status === 2)
-      .reduce((total, order) => total + parseFloat(order.totalPrice), 0);
+      .reduce((total, order) => total + order.totalAmount, 0);
 
-    setStats({
+    const newStats = {
       totalEarnings: totalEarnings.toFixed(2),
       completedProjects,
       totalHours: Math.round(totalHours),
       validatedSkills
-    });
+    };
+
+    console.log('📈 Dashboard - Estadísticas calculadas:', newStats);
+    setStats(newStats);
   }, [isConnected, userSkills, timeRecords, userOrders]);
+
+  const handleRefresh = async () => {
+    console.log('🔄 Dashboard - Refrescando datos...');
+    setIsRefreshing(true);
+    
+    try {
+      if (account) {
+        await Promise.all([
+          loadBalance(),
+          loadProfile(),
+          loadUserSkills(),
+          loadTimeRecords(),
+          loadUserServices(),
+          loadOrders()
+        ]);
+        console.log('✅ Dashboard - Datos refrescados exitosamente');
+      }
+    } catch (error) {
+      console.error('❌ Dashboard - Error refrescando datos:', error);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   if (!isConnected) {
     return (
@@ -105,12 +172,144 @@ const Dashboard = () => {
     );
   }
 
+  const isLoading = krmLoading || profileLoading || skillsLoading || timeLoading || marketplaceLoading;
+
+  // Test específico para balance KRM
+  const testKRMBalance = async () => {
+    console.log('💰 Test específico de balance KRM...');
+    setIsRefreshing(true);
+    
+    try {
+      if (!window.ethereum) {
+        throw new Error('MetaMask no está disponible');
+      }
+
+      const results: any = {};
+
+      // Test 1: Verificar balance usando RPC nativo
+      console.log('📡 Test 1: Balance usando RPC nativo...');
+      if (account) {
+        try {
+          // Verificar código del contrato KRM
+          const krmCode = await window.ethereum.request({
+            method: 'eth_getCode',
+            params: [CONTRACT_ADDRESSES.KRMToken, 'latest']
+          });
+          results.krmContractCode = krmCode !== '0x';
+          console.log('✅ Contrato KRM tiene código:', krmCode !== '0x');
+
+          // Llamada directa al contrato para balance
+          const balanceData = {
+            to: CONTRACT_ADDRESSES.KRMToken,
+            data: '0x70a08231' + '000000000000000000000000' + account.slice(2) // balanceOf(address)
+          };
+          
+          const balanceResult = await window.ethereum.request({
+            method: 'eth_call',
+            params: [balanceData, 'latest']
+          });
+          
+          // Convertir de hex a decimal
+          const balanceWei = BigInt(balanceResult);
+          const balanceKRM = Number(balanceWei) / Math.pow(10, 18);
+          results.krmBalanceWei = balanceResult;
+          results.krmBalanceKRM = balanceKRM;
+          console.log('✅ Balance KRM (Wei):', balanceResult);
+          console.log('✅ Balance KRM:', balanceKRM);
+          
+          // Actualizar el estado con el balance real
+          setKrmBalance(balanceKRM.toFixed(4));
+          
+        } catch (err: any) {
+          console.error('❌ Error obteniendo balance:', err);
+          results.balanceError = err.message;
+        }
+      }
+
+      // Test 2: Verificar usando ethers
+      console.log('📡 Test 2: Balance usando ethers...');
+      try {
+        const { ethers } = await import('ethers');
+        const provider = new ethers.BrowserProvider(window.ethereum);
+        
+        const krmContract = new ethers.Contract(
+          CONTRACT_ADDRESSES.KRMToken,
+          ['function balanceOf(address) view returns (uint256)'],
+          provider
+        );
+
+        if (account) {
+          const balance = await krmContract.balanceOf(account);
+          results.ethersBalance = ethers.formatEther(balance);
+          console.log('✅ Balance con ethers:', results.ethersBalance);
+          
+          // Actualizar también con ethers
+          setKrmBalance(Number(results.ethersBalance).toFixed(4));
+        }
+      } catch (err: any) {
+        console.error('❌ Error con ethers:', err);
+        results.ethersError = err.message;
+      }
+
+      console.log('📊 Test de balance KRM completado:', results);
+      
+    } catch (err: any) {
+      console.error('❌ Error en test de balance KRM:', err);
+    } finally {
+      console.log('🏁 Finalizando test de balance KRM');
+      setIsRefreshing(false);
+    }
+  };
+
+  const clearLogs = () => {
+    setNavigationLog([]);
+    setWalletEvents([]);
+  };
+
   return (
     <Box>
-      <Typography variant="h4" component="h1" gutterBottom>
-        Dashboard
-      </Typography>
-      
+      <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Typography variant="h4" component="h1" gutterBottom>
+          Dashboard
+        </Typography>
+        <Button
+          variant="outlined"
+          startIcon={isRefreshing ? <CircularProgress size={20} /> : <Refresh />}
+          onClick={handleRefresh}
+          disabled={isRefreshing}
+        >
+          {isRefreshing ? 'Actualizando...' : 'Actualizar'}
+        </Button>
+      </Box>
+
+      {/* Banner de perfil no registrado */}
+      {!hasRegisteredProfile && !profile && (
+        <Alert 
+          severity="warning" 
+          sx={{ mb: 3 }}
+          action={
+            <Button color="inherit" size="small" href="/profile">
+              Registrar Perfil
+            </Button>
+          }
+        >
+          <Typography variant="body2">
+            <strong>Perfil no registrado:</strong> Para aprovechar todas las funcionalidades de Musubi, 
+            registra tu perfil en la página de Perfil.
+          </Typography>
+        </Alert>
+      )}
+
+      {/* Banner de perfil registrado pero no verificado */}
+      {profile && !profile.isVerified && (
+        <Alert severity="info" sx={{ mb: 3 }}>
+          <Typography variant="body2">
+            <strong>Perfil registrado:</strong> Tu perfil está registrado en la blockchain. 
+            Puedes comenzar a usar todas las funcionalidades de Musubi.
+          </Typography>
+        </Alert>
+      )}
+
       {/* Información de cuenta */}
       <Card sx={{ mb: 3 }}>
         <CardContent>
@@ -153,6 +352,29 @@ const Dashboard = () => {
           </Grid>
         </CardContent>
       </Card>
+
+      {/* Tarjeta de Balance KRM Real */}
+      <Card sx={{ mb: 3, backgroundColor: '#e3f2fd' }}>
+        <CardContent>
+          <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <AccountBalance color="primary" />
+            Balance KRM Real (Test)
+          </Typography>
+          <Typography variant="h4" color="primary" sx={{ fontWeight: 'bold' }}>
+            {krmBalance} KRM
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+            Balance obtenido directamente del contrato blockchain
+          </Typography>
+        </CardContent>
+      </Card>
+
+      {/* Estado de carga general */}
+      {isLoading && (
+        <Alert severity="info" sx={{ mb: 3 }}>
+          Cargando datos del dashboard...
+        </Alert>
+      )}
 
       {/* Estadísticas principales */}
       <Grid container spacing={3} sx={{ mb: 3 }}>
@@ -200,93 +422,70 @@ const Dashboard = () => {
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom>
-                Mis Servicios
+                Habilidades ({userSkills.length})
               </Typography>
-              {marketplaceLoading ? (
+              {skillsLoading ? (
+                <Skeleton variant="rectangular" height={100} />
+              ) : userSkills.length > 0 ? (
                 <Box>
-                  <Skeleton variant="text" />
-                  <Skeleton variant="text" />
-                  <Skeleton variant="text" />
-                </Box>
-              ) : userServices.length > 0 ? (
-                <Box>
-                  <Typography variant="body2" color="textSecondary" gutterBottom>
-                    Tienes {userServices.length} servicio(s) activo(s)
-                  </Typography>
-                  {userServices.slice(0, 3).map((service, index) => (
-                    <Box key={index} sx={{ mb: 1 }}>
-                      <Typography variant="body2">
-                        {service.title} - {service.pricePerHour} KRM/hora
-                      </Typography>
-                    </Box>
+                  {userSkills.slice(0, 3).map((skill, index) => (
+                    <Chip
+                      key={index}
+                      label={`Habilidad #${skill.skillId} (Nivel ${skill.declaredLevel})`}
+                      color={skill.isValidated ? "success" : "default"}
+                      size="small"
+                      sx={{ mr: 1, mb: 1 }}
+                    />
                   ))}
-                  {userServices.length > 3 && (
+                  {userSkills.length > 3 && (
                     <Typography variant="body2" color="textSecondary">
-                      +{userServices.length - 3} más...
+                      +{userSkills.length - 3} más...
                     </Typography>
                   )}
                 </Box>
               ) : (
                 <Typography variant="body2" color="textSecondary">
-                  No tienes servicios publicados aún.
+                  No hay habilidades declaradas
                 </Typography>
               )}
             </CardContent>
           </Card>
         </Grid>
-
         <Grid item xs={12} md={6}>
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom>
-                Registros de Tiempo Recientes
+                Proyectos Recientes ({userOrders.length})
               </Typography>
-              {timeLoading ? (
+              {marketplaceLoading ? (
+                <Skeleton variant="rectangular" height={100} />
+              ) : userOrders.length > 0 ? (
                 <Box>
-                  <Skeleton variant="text" />
-                  <Skeleton variant="text" />
-                  <Skeleton variant="text" />
-                </Box>
-              ) : timeRecords.length > 0 ? (
-                <Box>
-                  <Typography variant="body2" color="textSecondary" gutterBottom>
-                    {timeRecords.length} registro(s) de tiempo
-                  </Typography>
-                  {timeRecords.slice(0, 3).map((record, index) => (
+                  {userOrders.slice(0, 3).map((order, index) => (
                     <Box key={index} sx={{ mb: 1 }}>
                       <Typography variant="body2">
-                        {record.description} - {Math.round((record.endTime - record.startTime) / 3600)}h
+                        Proyecto #{order.id} - {order.status === 2 ? 'Completado' : 'En progreso'}
                       </Typography>
-                      <Chip 
-                        label={record.status === 1 ? "Validado" : record.status === 0 ? "Pendiente" : "Rechazado"}
-                        color={record.status === 1 ? "success" : record.status === 0 ? "warning" : "error"}
-                        size="small"
-                      />
+                      <Typography variant="caption" color="textSecondary">
+                        {order.totalAmount} KRM
+                      </Typography>
                     </Box>
                   ))}
-                  {timeRecords.length > 3 && (
+                  {userOrders.length > 3 && (
                     <Typography variant="body2" color="textSecondary">
-                      +{timeRecords.length - 3} más...
+                      +{userOrders.length - 3} más...
                     </Typography>
                   )}
                 </Box>
               ) : (
                 <Typography variant="body2" color="textSecondary">
-                  No tienes registros de tiempo aún.
+                  No hay proyectos recientes
                 </Typography>
               )}
             </CardContent>
           </Card>
         </Grid>
       </Grid>
-
-      {/* Información de red */}
-      {chainId && chainId !== 31337 && (
-        <Alert severity="warning" sx={{ mt: 3 }}>
-          Estás conectado a la red {chainId}. Para usar todas las funcionalidades, 
-          conecta a la red Hardhat Local (Chain ID: 31337).
-        </Alert>
-      )}
     </Box>
   );
 };

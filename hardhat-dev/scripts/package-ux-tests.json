@@ -1,0 +1,30 @@
+{
+  "name": "musubi-ux-tests",
+  "version": "1.0.0",
+  "description": "Sistema de pruebas UX para Musubi",
+  "scripts": {
+    "test:manual": "./test-user-experience.sh",
+    "test:automated": "node test-automated-ux.js",
+    "test:optimization": "./test-frontend-optimization.sh",
+    "setup": "./setup-ux-tests.sh",
+    "demo": "./demo-ux-tests.sh",
+    "validate": "./validate-apis.sh"
+  },
+  "dependencies": {
+    "puppeteer": "^21.0.0",
+    "chalk": "^4.1.2"
+  },
+  "devDependencies": {
+    "@types/node": "^18.0.0"
+  },
+  "keywords": [
+    "testing",
+    "ux",
+    "puppeteer",
+    "automation",
+    "musubi",
+    "blockchain"
+  ],
+  "author": "Musubi Team",
+  "license": "MIT"
+} 

@@ -10,13 +10,18 @@ import {
   MenuItem,
   Chip,
   Alert,
-  Snackbar
+  Snackbar,
+  Avatar
 } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 import LogoutIcon from '@mui/icons-material/Logout';
+import PersonIcon from '@mui/icons-material/Person';
+import BusinessIcon from '@mui/icons-material/Business';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import { useWeb3 } from '../contexts/Web3Context';
-import { useKRMToken } from '../hooks/useContracts';
+import { useOnboarding } from '../contexts/OnboardingContext';
+import { useKRMToken, useProfile } from '../hooks/useContracts';
 import { formatAddress, getNetworkName } from '../utils/blockchain';
 
 interface NavbarProps {
@@ -35,7 +40,9 @@ const Navbar: React.FC<NavbarProps> = ({ onMenuClick }) => {
     clearError 
   } = useWeb3();
   
+  const { hasRegisteredProfile } = useOnboarding();
   const { balance } = useKRMToken();
+  const { profile } = useProfile();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
 
   const handleWalletMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
@@ -115,6 +122,19 @@ const Navbar: React.FC<NavbarProps> = ({ onMenuClick }) => {
             </Box>
           )}
 
+          {/* Indicador de perfil */}
+          {isConnected && (hasRegisteredProfile || profile) && (
+            <Box sx={{ mr: 2, display: 'flex', alignItems: 'center' }}>
+              <Chip
+                icon={profile?.isCompany ? <BusinessIcon /> : <PersonIcon />}
+                label={profile?.name || 'Perfil Registrado'}
+                color="success"
+                size="small"
+                variant="outlined"
+              />
+            </Box>
+          )}
+
           {/* Botón de wallet */}
           {!isConnected ? (
             <Button
@@ -183,6 +203,24 @@ const Navbar: React.FC<NavbarProps> = ({ onMenuClick }) => {
                 </Typography>
               </Box>
             </MenuItem>
+            
+            {/* Información del perfil en el menú */}
+            {profile && (
+              <MenuItem disabled>
+                <Box>
+                  <Typography variant="body2" color="textSecondary">
+                    Perfil
+                  </Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                    {profile.isCompany ? <BusinessIcon sx={{ mr: 0.5, fontSize: 16 }} /> : <PersonIcon sx={{ mr: 0.5, fontSize: 16 }} />}
+                    <Typography variant="body2">
+                      {profile.name}
+                    </Typography>
+                    {profile.isVerified && <CheckCircleIcon sx={{ ml: 0.5, fontSize: 16, color: 'success.main' }} />}
+                  </Box>
+                </Box>
+              </MenuItem>
+            )}
             
             <MenuItem onClick={handleDisconnectWallet}>
               <LogoutIcon sx={{ mr: 1 }} />

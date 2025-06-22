@@ -8,6 +8,8 @@ import {
   TimeRegistryService,
   P2PMarketplaceService
 } from '../services/contracts';
+import { CONTRACT_ADDRESSES } from '../config';
+import { CONTRACT_ABIS } from '../services/abis';
 import {
   Profile,
   Skill,
@@ -17,11 +19,12 @@ import {
   Order,
   TransactionState
 } from '../types';
+import { ethers } from 'ethers';
 
 // Hook para KRM Token
 export const useKRMToken = () => {
   const { provider, signer, account, isConnected } = useWeb3();
-  const [balance, setBalance] = useState<string>('0');
+  const [balance, setBalance] = useState('0');
   const [loading, setLoading] = useState(false);
   const [txState, setTxState] = useState<TransactionState>({
     loading: false,
@@ -33,22 +36,34 @@ export const useKRMToken = () => {
     // Solo cargar si hay conexión completa
     if (!isConnected || !provider || !account) {
       setBalance('0');
+      setLoading(false);
       return;
     }
     
     try {
       setLoading(true);
-      // Crear servicio solo cuando se necesita
-      const service = new KRMTokenService(provider, signer);
-      const userBalance = await service.getBalance(account);
-      setBalance(userBalance);
+      console.log('🔍 Cargando balance KRM...');
+      
+      // Crear una promesa con timeout
+      const balancePromise = (async () => {
+        const service = new KRMTokenService(provider, signer);
+        return await service.getBalance(account);
+      })();
+      
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Timeout: No se pudo obtener el balance en 10 segundos')), 10000)
+      );
+      
+      const balanceValue = await Promise.race([balancePromise, timeoutPromise]) as string;
+      setBalance(balanceValue);
+      console.log('✅ Balance KRM cargado:', balanceValue);
     } catch (error) {
-      console.error('Error loading KRM balance:', error);
+      console.error('❌ Error loading KRM balance:', error);
       setBalance('0');
     } finally {
       setLoading(false);
     }
-  }, [provider, signer, account, isConnected]);
+  }, [isConnected, provider, signer, account]);
 
   const transfer = async (to: string, amount: string) => {
     if (!isConnected || !provider || !signer) throw new Error('Wallet not connected');
@@ -68,9 +83,30 @@ export const useKRMToken = () => {
     }
   };
 
+  // Cargar balance cuando cambie la conexión
   useEffect(() => {
     if (isConnected && provider && account) {
       loadBalance();
+      
+      // Escuchar eventos de transferencia para actualizar el balance automáticamente
+      const krmToken = new ethers.Contract(
+        CONTRACT_ADDRESSES.KRMToken,
+        CONTRACT_ABIS.KRMToken,
+        provider
+      );
+      
+      const handleTransfer = (from: string, to: string, value: any) => {
+        if (from.toLowerCase() === account.toLowerCase() || to.toLowerCase() === account.toLowerCase()) {
+          console.log('🔄 Evento de transferencia detectado, actualizando balance...');
+          setTimeout(() => loadBalance(), 1000); // Esperar 1 segundo para que se confirme la transacción
+        }
+      };
+      
+      krmToken.on('Transfer', handleTransfer);
+      
+      return () => {
+        krmToken.off('Transfer', handleTransfer);
+      };
     } else {
       setBalance('0');
       setLoading(false);
@@ -102,34 +138,46 @@ export const useProfile = () => {
     // Solo cargar si hay conexión completa
     if (!isConnected || !provider) {
       setProfile(null);
+      setLoading(false);
       return;
     }
     
     const targetAddress = address || account;
-    if (!targetAddress) return;
+    if (!targetAddress) {
+      setProfile(null);
+      setLoading(false);
+      return;
+    }
     
     try {
       setLoading(true);
-      // Crear servicio solo cuando se necesita
+      console.log('🔍 Cargando perfil...');
       const service = new ProfileRegistryService(provider, signer);
       const userProfile = await service.getProfile(targetAddress);
       setProfile(userProfile);
+      console.log('✅ Perfil cargado:', userProfile);
     } catch (error) {
-      console.error('Error loading profile:', error);
+      console.error('❌ Error loading profile:', error);
       setProfile(null);
     } finally {
       setLoading(false);
     }
-  }, [provider, signer, account, isConnected]);
+  }, [isConnected, provider, signer, account]);
 
-  const registerProfile = async (isCompany: boolean, metadataURI: string) => {
+  const registerProfile = async (
+    name: string,
+    description: string, 
+    metadataURI: string, 
+    profileType: number, 
+    acceptDisclaimer: boolean
+  ) => {
     if (!isConnected || !provider || !signer) throw new Error('Wallet not connected');
     
     setTxState({ loading: true, error: null, success: false });
     
     try {
       const service = new ProfileRegistryService(provider, signer);
-      const tx = await service.registerProfile(isCompany, metadataURI);
+      const tx = await service.registerProfile(name, description, metadataURI, profileType, acceptDisclaimer);
       await tx.wait();
       setTxState({ loading: false, error: null, success: true });
       await loadProfile(); // Recargar perfil
@@ -158,6 +206,7 @@ export const useProfile = () => {
     }
   };
 
+  // Cargar perfil cuando cambie la conexión
   useEffect(() => {
     if (isConnected && provider && account) {
       loadProfile();
@@ -165,7 +214,7 @@ export const useProfile = () => {
       setProfile(null);
       setLoading(false);
     }
-  }, [isConnected, provider, account, loadProfile]);
+  }, [isConnected, provider, account]);
 
   return {
     profile,
@@ -194,22 +243,24 @@ export const useSkills = () => {
     // Solo cargar si hay conexión completa
     if (!isConnected || !provider) {
       setSkills([]);
+      setLoading(false);
       return;
     }
     
     try {
       setLoading(true);
-      // Crear servicio solo cuando se necesita
+      console.log('🔍 Cargando skills...');
       const service = new SkillSystemService(provider, signer);
       const allSkills = await service.getAllSkills();
       setSkills(allSkills);
+      console.log('✅ Skills cargados:', allSkills.length);
     } catch (error) {
-      console.error('Error loading skills:', error);
+      console.error('❌ Error loading skills:', error);
       setSkills([]);
     } finally {
       setLoading(false);
     }
-  }, [provider, signer, isConnected]);
+  }, [isConnected, provider, signer]);
 
   const loadUserSkills = useCallback(async (address?: string) => {
     // Solo cargar si hay conexión completa
@@ -222,15 +273,16 @@ export const useSkills = () => {
     if (!targetAddress) return;
     
     try {
-      // Crear servicio solo cuando se necesita
+      console.log('🔍 Cargando skills del usuario...');
       const service = new SkillSystemService(provider, signer);
       const declaredSkills = await service.getUserDeclaredSkills(targetAddress);
       setUserSkills(declaredSkills);
+      console.log('✅ Skills del usuario cargados:', declaredSkills.length);
     } catch (error) {
-      console.error('Error loading user skills:', error);
+      console.error('❌ Error loading user skills:', error);
       setUserSkills([]);
     }
-  }, [provider, signer, account, isConnected]);
+  }, [isConnected, provider, signer, account]);
 
   const createSkill = async (name: string, category: string) => {
     if (!isConnected || !provider || !signer) throw new Error('Wallet not connected');
@@ -260,7 +312,7 @@ export const useSkills = () => {
       const tx = await service.declareSkill(skillId, level);
       await tx.wait();
       setTxState({ loading: false, error: null, success: true });
-      await loadUserSkills(); // Recargar user skills
+      await loadUserSkills(); // Recargar skills del usuario
       return tx;
     } catch (error: any) {
       setTxState({ loading: false, error: error.message, success: false });
@@ -268,6 +320,7 @@ export const useSkills = () => {
     }
   };
 
+  // Cargar skills cuando cambie la conexión
   useEffect(() => {
     if (isConnected && provider) {
       loadSkills();
@@ -279,7 +332,7 @@ export const useSkills = () => {
       setUserSkills([]);
       setLoading(false);
     }
-  }, [isConnected, provider, account, loadSkills, loadUserSkills]);
+  }, [isConnected, provider, account]);
 
   return {
     skills,
@@ -309,6 +362,7 @@ export const useTimeRegistry = () => {
     // Solo cargar si hay conexión completa
     if (!isConnected || !provider) {
       setTimeRecords([]);
+      setLoading(false);
       return;
     }
     
@@ -317,17 +371,18 @@ export const useTimeRegistry = () => {
     
     try {
       setLoading(true);
-      // Crear servicio solo cuando se necesita
+      console.log('🔍 Cargando registros de tiempo...');
       const service = new TimeRegistryService(provider, signer);
       const records = await service.getUserTimeRecords(targetAddress);
       setTimeRecords(records);
+      console.log('✅ Registros de tiempo cargados:', records.length);
     } catch (error) {
-      console.error('Error loading time records:', error);
+      console.error('❌ Error loading time records:', error);
       setTimeRecords([]);
     } finally {
       setLoading(false);
     }
-  }, [provider, signer, account, isConnected]);
+  }, [isConnected, provider, signer, account]);
 
   const registerTime = async (
     company: string,
@@ -371,6 +426,7 @@ export const useTimeRegistry = () => {
     }
   };
 
+  // Cargar registros cuando cambie la conexión
   useEffect(() => {
     if (isConnected && provider && account) {
       loadTimeRecords();
@@ -378,7 +434,7 @@ export const useTimeRegistry = () => {
       setTimeRecords([]);
       setLoading(false);
     }
-  }, [isConnected, provider, account, loadTimeRecords]);
+  }, [isConnected, provider, account]);
 
   return {
     timeRecords,
@@ -396,6 +452,7 @@ export const useMarketplace = () => {
   const { provider, signer, account, isConnected } = useWeb3();
   const [services, setServices] = useState<Service[]>([]);
   const [userServices, setUserServices] = useState<Service[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
   const [userOrders, setUserOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(false);
   const [txState, setTxState] = useState<TransactionState>({
@@ -408,22 +465,24 @@ export const useMarketplace = () => {
     // Solo cargar si hay conexión completa
     if (!isConnected || !provider) {
       setServices([]);
+      setLoading(false);
       return;
     }
     
     try {
       setLoading(true);
-      // Crear servicio solo cuando se necesita
+      console.log('🔍 Cargando servicios...');
       const service = new P2PMarketplaceService(provider, signer);
       const allServices = await service.getAllServices();
       setServices(allServices);
+      console.log('✅ Servicios cargados:', allServices.length);
     } catch (error) {
-      console.error('Error loading services:', error);
+      console.error('❌ Error loading services:', error);
       setServices([]);
     } finally {
       setLoading(false);
     }
-  }, [provider, signer, isConnected]);
+  }, [isConnected, provider, signer]);
 
   const loadUserServices = useCallback(async (address?: string) => {
     // Solo cargar si hay conexión completa
@@ -436,20 +495,21 @@ export const useMarketplace = () => {
     if (!targetAddress) return;
     
     try {
-      // Crear servicio solo cuando se necesita
+      console.log('🔍 Cargando servicios del usuario...');
       const service = new P2PMarketplaceService(provider, signer);
       const providerServices = await service.getProviderServices(targetAddress);
       setUserServices(providerServices);
+      console.log('✅ Servicios del usuario cargados:', providerServices.length);
     } catch (error) {
-      console.error('Error loading user services:', error);
+      console.error('❌ Error loading user services:', error);
       setUserServices([]);
     }
-  }, [provider, signer, account, isConnected]);
+  }, [isConnected, provider, signer, account]);
 
-  const loadUserOrders = useCallback(async (address?: string) => {
+  const loadOrders = useCallback(async (address?: string) => {
     // Solo cargar si hay conexión completa
     if (!isConnected || !provider) {
-      setUserOrders([]);
+      setOrders([]);
       return;
     }
     
@@ -457,15 +517,18 @@ export const useMarketplace = () => {
     if (!targetAddress) return;
     
     try {
-      // Crear servicio solo cuando se necesita
+      console.log('🔍 Cargando órdenes...');
       const service = new P2PMarketplaceService(provider, signer);
-      const clientOrders = await service.getClientOrders(targetAddress);
-      setUserOrders(clientOrders);
+      const allOrders = await service.getClientOrders(targetAddress);
+      setOrders(allOrders);
+      setUserOrders(allOrders); // Para compatibilidad con el Dashboard
+      console.log('✅ Órdenes cargadas:', allOrders.length);
     } catch (error) {
-      console.error('Error loading user orders:', error);
+      console.error('❌ Error loading orders:', error);
+      setOrders([]);
       setUserOrders([]);
     }
-  }, [provider, signer, account, isConnected]);
+  }, [isConnected, provider, signer, account]);
 
   const createService = async (
     title: string,
@@ -501,7 +564,7 @@ export const useMarketplace = () => {
       const tx = await service.createOrder(serviceId, hours, description);
       await tx.wait();
       setTxState({ loading: false, error: null, success: true });
-      await loadUserOrders(); // Recargar órdenes del usuario
+      await loadOrders(); // Recargar órdenes
       return tx;
     } catch (error: any) {
       setTxState({ loading: false, error: error.message, success: false });
@@ -509,32 +572,73 @@ export const useMarketplace = () => {
     }
   };
 
+  const acceptOrder = async (orderId: number) => {
+    if (!isConnected || !provider || !signer) throw new Error('Wallet not connected');
+    
+    setTxState({ loading: true, error: null, success: false });
+    
+    try {
+      const service = new P2PMarketplaceService(provider, signer);
+      const tx = await service.acceptOrder(orderId);
+      await tx.wait();
+      setTxState({ loading: false, error: null, success: true });
+      await loadOrders(); // Recargar órdenes
+      return tx;
+    } catch (error: any) {
+      setTxState({ loading: false, error: error.message, success: false });
+      throw error;
+    }
+  };
+
+  const completeOrder = async (orderId: number) => {
+    if (!isConnected || !provider || !signer) throw new Error('Wallet not connected');
+    
+    setTxState({ loading: true, error: null, success: false });
+    
+    try {
+      const service = new P2PMarketplaceService(provider, signer);
+      const tx = await service.completeOrder(orderId);
+      await tx.wait();
+      setTxState({ loading: false, error: null, success: true });
+      await loadOrders(); // Recargar órdenes
+      return tx;
+    } catch (error: any) {
+      setTxState({ loading: false, error: error.message, success: false });
+      throw error;
+    }
+  };
+
+  // Cargar datos cuando cambie la conexión
   useEffect(() => {
     if (isConnected && provider) {
       loadServices();
       if (account) {
         loadUserServices();
-        loadUserOrders();
+        loadOrders();
       }
     } else {
       setServices([]);
       setUserServices([]);
+      setOrders([]);
       setUserOrders([]);
       setLoading(false);
     }
-  }, [isConnected, provider, account, loadServices, loadUserServices, loadUserOrders]);
+  }, [isConnected, provider, account]);
 
   return {
     services,
     userServices,
+    orders,
     userOrders,
     loading,
     txState,
     createService,
     createOrder,
+    acceptOrder,
+    completeOrder,
     loadServices,
     loadUserServices,
-    loadUserOrders,
+    loadOrders,
     clearTxState: () => setTxState({ loading: false, error: null, success: false })
   };
 };

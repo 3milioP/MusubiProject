@@ -1,36 +1,34 @@
-Traceback (most recent call last):
-  File "/Users/emilio/MUSUBI-API/MusubiProject/musubi-api/src/main.py", line 10, in <module>
-    from src.routes.contracts import contracts_bp
-  File "/Users/emilio/MUSUBI-API/MusubiProject/musubi-api/src/routes/contracts.py", line 5, in <module>
-    from src.config.contracts import (
-  File "/Users/emilio/MUSUBI-API/MusubiProject/musubi-api/src/config/contracts.py", line 6, in <module>
-    from web3 import Web3
-  File "/Users/emilio/Library/Python/3.9/lib/python/site-packages/web3/__init__.py", line 8, in <module>
-    from web3.main import (
-  File "/Users/emilio/Library/Python/3.9/lib/python/site-packages/web3/main.py", line 78, in <module>
-    from web3._utils.module import (
-  File "/Users/emilio/Library/Python/3.9/lib/python/site-packages/web3/_utils/module.py", line 19, in <module>
-    from web3.module import (
-  File "/Users/emilio/Library/Python/3.9/lib/python/site-packages/web3/module.py", line 23, in <module>
-    from web3._utils.filters import (
-  File "/Users/emilio/Library/Python/3.9/lib/python/site-packages/web3/_utils/filters.py", line 44, in <module>
-    from web3._utils.events import (
-  File "/Users/emilio/Library/Python/3.9/lib/python/site-packages/web3/_utils/events.py", line 92, in <module>
-    from web3.utils.abi import (
-  File "/Users/emilio/Library/Python/3.9/lib/python/site-packages/web3/utils/__init__.py", line 35, in <module>
-    from .async_exception_handling import (
-  File "/Users/emilio/Library/Python/3.9/lib/python/site-packages/web3/utils/async_exception_handling.py", line 6, in <module>
-    from aiohttp import (
-  File "/Users/emilio/Library/Python/3.9/lib/python/site-packages/aiohttp/__init__.py", line 6, in <module>
-    from .client import (
-  File "/Users/emilio/Library/Python/3.9/lib/python/site-packages/aiohttp/client.py", line 40, in <module>
-    from . import hdrs, http, payload
-  File "/Users/emilio/Library/Python/3.9/lib/python/site-packages/aiohttp/http.py", line 7, in <module>
-    from .http_parser import (
-  File "/Users/emilio/Library/Python/3.9/lib/python/site-packages/aiohttp/http_parser.py", line 28, in <module>
-    from .base_protocol import BaseProtocol
-  File "/Users/emilio/Library/Python/3.9/lib/python/site-packages/aiohttp/base_protocol.py", line 5, in <module>
-    from .helpers import set_exception
-  File "/Users/emilio/Library/Python/3.9/lib/python/site-packages/aiohttp/helpers.py", line 59, in <module>
-    import async_timeout
-ModuleNotFoundError: No module named 'async_timeout'
+/Users/emilio/Library/Python/3.9/lib/python/site-packages/urllib3/__init__.py:35: NotOpenSSLWarning: urllib3 v2 only supports OpenSSL 1.1.1+, currently the 'ssl' module is compiled with 'LibreSSL 2.8.3'. See: https://github.com/urllib3/urllib3/issues/3020
+  warnings.warn(
+/Users/emilio/Library/Python/3.9/lib/python/site-packages/ipfshttpclient/client/__init__.py:75: VersionMismatch: Unsupported daemon version '0.35.0' (not in range: 0.5.0 ≤ … < 0.9.0)
+  warnings.warn(exceptions.VersionMismatch(version, minimum, maximum))
+✅ Configuración cargada desde: /Users/emilio/MUSUBI-FRESH/MusubiProject/musubi-api/src/config/api_config.json
+✅ ABI cargado para KRMToken
+✅ ABI cargado para ProfileRegistry
+✅ ABI cargado para SkillSystem
+✅ ABI cargado para TimeRegistry
+✅ ABI cargado para P2PMarketplace
+✅ ABI cargado para IPFSRegistry
+✅ Conectado a IPFS en /ip4/127.0.0.1/tcp/5002
+🚀 Iniciando Musubi API...
+✅ Conectado a Hardhat local
+✅ Musubi API configurada y lista
+ * Serving Flask app 'main'
+ * Debug mode: on
+[31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5001
+ * Running on http://192.168.1.233:5001
+[33mPress CTRL+C to quit[0m
+ * Restarting with stat
+/Users/emilio/Library/Python/3.9/lib/python/site-packages/urllib3/__init__.py:35: NotOpenSSLWarning: urllib3 v2 only supports OpenSSL 1.1.1+, currently the 'ssl' module is compiled with 'LibreSSL 2.8.3'. See: https://github.com/urllib3/urllib3/issues/3020
+  warnings.warn(
+/Users/emilio/Library/Python/3.9/lib/python/site-packages/ipfshttpclient/client/__init__.py:75: VersionMismatch: Unsupported daemon version '0.35.0' (not in range: 0.5.0 ≤ … < 0.9.0)
+  warnings.warn(exceptions.VersionMismatch(version, minimum, maximum))
+ * Debugger is active!
+ * Debugger PIN: 119-442-036
+127.0.0.1 - - [22/Jun/2025 22:04:52] "GET /health HTTP/1.1" 200 -
+127.0.0.1 - - [22/Jun/2025 22:05:23] "GET /health HTTP/1.1" 200 -
+127.0.0.1 - - [22/Jun/2025 22:05:26] "[33mGET /api/contracts/network/local/addresses HTTP/1.1[0m" 404 -
+127.0.0.1 - - [22/Jun/2025 22:05:35] "[33mGET /api/contracts/network/local/addresses HTTP/1.1[0m" 404 -
+127.0.0.1 - - [22/Jun/2025 22:05:38] "[33mGET /api/contracts/network/local/addresses HTTP/1.1[0m" 404 -

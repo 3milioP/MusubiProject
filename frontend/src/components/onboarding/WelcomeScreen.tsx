@@ -156,7 +156,7 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onGetStarted, onSkipTutor
               <Alert severity="info" sx={{ mb: 3 }}>
                 <Typography variant="body2">
                   <strong>¿Primera vez en Web3?</strong> No te preocupes, te guiaremos para configurar 
-                  tu wallet MetaMask en menos de 5 minutos.
+                  tu wallet MetaMask y registrar tu perfil en menos de 5 minutos.
                 </Typography>
               </Alert>
 
@@ -181,7 +181,7 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onGetStarted, onSkipTutor
               </Box>
 
               <Typography variant="caption" display="block" sx={{ textAlign: 'center', mt: 2, opacity: 0.7 }}>
-                El tutorial toma aproximadamente 5 minutos
+                El tutorial incluye configuración de wallet y registro de perfil
               </Typography>
             </Card>
           </Grid>

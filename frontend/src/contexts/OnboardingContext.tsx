@@ -4,6 +4,7 @@ interface OnboardingState {
   hasCompletedOnboarding: boolean;
   showOnboarding: boolean;
   hasSeenWelcome: boolean;
+  hasRegisteredProfile: boolean;
 }
 
 interface OnboardingContextType extends OnboardingState {
@@ -11,6 +12,7 @@ interface OnboardingContextType extends OnboardingState {
   showOnboardingFlow: () => void;
   hideOnboardingFlow: () => void;
   markWelcomeSeen: () => void;
+  markProfileRegistered: () => void;
   resetOnboarding: () => void;
 }
 
@@ -26,7 +28,8 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({ children
   const [state, setState] = useState<OnboardingState>({
     hasCompletedOnboarding: false,
     showOnboarding: false,
-    hasSeenWelcome: false
+    hasSeenWelcome: false,
+    hasRegisteredProfile: false
   });
 
   // Cargar estado desde localStorage al inicializar
@@ -71,11 +74,21 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({ children
     setState(prev => ({ ...prev, hasSeenWelcome: true }));
   };
 
+  const markProfileRegistered = () => {
+    setState(prev => ({ 
+      ...prev, 
+      hasRegisteredProfile: true,
+      hasCompletedOnboarding: true,
+      showOnboarding: false
+    }));
+  };
+
   const resetOnboarding = () => {
     setState({
       hasCompletedOnboarding: false,
       showOnboarding: true,
-      hasSeenWelcome: false
+      hasSeenWelcome: false,
+      hasRegisteredProfile: false
     });
     localStorage.removeItem(STORAGE_KEY);
   };
@@ -86,6 +99,7 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({ children
     showOnboardingFlow,
     hideOnboardingFlow,
     markWelcomeSeen,
+    markProfileRegistered,
     resetOnboarding
   };
 

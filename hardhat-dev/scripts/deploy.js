@@ -4,42 +4,42 @@ async function main() {
 
   // Desplegar KRMToken
   const KRMToken = await ethers.getContractFactory("KRMToken");
-  const krmToken = await KRMToken.deploy();
-  await krmToken.deployed();
-  console.log("KRMToken desplegado en:", krmToken.address);
+  const krmToken = await KRMToken.deploy(deployer.address);
+  await krmToken.waitForDeployment();
+  console.log("KRMToken desplegado en:", krmToken.target);
 
   // Desplegar ProfileRegistry
   const ProfileRegistry = await ethers.getContractFactory("ProfileRegistry");
   const profileRegistry = await ProfileRegistry.deploy();
-  await profileRegistry.deployed();
-  console.log("ProfileRegistry desplegado en:", profileRegistry.address);
+  await profileRegistry.waitForDeployment();
+  console.log("ProfileRegistry desplegado en:", profileRegistry.target);
 
   // Desplegar SkillSystem
   const SkillSystem = await ethers.getContractFactory("SkillSystem");
-  const skillSystem = await SkillSystem.deploy();
-  await skillSystem.deployed();
-  console.log("SkillSystem desplegado en:", skillSystem.address);
+  const skillSystem = await SkillSystem.deploy(profileRegistry.target);
+  await skillSystem.waitForDeployment();
+  console.log("SkillSystem desplegado en:", skillSystem.target);
 
   // Desplegar TimeRegistry
   const TimeRegistry = await ethers.getContractFactory("TimeRegistry");
-  const timeRegistry = await TimeRegistry.deploy();
-  await timeRegistry.deployed();
-  console.log("TimeRegistry desplegado en:", timeRegistry.address);
+  const timeRegistry = await TimeRegistry.deploy(profileRegistry.target, skillSystem.target);
+  await timeRegistry.waitForDeployment();
+  console.log("TimeRegistry desplegado en:", timeRegistry.target);
 
   // Desplegar P2PMarketplace
   const P2PMarketplace = await ethers.getContractFactory("P2PMarketplace");
-  const p2pMarketplace = await P2PMarketplace.deploy(deployer.address, krmToken.address);
-  await p2pMarketplace.deployed();
-  console.log("P2PMarketplace desplegado en:", p2pMarketplace.address);
+  const p2pMarketplace = await P2PMarketplace.deploy(deployer.address, krmToken.target);
+  await p2pMarketplace.waitForDeployment();
+  console.log("P2PMarketplace desplegado en:", p2pMarketplace.target);
 
   // Guardar direcciones para el frontend
   console.log("Guarda estas direcciones para configurar el frontend:");
   console.log({
-    krmToken: krmToken.address,
-    profileRegistry: profileRegistry.address,
-    skillSystem: skillSystem.address,
-    timeRegistry: timeRegistry.address,
-    p2pMarketplace: p2pMarketplace.address
+    krmToken: krmToken.target,
+    profileRegistry: profileRegistry.target,
+    skillSystem: skillSystem.target,
+    timeRegistry: timeRegistry.target,
+    p2pMarketplace: p2pMarketplace.target
   });
 }
 

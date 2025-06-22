@@ -245,7 +245,11 @@ const Skills = () => {
                     <CardContent sx={{ flexGrow: 1 }}>
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
                         <Typography variant="h6" gutterBottom>
-                          {skill.skill?.name || 'Habilidad'}
+                          <Chip
+                            size="small"
+                            color="primary"
+                            label={skill.skillName || 'Habilidad'}
+                          />
                         </Typography>
                         <Chip 
                           icon={getSkillStatusIcon(skill)}
@@ -255,10 +259,10 @@ const Skills = () => {
                         />
                       </Box>
                       
-                      <Chip 
-                        label={skill.skill?.category || 'Sin categoría'} 
-                        size="small" 
-                        sx={{ mb: 2 }} 
+                      <Chip
+                        size="small"
+                        variant="outlined"
+                        label={skill.skillCategory || 'Sin categoría'}
                       />
 
                       <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>

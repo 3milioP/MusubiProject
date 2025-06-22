@@ -1,89 +1,105 @@
 import React from 'react';
-import { Drawer, List, ListItem, ListItemIcon, ListItemText, Divider, Box } from '@mui/material';
-import DashboardIcon from '@mui/icons-material/Dashboard';
-import PersonIcon from '@mui/icons-material/Person';
-import PsychologyIcon from '@mui/icons-material/Psychology';
-import AccessTimeIcon from '@mui/icons-material/AccessTime';
-import StorefrontIcon from '@mui/icons-material/Storefront';
-import SettingsIcon from '@mui/icons-material/Settings';
+import {
+  Drawer,
+  List,
+  ListItem,
+  ListItemIcon,
+  ListItemText,
+  ListItemButton,
+  Divider,
+  Box,
+  Typography
+} from '@mui/material';
+import {
+  Dashboard as DashboardIcon,
+  Person as PersonIcon,
+  Psychology as PsychologyIcon,
+  Schedule as ScheduleIcon,
+  Store as StoreIcon,
+  Settings as SettingsIcon,
+  BugReport as BugReportIcon,
+  CloudUpload as CloudUploadIcon
+} from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 
 interface SidebarProps {
-  open: boolean;
+  isOpen: boolean;
+  currentPage: string;
+  onPageChange: (page: string) => void;
+  onClose: () => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ open }) => {
+const menuItems = [
+  { text: 'Dashboard', icon: <DashboardIcon />, component: 'dashboard' },
+  { text: 'Perfil', icon: <PersonIcon />, component: 'profile' },
+  { text: 'Habilidades', icon: <PsychologyIcon />, component: 'skills' },
+  { text: 'Registro de Tiempo', icon: <ScheduleIcon />, component: 'timeregistry' },
+  { text: 'Marketplace', icon: <StoreIcon />, component: 'marketplace' },
+  { text: 'Configuración', icon: <SettingsIcon />, component: 'settings' },
+  { text: 'Debug Blockchain', icon: <BugReportIcon />, component: 'debug' },
+];
+
+const Sidebar: React.FC<SidebarProps> = ({ isOpen, currentPage, onPageChange, onClose }) => {
   const navigate = useNavigate();
   const location = useLocation();
   
-  const menuItems = [
-    { text: 'Dashboard', icon: <DashboardIcon />, path: '/' },
-    { text: 'Mi Perfil', icon: <PersonIcon />, path: '/profile' },
-    { text: 'Mis Habilidades', icon: <PsychologyIcon />, path: '/skills' },
-    { text: 'Registro Horario', icon: <AccessTimeIcon />, path: '/time-registry' },
-    { text: 'Marketplace', icon: <StorefrontIcon />, path: '/marketplace' },
-    { text: 'Configuración', icon: <SettingsIcon />, path: '/settings' },
-  ];
-
   return (
     <Drawer
-      variant="persistent"
+      variant="temporary"
       anchor="left"
-      open={open}
+      open={isOpen}
+      onClose={onClose}
       sx={{
-        width: 240,
-        flexShrink: 0,
         '& .MuiDrawer-paper': {
-          width: 240,
+          width: 280,
           boxSizing: 'border-box',
-          top: 64,
-          height: 'calc(100% - 64px)',
         },
       }}
     >
-      <Box sx={{ overflow: 'auto', mt: 2 }}>
+      <Box sx={{ width: 280 }} role="presentation">
+        <Box sx={{ p: 2, textAlign: 'center' }}>
+          <Typography variant="h6" color="primary">
+            🎯 Musubi
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            Blockchain + IPFS
+          </Typography>
+        </Box>
+        
+        <Divider />
+        
         <List>
           {menuItems.map((item) => (
-            <ListItem 
-              button 
-              key={item.text}
-              onClick={() => navigate(item.path)}
-              selected={location.pathname === item.path}
-              sx={{
-                borderRadius: '0 20px 20px 0',
-                mr: 2,
-                mb: 0.5,
-                '&.Mui-selected': {
-                  backgroundColor: 'primary.light',
-                  color: 'white',
-                  '& .MuiListItemIcon-root': {
-                    color: 'white',
+            <ListItem key={item.component} disablePadding>
+              <ListItemButton
+                selected={currentPage === item.component}
+                onClick={() => {
+                  onPageChange(item.component);
+                  onClose();
+                }}
+                sx={{
+                  '&.Mui-selected': {
+                    backgroundColor: 'primary.light',
+                    '&:hover': {
+                      backgroundColor: 'primary.light',
+                    },
                   },
-                },
-                '&:hover': {
-                  backgroundColor: 'rgba(63, 81, 181, 0.08)',
-                },
-              }}
-            >
-              <ListItemIcon sx={{ color: location.pathname === item.path ? 'white' : 'inherit' }}>
-                {item.icon}
-              </ListItemIcon>
-              <ListItemText primary={item.text} />
+                }}
+              >
+                <ListItemIcon sx={{ color: currentPage === item.component ? 'primary.main' : 'inherit' }}>
+                  {item.icon}
+                </ListItemIcon>
+                <ListItemText 
+                  primary={item.text}
+                  sx={{ 
+                    color: currentPage === item.component ? 'primary.main' : 'inherit',
+                    fontWeight: currentPage === item.component ? 'bold' : 'normal'
+                  }}
+                />
+              </ListItemButton>
             </ListItem>
           ))}
         </List>
-        <Divider sx={{ my: 2 }} />
-        <Box sx={{ p: 2, textAlign: 'center' }}>
-          <img 
-            src="/logo.png" 
-            alt="Musubi Logo" 
-            style={{ width: 120, opacity: 0.8 }}
-            onError={(e) => {
-              const target = e.target as HTMLImageElement;
-              target.src = 'https://via.placeholder.com/120x60?text=Musubi';
-            }}
-          />
-        </Box>
       </Box>
     </Drawer>
   );

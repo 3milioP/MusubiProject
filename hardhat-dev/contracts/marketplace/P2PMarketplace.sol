@@ -1,30 +1,24 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.28;
+pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
-import "@openzeppelin/contracts/utils/Counters.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "../tokens/KRMToken.sol";
+import "../core/ProfileRegistry.sol";
+import "../core/SkillSystem.sol";
 
 /**
  * @title P2PMarketplace
- * @dev Implementa el marketplace P2P para intercambio de servicios usando tokens Karma
+ * @dev Marketplace P2P para servicios profesionales con validación de perfiles y habilidades
  */
-contract P2PMarketplace is AccessControl, Pausable {
-    using Counters for Counters.Counter;
-    
-    // Contadores
-    Counters.Counter private _serviceIdCounter;
-    Counters.Counter private _orderIdCounter;
-    
-    // Roles
-    bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
+contract P2PMarketplace is AccessControl, Pausable, ReentrancyGuard {
     bytes32 public constant FEE_MANAGER_ROLE = keccak256("FEE_MANAGER_ROLE");
     
-    // Enums
-    enum ServiceStatus { Active, Paused, Deleted }
-    enum OrderStatus { Created, Accepted, Completed, Cancelled, Disputed }
+    ProfileRegistry public profileRegistry;
+    SkillSystem public skillSystem;
+    KRMToken public krmToken;
     
-    // Estructuras
     struct Service {
         uint256 id;
         address provider;
@@ -50,63 +44,125 @@ contract P2PMarketplace is AccessControl, Pausable {
         uint256 completedAt;
     }
     
-    // Variables de estado
-    uint256 public platformFee = 100; // 1% (base 10000)
-    address public feeCollector;
-    address public krmTokenAddress;
+    enum ServiceStatus { Active, Inactive, Deleted }
+    enum OrderStatus { Created, Accepted, Completed, Cancelled, Disputed }
     
-    // Mappings
     mapping(uint256 => Service) public services;
-    mapping(address => uint256[]) public providerServices;
     mapping(uint256 => Order) public orders;
+    mapping(address => uint256[]) public providerServices;
     mapping(address => uint256[]) public clientOrders;
     mapping(address => uint256[]) public providerOrders;
     
-    // Eventos
+    uint256 public platformFee = 100; // 1% base 10000
+    address public feeCollector;
+    address public krmTokenAddress;
+    
+    uint256 private _serviceIdCounter;
+    uint256 private _orderIdCounter;
+    
     event ServiceCreated(uint256 indexed serviceId, address indexed provider);
     event ServiceUpdated(uint256 indexed serviceId);
     event ServiceStatusChanged(uint256 indexed serviceId, ServiceStatus status);
     event OrderCreated(uint256 indexed orderId, uint256 indexed serviceId, address indexed client);
     event OrderAccepted(uint256 indexed orderId);
-    event OrderCompleted(uint256 indexed orderId);
+    event OrderCompleted(uint256 indexed orderId, uint256 amount, uint256 fee);
     event OrderCancelled(uint256 indexed orderId);
     event OrderDisputed(uint256 indexed orderId);
     event FeeUpdated(uint256 newFee);
     
-    /**
-     * @dev Constructor
-     * @param _feeCollector Dirección que recibe las comisiones
-     * @param _krmTokenAddress Dirección del contrato del token KRM
-     */
-    constructor(address _feeCollector, address _krmTokenAddress) {
-        require(_feeCollector != address(0), "Fee collector cannot be zero address");
-        require(_krmTokenAddress != address(0), "KRM token address cannot be zero address");
+    modifier onlyRegisteredProfile(address wallet) {
+        require(profileRegistry.hasRegisteredProfile(wallet), "Profile not registered");
+        _;
+    }
+    
+    modifier onlyVerifiedProfile(address wallet) {
+        require(profileRegistry.hasVerifiedProfile(wallet), "Profile not verified");
+        _;
+    }
+    
+    modifier onlyProfessional(address wallet) {
+        require(profileRegistry.getProfile(wallet).profileType == ProfileRegistry.ProfileType.Professional, "Only professionals can provide services");
+        _;
+    }
+    
+    modifier serviceExists(uint256 serviceId) {
+        require(services[serviceId].provider != address(0), "Service does not exist");
+        _;
+    }
+    
+    modifier orderExists(uint256 orderId) {
+        require(orders[orderId].client != address(0), "Order does not exist");
+        _;
+    }
+    
+    modifier onlyServiceProvider(uint256 serviceId) {
+        require(services[serviceId].provider == msg.sender, "Not service provider");
+        _;
+    }
+    
+    modifier onlyOrderClient(uint256 orderId) {
+        require(orders[orderId].client == msg.sender, "Not order client");
+        _;
+    }
+    
+    modifier onlyOrderProvider(uint256 orderId) {
+        require(orders[orderId].provider == msg.sender, "Not order provider");
+        _;
+    }
+    
+    constructor(address _owner, address _krmToken) {
+        require(_owner != address(0), "Owner address cannot be zero");
+        require(_krmToken != address(0), "KRM token address cannot be zero");
         
-        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
-        _grantRole(FEE_MANAGER_ROLE, msg.sender);
+        _grantRole(DEFAULT_ADMIN_ROLE, _owner);
+        _grantRole(FEE_MANAGER_ROLE, _owner);
         
-        feeCollector = _feeCollector;
-        krmTokenAddress = _krmTokenAddress;
+        feeCollector = _owner;
+        krmTokenAddress = _krmToken;
+        krmToken = KRMToken(_krmToken);
     }
     
     /**
-     * @dev Crea un nuevo servicio en el marketplace
+     * @dev Configura las direcciones de los contratos relacionados
+     * @param _profileRegistry Dirección del ProfileRegistry
+     * @param _skillSystem Dirección del SkillSystem
+     */
+    function setContractAddresses(address _profileRegistry, address _skillSystem) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(_profileRegistry != address(0), "ProfileRegistry address cannot be zero");
+        require(_skillSystem != address(0), "SkillSystem address cannot be zero");
+        
+        profileRegistry = ProfileRegistry(_profileRegistry);
+        skillSystem = SkillSystem(_skillSystem);
+    }
+    
+    /**
+     * @dev Crea un nuevo servicio (solo profesionales registrados)
      * @param title Título del servicio
-     * @param description Descripción detallada
-     * @param pricePerHour Precio por hora en tokens KRM
-     * @param skillIds IDs de las habilidades relacionadas
+     * @param description Descripción del servicio
+     * @param pricePerHour Precio por hora en KRM
+     * @param skillIds IDs de las habilidades requeridas
      */
     function createService(
         string calldata title,
         string calldata description,
         uint256 pricePerHour,
         uint256[] calldata skillIds
-    ) external whenNotPaused {
+    ) external whenNotPaused onlyRegisteredProfile(msg.sender) onlyProfessional(msg.sender) {
         require(bytes(title).length > 0, "Title cannot be empty");
         require(pricePerHour > 0, "Price must be greater than zero");
+        require(skillIds.length > 0, "At least one skill required");
         
-        uint256 serviceId = _serviceIdCounter.current();
-        _serviceIdCounter.increment();
+        // Si hay SkillSystem configurado, verificar habilidades
+        if (address(skillSystem) != address(0)) {
+            // Verificar que el profesional tiene las habilidades declaradas y validadas
+            for (uint256 i = 0; i < skillIds.length; i++) {
+                SkillSystem.DeclaredSkill memory declaredSkill = skillSystem.getDeclaredSkill(msg.sender, skillIds[i]);
+                require(declaredSkill.isActive, "Skill not declared by professional");
+                require(declaredSkill.isValidated, "Skill not validated");
+            }
+        }
+        
+        uint256 serviceId = _serviceIdCounter++;
         
         services[serviceId] = Service({
             id: serviceId,
@@ -139,14 +195,22 @@ contract P2PMarketplace is AccessControl, Pausable {
         string calldata description,
         uint256 pricePerHour,
         uint256[] calldata skillIds
-    ) external whenNotPaused {
-        Service storage service = services[serviceId];
-        
-        require(service.provider == msg.sender, "Not service provider");
-        require(service.status != ServiceStatus.Deleted, "Service deleted");
+    ) external whenNotPaused serviceExists(serviceId) onlyServiceProvider(serviceId) {
         require(bytes(title).length > 0, "Title cannot be empty");
         require(pricePerHour > 0, "Price must be greater than zero");
+        require(skillIds.length > 0, "At least one skill required");
         
+        // Verificar que el profesional tiene las nuevas habilidades
+        for (uint256 i = 0; i < skillIds.length; i++) {
+            try skillSystem.getDeclaredSkill(msg.sender, skillIds[i]) returns (SkillSystem.DeclaredSkill memory declaredSkill) {
+                require(declaredSkill.isActive, "Skill not declared by professional");
+                require(declaredSkill.isValidated, "Skill not validated");
+            } catch {
+                revert("Skill verification failed");
+            }
+        }
+        
+        Service storage service = services[serviceId];
         service.title = title;
         service.description = description;
         service.pricePerHour = pricePerHour;
@@ -161,12 +225,8 @@ contract P2PMarketplace is AccessControl, Pausable {
      * @param serviceId ID del servicio
      * @param status Nuevo estado
      */
-    function changeServiceStatus(uint256 serviceId, ServiceStatus status) external whenNotPaused {
+    function changeServiceStatus(uint256 serviceId, ServiceStatus status) external whenNotPaused serviceExists(serviceId) onlyServiceProvider(serviceId) {
         Service storage service = services[serviceId];
-        
-        require(service.provider == msg.sender, "Not service provider");
-        require(service.status != ServiceStatus.Deleted || hasRole(ADMIN_ROLE, msg.sender), "Service deleted");
-        
         service.status = status;
         service.updatedAt = block.timestamp;
         
@@ -183,7 +243,7 @@ contract P2PMarketplace is AccessControl, Pausable {
         uint256 serviceId,
         uint256 numHours,
         string calldata details
-    ) external whenNotPaused {
+    ) external whenNotPaused serviceExists(serviceId) onlyVerifiedProfile(msg.sender) {
         Service storage service = services[serviceId];
         
         require(service.status == ServiceStatus.Active, "Service not active");
@@ -192,8 +252,11 @@ contract P2PMarketplace is AccessControl, Pausable {
         
         uint256 totalPrice = service.pricePerHour * numHours;
         
-        uint256 orderId = _orderIdCounter.current();
-        _orderIdCounter.increment();
+        // Verificar que el cliente tenga suficientes tokens
+        require(krmToken.balanceOf(msg.sender) >= totalPrice, "Insufficient KRM balance");
+        require(krmToken.allowance(msg.sender, address(this)) >= totalPrice, "Insufficient allowance");
+        
+        uint256 orderId = _orderIdCounter++;
         
         orders[orderId] = Order({
             id: orderId,
@@ -218,10 +281,8 @@ contract P2PMarketplace is AccessControl, Pausable {
      * @dev Acepta una orden (proveedor del servicio)
      * @param orderId ID de la orden
      */
-    function acceptOrder(uint256 orderId) external whenNotPaused {
+    function acceptOrder(uint256 orderId) external whenNotPaused orderExists(orderId) onlyOrderProvider(orderId) {
         Order storage order = orders[orderId];
-        
-        require(order.provider == msg.sender, "Not service provider");
         require(order.status == OrderStatus.Created, "Order not in created state");
         
         order.status = OrderStatus.Accepted;
@@ -233,29 +294,33 @@ contract P2PMarketplace is AccessControl, Pausable {
      * @dev Completa una orden (cliente)
      * @param orderId ID de la orden
      */
-    function completeOrder(uint256 orderId) external whenNotPaused {
+    function completeOrder(uint256 orderId) external whenNotPaused orderExists(orderId) onlyOrderClient(orderId) {
         Order storage order = orders[orderId];
-        
-        require(order.client == msg.sender, "Not client");
         require(order.status == OrderStatus.Accepted, "Order not accepted");
         
         order.status = OrderStatus.Completed;
         order.completedAt = block.timestamp;
         
-        // Aquí se realizaría la transferencia de tokens KRM
-        // Requiere integración con el contrato KRMToken
+        uint256 amount = order.totalPrice;
+        uint256 fee = (amount * platformFee) / 10000;
+        uint256 providerAmount = amount - fee;
         
-        emit OrderCompleted(orderId);
+        // Transferir tokens KRM al proveedor (monto neto después de comisión)
+        require(krmToken.transferFrom(msg.sender, order.provider, providerAmount), "Provider transfer failed");
+        
+        // Transferir comisión a la plataforma
+        require(krmToken.transferFrom(msg.sender, feeCollector, fee), "Fee transfer failed");
+        
+        emit OrderCompleted(orderId, amount, fee);
     }
     
     /**
      * @dev Cancela una orden
      * @param orderId ID de la orden
      */
-    function cancelOrder(uint256 orderId) external whenNotPaused {
+    function cancelOrder(uint256 orderId) external whenNotPaused orderExists(orderId) {
         Order storage order = orders[orderId];
-        
-        require(order.client == msg.sender || order.provider == msg.sender, "Not authorized");
+        require(msg.sender == order.client || msg.sender == order.provider, "Not authorized");
         require(order.status == OrderStatus.Created || order.status == OrderStatus.Accepted, "Cannot cancel");
         
         order.status = OrderStatus.Cancelled;
@@ -267,10 +332,9 @@ contract P2PMarketplace is AccessControl, Pausable {
      * @dev Disputa una orden
      * @param orderId ID de la orden
      */
-    function disputeOrder(uint256 orderId) external whenNotPaused {
+    function disputeOrder(uint256 orderId) external whenNotPaused orderExists(orderId) {
         Order storage order = orders[orderId];
-        
-        require(order.client == msg.sender || order.provider == msg.sender, "Not authorized");
+        require(msg.sender == order.client || msg.sender == order.provider, "Not authorized");
         require(order.status != OrderStatus.Cancelled && order.status != OrderStatus.Disputed, "Cannot dispute");
         
         order.status = OrderStatus.Disputed;
@@ -293,7 +357,7 @@ contract P2PMarketplace is AccessControl, Pausable {
      * @dev Actualiza la dirección que recibe las comisiones (solo admin)
      * @param newFeeCollector Nueva dirección
      */
-    function updateFeeCollector(address newFeeCollector) external onlyRole(ADMIN_ROLE) {
+    function updateFeeCollector(address newFeeCollector) external onlyRole(DEFAULT_ADMIN_ROLE) {
         require(newFeeCollector != address(0), "Fee collector cannot be zero address");
         feeCollector = newFeeCollector;
     }
@@ -325,14 +389,14 @@ contract P2PMarketplace is AccessControl, Pausable {
     /**
      * @dev Pausa el contrato (solo admin)
      */
-    function pause() external onlyRole(ADMIN_ROLE) {
+    function pause() external onlyRole(DEFAULT_ADMIN_ROLE) {
         _pause();
     }
     
     /**
      * @dev Reanuda el contrato (solo admin)
      */
-    function unpause() external onlyRole(ADMIN_ROLE) {
+    function unpause() external onlyRole(DEFAULT_ADMIN_ROLE) {
         _unpause();
     }
 }

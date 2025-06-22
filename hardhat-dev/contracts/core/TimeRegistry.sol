@@ -1,176 +1,211 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.28;
+pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
-import "@openzeppelin/contracts/utils/Counters.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "./ProfileRegistry.sol";
+import "./SkillSystem.sol";
 
 /**
  * @title TimeRegistry
- * @dev Implementa el sistema de registro horario laboral con validación bidireccional
+ * @dev Sistema de registro de tiempo con validación de habilidades y perfiles
  */
-contract TimeRegistry is AccessControl, Pausable {
-    using Counters for Counters.Counter;
-    
-    // Contadores
-    Counters.Counter private _recordIdCounter;
-    
-    // Roles
-    bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
+contract TimeRegistry is AccessControl, Pausable, ReentrancyGuard {
     bytes32 public constant KARMA_ROLE = keccak256("KARMA_ROLE");
     
-    // Enums
-    enum RecordStatus { Pending, Validated, Disputed, Rejected }
+    ProfileRegistry public profileRegistry;
+    SkillSystem public skillSystem;
     
-    // Estructuras
     struct TimeRecord {
         uint256 id;
-        address employee;
+        address professional;
         address company;
+        uint256 skillId;
         uint256 startTime;
         uint256 endTime;
+        uint256 totalHours;
         string description;
-        uint256[] skillIds;
         RecordStatus status;
-        uint256 createdAt;
+        address validatedBy;
         uint256 validatedAt;
+        uint256 disputedAt;
+        address disputedBy;
+        uint256 createdAt;
+        uint256 updatedAt;
     }
     
-    // Mappings
+    enum RecordStatus { Pending, Validated, Disputed }
+    
     mapping(uint256 => TimeRecord) public timeRecords;
-    mapping(address => uint256[]) public employeeRecords;
-    mapping(address => uint256[]) public companyRecords;
+    mapping(address => uint256[]) public professionalRecords; // professional => recordIds[]
+    mapping(address => uint256[]) public companyRecords; // company => recordIds[]
+    mapping(uint256 => uint256[]) public skillRecords; // skillId => recordIds[]
     
-    // Eventos
-    event TimeRecordCreated(uint256 indexed recordId, address indexed employee, address indexed company);
-    event TimeRecordValidated(uint256 indexed recordId, address indexed validator);
-    event TimeRecordDisputed(uint256 indexed recordId, address indexed disputer);
-    event TimeRecordRejected(uint256 indexed recordId, address indexed rejector);
+    uint256 private _recordIdCounter;
     
-    /**
-     * @dev Constructor
-     */
-    constructor() {
+    event TimeRecorded(uint256 indexed recordId, address indexed professional, address indexed company, uint256 skillId);
+    event TimeValidated(uint256 indexed recordId, address indexed validator);
+    event TimeDisputed(uint256 indexed recordId, address indexed disputer);
+    event KarmaUpdated(address indexed professional, uint256 newKarma);
+    
+    modifier onlyRegisteredProfessional(address professional) {
+        require(profileRegistry.hasRegisteredProfile(professional), "Professional profile not registered");
+        require(profileRegistry.getProfile(professional).profileType == ProfileRegistry.ProfileType.Professional, "Only professionals can record time");
+        _;
+    }
+    
+    modifier onlyRegisteredCompany(address company) {
+        require(profileRegistry.hasRegisteredProfile(company), "Company profile not registered");
+        require(profileRegistry.getProfile(company).profileType == ProfileRegistry.ProfileType.Company, "Only companies can validate time");
+        _;
+    }
+    
+    modifier onlyRecordOwner(uint256 recordId) {
+        require(timeRecords[recordId].professional == msg.sender, "Not record owner");
+        _;
+    }
+    
+    modifier onlyRecordCompany(uint256 recordId) {
+        require(timeRecords[recordId].company == msg.sender, "Not record company");
+        _;
+    }
+    
+    modifier recordExists(uint256 recordId) {
+        require(timeRecords[recordId].professional != address(0), "Record does not exist");
+        _;
+    }
+    
+    modifier skillExists(uint256 skillId) {
+        // Verificar que la habilidad existe en SkillSystem
+        try skillSystem.getSkillCount() returns (uint256 skillCount) {
+            require(skillId < skillCount, "Skill does not exist");
+        } catch {
+            revert("Skill system not available");
+        }
+        _;
+    }
+    
+    constructor(address _profileRegistry, address _skillSystem) {
+        require(_profileRegistry != address(0), "ProfileRegistry address cannot be zero");
+        require(_skillSystem != address(0), "SkillSystem address cannot be zero");
+        
+        profileRegistry = ProfileRegistry(_profileRegistry);
+        skillSystem = SkillSystem(_skillSystem);
+        
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(KARMA_ROLE, msg.sender);
     }
     
     /**
-     * @dev Registra un nuevo registro horario
+     * @dev Registra tiempo trabajado (solo profesionales verificados)
      * @param company Dirección de la empresa
+     * @param skillId ID de la habilidad utilizada
      * @param startTime Timestamp de inicio
      * @param endTime Timestamp de fin
-     * @param description Descripción de las actividades
-     * @param skillIds IDs de las habilidades utilizadas
+     * @param description Descripción del trabajo realizado
      */
-    function registerTime(
+    function recordTime(
         address company,
+        uint256 skillId,
         uint256 startTime,
         uint256 endTime,
-        string calldata description,
-        uint256[] calldata skillIds
-    ) external whenNotPaused {
-        require(startTime < endTime, "Invalid time range");
-        require(startTime > 0, "Invalid start time");
+        string calldata description
+    ) external whenNotPaused onlyRegisteredProfessional(msg.sender) skillExists(skillId) {
+        require(company != address(0), "Company address cannot be zero");
+        require(company != msg.sender, "Cannot record time for self");
+        require(startTime > 0, "Start time cannot be zero");
+        require(endTime > startTime, "End time must be after start time");
+        require(endTime <= block.timestamp, "End time cannot be in the future");
+        require(bytes(description).length > 0, "Description cannot be empty");
         
-        uint256 recordId = _recordIdCounter.current();
-        _recordIdCounter.increment();
+        // Verificar que el profesional tiene la habilidad declarada
+        try skillSystem.getDeclaredSkill(msg.sender, skillId) returns (SkillSystem.DeclaredSkill memory declaredSkill) {
+            require(declaredSkill.isActive, "Skill not declared by professional");
+            require(declaredSkill.isValidated, "Skill not validated");
+        } catch {
+            revert("Skill verification failed");
+        }
+        
+        uint256 totalHours = (endTime - startTime) / 3600; // Convertir a horas
+        require(totalHours > 0, "Time period too short");
+        
+        uint256 recordId = _recordIdCounter++;
         
         timeRecords[recordId] = TimeRecord({
             id: recordId,
-            employee: msg.sender,
+            professional: msg.sender,
             company: company,
+            skillId: skillId,
             startTime: startTime,
             endTime: endTime,
+            totalHours: totalHours,
             description: description,
-            skillIds: skillIds,
             status: RecordStatus.Pending,
+            validatedBy: address(0),
+            validatedAt: 0,
+            disputedAt: 0,
+            disputedBy: address(0),
             createdAt: block.timestamp,
-            validatedAt: 0
+            updatedAt: block.timestamp
         });
         
-        employeeRecords[msg.sender].push(recordId);
+        professionalRecords[msg.sender].push(recordId);
         companyRecords[company].push(recordId);
+        skillRecords[skillId].push(recordId);
         
-        emit TimeRecordCreated(recordId, msg.sender, company);
+        emit TimeRecorded(recordId, msg.sender, company, skillId);
     }
     
     /**
-     * @dev Valida un registro horario (solo la empresa)
-     * @param recordId ID del registro horario
+     * @dev Valida un registro de tiempo (solo empresas verificadas)
+     * @param recordId ID del registro
      */
-    function validateTimeRecord(uint256 recordId) external whenNotPaused {
+    function validateTimeRecord(uint256 recordId) external whenNotPaused recordExists(recordId) onlyRecordCompany(recordId) onlyRegisteredCompany(msg.sender) {
         TimeRecord storage record = timeRecords[recordId];
-        
-        require(record.company == msg.sender, "Not authorized");
-        require(record.status == RecordStatus.Pending, "Not pending");
+        require(record.status == RecordStatus.Pending, "Record not in pending status");
         
         record.status = RecordStatus.Validated;
+        record.validatedBy = msg.sender;
         record.validatedAt = block.timestamp;
+        record.updatedAt = block.timestamp;
         
-        emit TimeRecordValidated(recordId, msg.sender);
+        // Incrementar karma del profesional basado en las horas trabajadas
+        uint256 currentKarma = profileRegistry.getProfile(record.professional).karma;
+        uint256 newKarma = currentKarma + (record.totalHours * 5); // +5 karma por hora
+        profileRegistry.updateKarma(record.professional, newKarma);
+        
+        emit TimeValidated(recordId, msg.sender);
+        emit KarmaUpdated(record.professional, newKarma);
     }
     
     /**
-     * @dev Disputa un registro horario
-     * @param recordId ID del registro horario
+     * @dev Disputa un registro de tiempo
+     * @param recordId ID del registro
      */
-    function disputeTimeRecord(uint256 recordId) external whenNotPaused {
+    function disputeTimeRecord(uint256 recordId) external whenNotPaused recordExists(recordId) {
         TimeRecord storage record = timeRecords[recordId];
-        
-        require(record.employee == msg.sender || record.company == msg.sender, "Not authorized");
-        require(record.status == RecordStatus.Pending || record.status == RecordStatus.Validated, "Cannot dispute");
+        require(record.status == RecordStatus.Pending || record.status == RecordStatus.Validated, "Cannot dispute this record");
+        require(msg.sender == record.professional || msg.sender == record.company, "Not authorized to dispute");
         
         record.status = RecordStatus.Disputed;
+        record.disputedBy = msg.sender;
+        record.disputedAt = block.timestamp;
+        record.updatedAt = block.timestamp;
         
-        emit TimeRecordDisputed(recordId, msg.sender);
+        emit TimeDisputed(recordId, msg.sender);
     }
     
     /**
-     * @dev Rechaza un registro horario
-     * @param recordId ID del registro horario
+     * @dev Obtiene los registros de tiempo de un profesional
+     * @param professional Dirección del profesional
      */
-    function rejectTimeRecord(uint256 recordId) external whenNotPaused {
-        TimeRecord storage record = timeRecords[recordId];
-        
-        require(record.company == msg.sender, "Not authorized");
-        require(record.status == RecordStatus.Pending || record.status == RecordStatus.Disputed, "Cannot reject");
-        
-        record.status = RecordStatus.Rejected;
-        
-        emit TimeRecordRejected(recordId, msg.sender);
+    function getProfessionalRecords(address professional) public view returns (uint256[] memory) {
+        return professionalRecords[professional];
     }
     
     /**
-     * @dev Resuelve una disputa (solo admin)
-     * @param recordId ID del registro horario
-     * @param validated Si el registro es validado o rechazado
-     */
-    function resolveDispute(uint256 recordId, bool validated) external onlyRole(ADMIN_ROLE) {
-        TimeRecord storage record = timeRecords[recordId];
-        
-        require(record.status == RecordStatus.Disputed, "Not disputed");
-        
-        record.status = validated ? RecordStatus.Validated : RecordStatus.Rejected;
-        
-        if (validated) {
-            record.validatedAt = block.timestamp;
-            emit TimeRecordValidated(recordId, msg.sender);
-        } else {
-            emit TimeRecordRejected(recordId, msg.sender);
-        }
-    }
-    
-    /**
-     * @dev Obtiene los registros horarios de un empleado
-     * @param employee Dirección del empleado
-     */
-    function getEmployeeRecords(address employee) external view returns (uint256[] memory) {
-        return employeeRecords[employee];
-    }
-    
-    /**
-     * @dev Obtiene los registros horarios de una empresa
+     * @dev Obtiene los registros de tiempo de una empresa
      * @param company Dirección de la empresa
      */
     function getCompanyRecords(address company) external view returns (uint256[] memory) {
@@ -178,16 +213,69 @@ contract TimeRegistry is AccessControl, Pausable {
     }
     
     /**
+     * @dev Obtiene los registros de tiempo para una habilidad específica
+     * @param skillId ID de la habilidad
+     */
+    function getSkillRecords(uint256 skillId) external view returns (uint256[] memory) {
+        return skillRecords[skillId];
+    }
+    
+    /**
+     * @dev Obtiene información detallada de un registro
+     * @param recordId ID del registro
+     */
+    function getTimeRecord(uint256 recordId) external view returns (TimeRecord memory) {
+        return timeRecords[recordId];
+    }
+    
+    /**
+     * @dev Obtiene información de múltiples registros
+     * @param recordIds Array de IDs de registros
+     */
+    function getMultipleTimeRecords(uint256[] calldata recordIds) external view returns (TimeRecord[] memory) {
+        TimeRecord[] memory result = new TimeRecord[](recordIds.length);
+        
+        for (uint256 i = 0; i < recordIds.length; i++) {
+            result[i] = timeRecords[recordIds[i]];
+        }
+        
+        return result;
+    }
+    
+    /**
+     * @dev Obtiene el número total de registros
+     */
+    function getRecordCount() external view returns (uint256) {
+        return _recordIdCounter;
+    }
+    
+    /**
+     * @dev Obtiene el número de registros de un profesional
+     * @param professional Dirección del profesional
+     */
+    function getProfessionalRecordCount(address professional) external view returns (uint256) {
+        return professionalRecords[professional].length;
+    }
+    
+    /**
+     * @dev Obtiene el número de registros de una empresa
+     * @param company Dirección de la empresa
+     */
+    function getCompanyRecordCount(address company) external view returns (uint256) {
+        return companyRecords[company].length;
+    }
+    
+    /**
      * @dev Pausa el contrato (solo admin)
      */
-    function pause() external onlyRole(ADMIN_ROLE) {
+    function pause() external onlyRole(DEFAULT_ADMIN_ROLE) {
         _pause();
     }
     
     /**
      * @dev Reanuda el contrato (solo admin)
      */
-    function unpause() external onlyRole(ADMIN_ROLE) {
+    function unpause() external onlyRole(DEFAULT_ADMIN_ROLE) {
         _unpause();
     }
 }

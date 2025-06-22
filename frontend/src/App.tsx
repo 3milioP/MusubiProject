@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import './App.css';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
-import { Box, Drawer, List, ListItem, ListItemIcon, ListItemText, Toolbar, Fab } from '@mui/material';
+import { Box, Drawer, List, ListItem, ListItemIcon, ListItemText, Toolbar, Fab, Button, Typography } from '@mui/material';
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import PersonIcon from '@mui/icons-material/Person';
 import WorkIcon from '@mui/icons-material/Work';
@@ -10,6 +10,7 @@ import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import StoreIcon from '@mui/icons-material/Store';
 import SettingsIcon from '@mui/icons-material/Settings';
 import HelpIcon from '@mui/icons-material/Help';
+import BugReportIcon from '@mui/icons-material/BugReport';
 
 // Importar contextos y componentes
 import { Web3Provider } from './contexts/Web3Context';
@@ -21,8 +22,10 @@ import Dashboard from './pages/Dashboard';
 import Profile from './pages/Profile';
 import Skills from './pages/Skills';
 import TimeRegistry from './pages/TimeRegistry';
-import MarketplaceSimple from './pages/MarketplaceSimple';
+import Marketplace from './pages/Marketplace';
 import Settings from './pages/Settings';
+import Debug from './pages/Debug';
+import './App.css';
 
 const theme = createTheme({
   palette: {
@@ -44,6 +47,7 @@ const menuItems = [
   { text: 'Registro de Tiempo', icon: <AccessTimeIcon />, component: 'timeregistry' },
   { text: 'Marketplace', icon: <StoreIcon />, component: 'marketplace' },
   { text: 'Configuración', icon: <SettingsIcon />, component: 'settings' },
+  { text: 'Debug Blockchain', icon: <BugReportIcon />, component: 'debug' },
 ];
 
 // Componente principal de la aplicación
@@ -55,6 +59,7 @@ const AppContent = () => {
   const { 
     showOnboarding, 
     hasCompletedOnboarding, 
+    hasRegisteredProfile,
     completeOnboarding, 
     showOnboardingFlow 
   } = useOnboarding();
@@ -88,9 +93,11 @@ const AppContent = () => {
       case 'timeregistry':
         return <TimeRegistry />;
       case 'marketplace':
-        return <MarketplaceSimple />;
+        return <Marketplace />;
       case 'settings':
         return <Settings />;
+      case 'debug':
+        return <Debug />;
       default:
         return <Dashboard />;
     }
@@ -99,6 +106,51 @@ const AppContent = () => {
   // Mostrar onboarding si es necesario
   if (showOnboarding || (!isConnected && !hasCompletedOnboarding)) {
     return <OnboardingFlow onComplete={handleOnboardingComplete} />;
+  }
+
+  // Si está conectado pero no ha registrado perfil, sugerir ir a perfil
+  if (isConnected && !hasRegisteredProfile) {
+    return (
+      <Box sx={{ 
+        minHeight: '100vh', 
+        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        display: 'flex',
+        alignItems: 'center',
+        py: 4
+      }}>
+        <Box sx={{ maxWidth: 600, mx: 'auto', px: 3 }}>
+          <Box sx={{ 
+            bgcolor: 'white', 
+            p: 4, 
+            borderRadius: 3, 
+            textAlign: 'center',
+            boxShadow: 3
+          }}>
+            <Typography variant="h4" component="h1" gutterBottom color="primary">
+              ¡Bienvenido a Musubi!
+            </Typography>
+            <Typography variant="body1" color="textSecondary" sx={{ mb: 3 }}>
+              Tu wallet está conectada. Para comenzar a usar Musubi, necesitas registrar tu perfil.
+            </Typography>
+            <Button
+              variant="contained"
+              size="large"
+              onClick={() => setActiveComponent('profile')}
+              sx={{ mr: 2 }}
+            >
+              Registrar Perfil
+            </Button>
+            <Button
+              variant="outlined"
+              size="large"
+              onClick={handleShowTutorial}
+            >
+              Ver Tutorial
+            </Button>
+          </Box>
+        </Box>
+      </Box>
+    );
   }
 
   const drawer = (
@@ -177,13 +229,16 @@ const AppContent = () => {
             xs: '100%',
             sm: mobileOpen ? `calc(100% - ${drawerWidth}px)` : '100%'
           },
-          minHeight: '100vh',
+          height: '100vh',
+          overflow: 'auto',
           backgroundColor: '#f5f5f5',
           transition: 'width 0.3s ease-in-out'
         }}
       >
         <Toolbar />
-        {renderComponent()}
+        <Box sx={{ pb: 4 }}>
+          {renderComponent()}
+        </Box>
       </Box>
 
       {/* Botón flotante para mostrar tutorial */}

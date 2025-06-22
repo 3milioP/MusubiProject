@@ -1,0 +1,14 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+Para comprobar los cambios realizados, siempre se desplegará el proyecto desde start-musubi, opción 1.
+
+Los tests del despliegue deben estar todos OK.
+
+Quiero estar informado en tiempo real de lo que vas haciendo.
+
+Al final, debe desplegarse correctamente: Contratos, frontend, API's (según la red elegida)
+
+Cuando se despliega con musubi-start, se debe seguir trabajando en otra terminal para que el proyecto siga corriendo.

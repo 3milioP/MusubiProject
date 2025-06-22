@@ -1,22 +1,169 @@
-# Ignorar dependencias
+# =============================================================================
+# MUSUBI - Archivos ignorados por Git
+# =============================================================================
+
+# =============================================================================
+# DEPENDENCIAS
+# =============================================================================
+# Node.js dependencies
 frontend/node_modules/
 hardhat-dev/node_modules/
+node_modules/
 
-# Ignorar compilaciones
+# Python dependencies
+musubi-api/__pycache__/
+musubi-api/src/__pycache__/
+musubi-api/.venv/
+musubi-api/venv/
+musubi-api/env/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# =============================================================================
+# ARCHIVOS DE COMPILACIÓN
+# =============================================================================
+# Build outputs
 dist/
 build/
-artifacts/
-cache/
-hardhat-dev/package-lock.json
+out/
+.next/
+.nuxt/
 
-# Ignorar archivos de entorno
+# Hardhat artifacts
+hardhat-dev/artifacts/
+hardhat-dev/cache/
+hardhat-dev/typechain/
+hardhat-dev/typechain-types/
+hardhat-dev/coverage/
+hardhat-dev/coverage.json
+
+# Frontend build
+frontend/dist/
+frontend/build/
+frontend/.vite/
+
+# =============================================================================
+# ARCHIVOS DE CONFIGURACIÓN Y LOCK
+# =============================================================================
+# Package lock files (mantener para dependencias exactas)
+# hardhat-dev/package-lock.json
+# frontend/package-lock.json
+
+# Environment files
 .env
 .env.local
+.env.development
+.env.test
+.env.production
+.env.*.local
 
-# Ignorar sistema operativo
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# =============================================================================
+# ARCHIVOS DE SISTEMA
+# =============================================================================
+# macOS
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
 
-# Ignorar logs
+# Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# =============================================================================
+# ARCHIVOS DE LOGS
+# =============================================================================
+# Logs
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+lerna-debug.log*
+pnpm-debug.log*
+
+# Runtime logs
+hardhat-dev/hardhat-node.log
+frontend/frontend.log
+musubi-api/api.log
+*.log.*
+
+# =============================================================================
+# ARCHIVOS TEMPORALES
+# =============================================================================
+# Temporary files
+*.tmp
+*.temp
+.tmp/
+.temp/
+
+# Cache directories
+.cache/
+.parcel-cache/
+.eslintcache
+.stylelintcache
+
+# =============================================================================
+# ARCHIVOS DE DESPLIEGUE
+# =============================================================================
+# Hardhat Ignition deployments
+hardhat-dev/ignition/deployments/
+hardhat-dev/deployments/
+
+# Contract verification
+hardhat-dev/contracts-verified/
+
+# =============================================================================
+# ARCHIVOS DE TESTING
+# =============================================================================
+# Test coverage
+coverage/
+.nyc_output/
+*.lcov
+
+# Test artifacts
+test-results/
+playwright-report/
+test-results.xml
+
+# =============================================================================
+# ARCHIVOS DE DESARROLLO
+# =============================================================================
+# Local development files
+.local/
+dev/
+development/
+
+# Backup files
+*.bak
+*.backup
+*.old
+
+# =============================================================================
+# ARCHIVOS ESPECÍFICOS DEL PROYECTO
+# =============================================================================
+# Generated ABIs (se regeneran en compilación)
+hardhat-dev/abis.json
+
+# Local configuration overrides
+config.local.js
+config.local.json

@@ -17,6 +17,10 @@ export interface Profile {
   location?: string;
   website?: string;
   skills?: string[];
+  // Nuevos campos del contrato
+  karma?: number;
+  isVerified?: boolean;
+  disclaimerAccepted?: boolean;
 }
 
 export interface Skill {
@@ -31,12 +35,15 @@ export interface Skill {
 
 export interface DeclaredSkill {
   id: number;
-  user: string;
   skillId: number;
-  declaredLevel: number; // 0: Beginner, 1: Intermediate, 2: Advanced
+  skillName: string;
+  skillCategory: string;
+  declaredLevel: number; // 0: Beginner, 1: Intermediate, 2: Advanced, 3: Expert
+  karma: number;
   isValidated: boolean;
   validatedBy: string;
-  skill?: Skill;
+  validatedAt: number;
+  declaredAt: number;
 }
 
 export interface TimeRecord {
@@ -59,6 +66,8 @@ export interface Service {
   pricePerHour: number;
   category: string;
   isActive: boolean;
+  skillIds: number[];
+  status: number;
   createdAt: number;
 }
 
@@ -79,6 +88,7 @@ export interface ContractAddresses {
   SkillSystem: string;
   TimeRegistry: string;
   P2PMarketplace: string;
+  ProfileNFT: string;
 }
 
 export interface TransactionState {

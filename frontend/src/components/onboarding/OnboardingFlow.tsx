@@ -3,8 +3,9 @@ import WelcomeScreen from './WelcomeScreen';
 import MetaMaskTutorial from '../tutorial/MetaMaskTutorial';
 import MusubiTutorial from '../tutorial/MusubiTutorial';
 import MusubiIntroTutorial from '../tutorial/MusubiIntroTutorial';
+import ProfileRegistration from './ProfileRegistration';
 
-export type OnboardingStep = 'welcome' | 'intro' | 'metamask' | 'musubi' | 'complete';
+export type OnboardingStep = 'welcome' | 'intro' | 'metamask' | 'musubi' | 'profile' | 'complete';
 
 interface OnboardingFlowProps {
   onComplete: () => void;
@@ -18,8 +19,7 @@ const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete }) => {
   };
 
   const handleWelcomeSkip = () => {
-    setCurrentStep('complete');
-    onComplete();
+    setCurrentStep('profile');
   };
 
   const handleIntroComplete = () => {
@@ -31,11 +31,19 @@ const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete }) => {
   };
 
   const handleMetaMaskSkip = () => {
+    setCurrentStep('profile');
+  };
+
+  const handleMusubiComplete = () => {
+    setCurrentStep('profile');
+  };
+
+  const handleProfileComplete = () => {
     setCurrentStep('complete');
     onComplete();
   };
 
-  const handleMusubiComplete = () => {
+  const handleProfileSkip = () => {
     setCurrentStep('complete');
     onComplete();
   };
@@ -66,6 +74,13 @@ const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete }) => {
         return (
           <MusubiTutorial
             onComplete={handleMusubiComplete}
+          />
+        );
+      case 'profile':
+        return (
+          <ProfileRegistration
+            onComplete={handleProfileComplete}
+            onSkip={handleProfileSkip}
           />
         );
       default:

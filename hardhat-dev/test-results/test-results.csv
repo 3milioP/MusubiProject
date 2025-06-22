@@ -1,6 +1,0 @@
-status,test_name,duration
-PASS,KRMToken.test,4
-FAIL,P2PMarketplace.test,42
-FAIL,ProfileNFT.test,41
-FAIL,ProfileRegistry.test,41
-FAIL,SkillSystem.test,41

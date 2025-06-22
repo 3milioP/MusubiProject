@@ -2,7 +2,7 @@
 API endpoints para el marketplace P2P
 """
 from flask import Blueprint, jsonify, request
-from src.config.contracts import get_contract_instance, get_web3_instance
+from config.contracts import get_contract_instance, get_web3_instance
 from web3 import Web3
 
 marketplace_bp = Blueprint('marketplace', __name__)

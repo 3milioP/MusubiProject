@@ -2,7 +2,7 @@
 API endpoints para el registro de tiempo
 """
 from flask import Blueprint, jsonify, request
-from src.config.contracts import get_contract_instance, get_web3_instance
+from config.contracts import get_contract_instance, get_web3_instance
 from web3 import Web3
 
 timeregistry_bp = Blueprint('timeregistry', __name__)

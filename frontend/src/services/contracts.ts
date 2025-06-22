@@ -1,6 +1,7 @@
 // Servicios para interactuar con los contratos inteligentes
 import { ethers } from 'ethers';
 import { CONTRACT_ADDRESSES } from '../config';
+import { CONTRACT_ABIS } from './abis';
 import { 
   Profile, 
   Skill, 
@@ -10,66 +11,6 @@ import {
   Order 
 } from '../types';
 
-// ABIs simplificados de los contratos (solo funciones necesarias)
-const KRM_TOKEN_ABI = [
-  'function name() view returns (string)',
-  'function symbol() view returns (string)',
-  'function decimals() view returns (uint8)',
-  'function totalSupply() view returns (uint256)',
-  'function balanceOf(address) view returns (uint256)',
-  'function transfer(address to, uint256 amount) returns (bool)',
-  'function approve(address spender, uint256 amount) returns (bool)',
-  'function allowance(address owner, address spender) view returns (uint256)'
-];
-
-const PROFILE_REGISTRY_ABI = [
-  'function profiles(address) view returns (bool isCompany, bool isActive, string metadataURI)',
-  'function registerProfile(bool isCompany, string metadataURI)',
-  'function updateProfile(string metadataURI)',
-  'function deactivateProfile()',
-  'function hasRole(bytes32 role, address account) view returns (bool)',
-  'function DEFAULT_ADMIN_ROLE() view returns (bytes32)'
-];
-
-const SKILL_SYSTEM_ABI = [
-  'function skillsCount() view returns (uint256)',
-  'function skills(uint256) view returns (string name, string category, bool isActive)',
-  'function declaredSkillsCount() view returns (uint256)',
-  'function declaredSkills(uint256) view returns (address user, uint256 skillId, uint8 declaredLevel, bool isValidated, address validatedBy)',
-  'function createSkill(string name, string category)',
-  'function declareSkill(uint256 skillId, uint8 level)',
-  'function validateSkill(uint256 declaredSkillId)',
-  'function getUserDeclaredSkills(address user) view returns (uint256[])',
-  'function hasRole(bytes32 role, address account) view returns (bool)',
-  'function ADMIN_ROLE() view returns (bytes32)'
-];
-
-const TIME_REGISTRY_ABI = [
-  'function timeRecordsCount() view returns (uint256)',
-  'function timeRecords(uint256) view returns (address employee, address company, uint256 startTime, uint256 endTime, string description, uint8 status, uint256 validatedAt)',
-  'function registerTime(address company, uint256 startTime, uint256 endTime, string description, uint256[] skillIds)',
-  'function validateTimeRecord(uint256 recordId)',
-  'function rejectTimeRecord(uint256 recordId)',
-  'function getUserTimeRecords(address user) view returns (uint256[])',
-  'function getCompanyTimeRecords(address company) view returns (uint256[])'
-];
-
-const P2P_MARKETPLACE_ABI = [
-  'function serviceCounter() view returns (uint256)',
-  'function orderCounter() view returns (uint256)',
-  'function services(uint256) view returns (address provider, string title, string description, uint256 pricePerHour, bool isActive)',
-  'function orders(uint256) view returns (uint256 serviceId, address client, address provider, uint256 hours, uint256 totalPrice, string description, uint8 status, uint256 createdAt, uint256 completedAt)',
-  'function createService(string title, string description, uint256 pricePerHour, uint256[] skillIds)',
-  'function createOrder(uint256 serviceId, uint256 hours, string description)',
-  'function acceptOrder(uint256 orderId)',
-  'function completeOrder(uint256 orderId)',
-  'function cancelOrder(uint256 orderId)',
-  'function getProviderServices(address provider) view returns (uint256[])',
-  'function getClientOrders(address client) view returns (uint256[])',
-  'function platformFee() view returns (uint256)',
-  'function krmTokenAddress() view returns (address)'
-];
-
 // Clase de servicio para KRM Token
 export class KRMTokenService {
   private contract: ethers.Contract;
@@ -77,7 +18,7 @@ export class KRMTokenService {
   constructor(provider: any, signer?: any) {
     this.contract = new ethers.Contract(
       CONTRACT_ADDRESSES.KRMToken,
-      KRM_TOKEN_ABI,
+      CONTRACT_ABIS.KRMToken,
       signer || provider
     );
   }
@@ -115,31 +56,48 @@ export class ProfileRegistryService {
   constructor(provider: any, signer?: any) {
     this.contract = new ethers.Contract(
       CONTRACT_ADDRESSES.ProfileRegistry,
-      PROFILE_REGISTRY_ABI,
+      CONTRACT_ABIS.ProfileRegistry,
       signer || provider
     );
   }
 
   async getProfile(address: string): Promise<Profile | null> {
     try {
-      const profile = await this.contract.profiles(address);
-      if (!profile.isActive && !profile.isCompany && !profile.metadataURI) {
+      const profile = await this.contract.getProfile(address);
+      
+      // Verificar si el perfil existe
+      if (profile.wallet_addr === '0x0000000000000000000000000000000000000000') {
         return null;
       }
       
       return {
-        address,
-        isCompany: profile.isCompany,
-        isActive: profile.isActive,
-        metadataURI: profile.metadataURI
+        address: address,
+        isCompany: profile.profileType === 1, // 0 = Professional, 1 = Company
+        isActive: profile.isVerified,
+        metadataURI: profile.metadataURI,
+        name: profile.name,
+        bio: profile.description,
+        location: 'No especificada',
+        website: '',
+        skills: [],
+        karma: Number(profile.karma),
+        isVerified: profile.isVerified,
+        disclaimerAccepted: profile.disclaimerAccepted
       };
     } catch (error) {
+      console.error('Error getting profile:', error);
       return null;
     }
   }
 
-  async registerProfile(isCompany: boolean, metadataURI: string): Promise<any> {
-    const tx = await this.contract.registerProfile(isCompany, metadataURI);
+  async registerProfile(
+    name: string, 
+    description: string, 
+    metadataURI: string, 
+    profileType: number, 
+    acceptDisclaimer: boolean
+  ): Promise<any> {
+    const tx = await this.contract.registerProfile(name, description, metadataURI, profileType, acceptDisclaimer);
     return tx;
   }
 
@@ -149,8 +107,8 @@ export class ProfileRegistryService {
   }
 
   async deactivateProfile(): Promise<any> {
-    const tx = await this.contract.deactivateProfile();
-    return tx;
+    // Esta función no existe en el contrato actual, pero podríamos implementarla
+    throw new Error('Function not implemented');
   }
 }
 
@@ -161,14 +119,23 @@ export class SkillSystemService {
   constructor(provider: any, signer?: any) {
     this.contract = new ethers.Contract(
       CONTRACT_ADDRESSES.SkillSystem,
-      SKILL_SYSTEM_ABI,
+      CONTRACT_ABIS.SkillSystem,
       signer || provider
     );
   }
 
   async getSkillsCount(): Promise<number> {
-    const count = await this.contract.skillsCount();
-    return Number(count);
+    // Como no hay un contador público, intentamos obtener habilidades hasta que falle
+    let count = 0;
+    try {
+      while (true) {
+        await this.contract.skills(count);
+        count++;
+      }
+    } catch (error) {
+      // Cuando falla, hemos encontrado el final
+      return count;
+    }
   }
 
   async getSkill(skillId: number): Promise<Skill> {
@@ -177,18 +144,23 @@ export class SkillSystemService {
       id: skillId,
       name: skill.name,
       category: skill.category,
-      isActive: skill.isActive
+      isValidated: true, // Por defecto asumimos que está validada
+      validatedBy: '',
+      validatedAt: 0,
+      declaredAt: 0
     };
   }
 
   async getAllSkills(): Promise<Skill[]> {
-    const count = await this.getSkillsCount();
     const skills: Skill[] = [];
+    const count = await this.getSkillsCount();
     
     for (let i = 0; i < count; i++) {
       try {
         const skill = await this.getSkill(i);
-        skills.push(skill);
+        if (skill.name) {
+          skills.push(skill);
+        }
       } catch (error) {
         console.error(`Error getting skill ${i}:`, error);
       }
@@ -199,25 +171,30 @@ export class SkillSystemService {
 
   async getUserDeclaredSkills(userAddress: string): Promise<DeclaredSkill[]> {
     try {
-      const skillIds = await this.contract.getUserDeclaredSkills(userAddress);
       const declaredSkills: DeclaredSkill[] = [];
       
-      for (const skillId of skillIds) {
+      // Usar la nueva función del contrato
+      const skillIds = await this.contract.getProfessionalSkills(userAddress);
+      
+      for (let i = 0; i < skillIds.length; i++) {
         try {
-          const declaredSkill = await this.contract.declaredSkills(Number(skillId));
-          const skill = await this.getSkill(declaredSkill.skillId);
+          const declaredSkill = await this.contract.getDeclaredSkill(userAddress, skillIds[i]);
+          const skill = await this.contract.skills(skillIds[i]);
           
           declaredSkills.push({
-            id: Number(skillId),
-            user: declaredSkill.user,
-            skillId: Number(declaredSkill.skillId),
-            declaredLevel: declaredSkill.declaredLevel,
+            id: Number(skillIds[i]),
+            skillId: Number(skillIds[i]),
+            skillName: skill.name,
+            skillCategory: skill.category,
+            declaredLevel: Number(declaredSkill.level),
+            karma: Number(declaredSkill.level) * 10, // Karma basado en nivel
             isValidated: declaredSkill.isValidated,
             validatedBy: declaredSkill.validatedBy,
-            skill
+            validatedAt: Number(declaredSkill.validationDate),
+            declaredAt: Number(declaredSkill.declaredAt)
           });
         } catch (error) {
-          console.error(`Error getting declared skill ${skillId}:`, error);
+          console.error(`Error getting declared skill ${skillIds[i]}:`, error);
         }
       }
       
@@ -238,8 +215,8 @@ export class SkillSystemService {
     return tx;
   }
 
-  async validateSkill(declaredSkillId: number): Promise<any> {
-    const tx = await this.contract.validateSkill(declaredSkillId);
+  async validateSkill(professional: string, skillId: number, isValid: boolean): Promise<any> {
+    const tx = await this.contract.validateSkill(professional, skillId, isValid);
     return tx;
   }
 }
@@ -251,34 +228,41 @@ export class TimeRegistryService {
   constructor(provider: any, signer?: any) {
     this.contract = new ethers.Contract(
       CONTRACT_ADDRESSES.TimeRegistry,
-      TIME_REGISTRY_ABI,
+      CONTRACT_ABIS.TimeRegistry,
       signer || provider
     );
   }
 
   async getUserTimeRecords(userAddress: string): Promise<TimeRecord[]> {
     try {
-      const recordIds = await this.contract.getUserTimeRecords(userAddress);
+      // El contrato no tiene getEmployeeRecords, necesitamos iterar
       const timeRecords: TimeRecord[] = [];
+      let recordId = 0;
       
-      for (const recordId of recordIds) {
-        try {
-          const record = await this.contract.timeRecords(Number(recordId));
+      try {
+        while (true) {
+          const record = await this.contract.timeRecords(recordId);
           
-          timeRecords.push({
-            id: Number(recordId),
-            employee: record.worker,
-            company: record.company,
-            startTime: Number(record.startTime),
-            endTime: Number(record.endTime),
-            description: record.description,
-            skillIds: [], // Se puede obtener de eventos si es necesario
-            status: record.status,
-            validatedAt: Number(record.validatedAt)
-          });
-        } catch (error) {
-          console.error(`Error getting time record ${recordId}:`, error);
+          // Verificar si este registro pertenece al usuario
+          if (record.employee.toLowerCase() === userAddress.toLowerCase()) {
+            timeRecords.push({
+              id: Number(recordId),
+              worker: record.employee,
+              company: record.company,
+              description: record.description,
+              duration: Number(record.endTime) - Number(record.startTime),
+              timestamp: Number(record.startTime),
+              isValidated: Number(record.status) === 1, // RecordStatus.Validated
+              validatedBy: '',
+              validatedAt: Number(record.validatedAt)
+            });
+          }
+          
+          recordId++;
         }
+      } catch (error) {
+        // Cuando falla, hemos encontrado el final
+        console.log(`Found ${recordId} time records total`);
       }
       
       return timeRecords;
@@ -288,20 +272,53 @@ export class TimeRegistryService {
     }
   }
 
+  async getCompanyTimeRecords(companyAddress: string): Promise<TimeRecord[]> {
+    try {
+      // El contrato no tiene getCompanyRecords, necesitamos iterar
+      const timeRecords: TimeRecord[] = [];
+      let recordId = 0;
+      
+      try {
+        while (true) {
+          const record = await this.contract.timeRecords(recordId);
+          
+          // Verificar si este registro pertenece a la empresa
+          if (record.company.toLowerCase() === companyAddress.toLowerCase()) {
+            timeRecords.push({
+              id: Number(recordId),
+              worker: record.employee,
+              company: record.company,
+              description: record.description,
+              duration: Number(record.endTime) - Number(record.startTime),
+              timestamp: Number(record.startTime),
+              isValidated: Number(record.status) === 1, // RecordStatus.Validated
+              validatedBy: '',
+              validatedAt: Number(record.validatedAt)
+            });
+          }
+          
+          recordId++;
+        }
+      } catch (error) {
+        // Cuando falla, hemos encontrado el final
+        console.log(`Found ${recordId} time records total`);
+      }
+      
+      return timeRecords;
+    } catch (error) {
+      console.error('Error getting company time records:', error);
+      return [];
+    }
+  }
+
   async registerTime(
     company: string,
+    skillId: number,
     startTime: number,
     endTime: number,
-    description: string,
-    skillIds: number[]
+    description: string
   ): Promise<any> {
-    const tx = await this.contract.registerTime(
-      company,
-      startTime,
-      endTime,
-      description,
-      skillIds
-    );
+    const tx = await this.contract.recordTime(company, skillId, startTime, endTime, description);
     return tx;
   }
 
@@ -314,6 +331,11 @@ export class TimeRegistryService {
     const tx = await this.contract.rejectTimeRecord(recordId);
     return tx;
   }
+
+  async disputeTimeRecord(recordId: number): Promise<any> {
+    const tx = await this.contract.disputeTimeRecord(recordId);
+    return tx;
+  }
 }
 
 // Clase de servicio para P2P Marketplace
@@ -323,37 +345,49 @@ export class P2PMarketplaceService {
   constructor(provider: any, signer?: any) {
     this.contract = new ethers.Contract(
       CONTRACT_ADDRESSES.P2PMarketplace,
-      P2P_MARKETPLACE_ABI,
+      CONTRACT_ABIS.P2PMarketplace,
       signer || provider
     );
   }
 
   async getServicesCount(): Promise<number> {
-    const count = await this.contract.serviceCounter();
-    return Number(count);
+    // Como no hay un contador público, intentamos obtener servicios hasta que falle
+    let count = 0;
+    try {
+      while (true) {
+        await this.contract.services(count);
+        count++;
+      }
+    } catch (error) {
+      // Cuando falla, hemos encontrado el final
+      return count;
+    }
   }
 
   async getService(serviceId: number): Promise<Service> {
     const service = await this.contract.services(serviceId);
     return {
       id: serviceId,
-      provider: service.provider,
       title: service.title,
       description: service.description,
-      pricePerHour: ethers.formatEther(service.pricePerHour),
-      skillIds: [], // Se puede obtener de eventos si es necesario
-      isActive: service.isActive
+      provider: service.provider,
+      pricePerHour: Number(ethers.formatEther(service.pricePerHour)),
+      category: 'General', // El contrato no tiene categoría, usamos 'General'
+      isActive: Number(service.status) === 0, // ServiceStatus.Active = 0
+      skillIds: service.skillIds.map((id: any) => Number(id)),
+      status: Number(service.status),
+      createdAt: Number(service.createdAt)
     };
   }
 
   async getAllServices(): Promise<Service[]> {
-    const count = await this.getServicesCount();
     const services: Service[] = [];
+    const count = await this.getServicesCount();
     
     for (let i = 0; i < count; i++) {
       try {
         const service = await this.getService(i);
-        if (service.isActive) {
+        if (service.title && service.isActive) { // Solo servicios activos
           services.push(service);
         }
       } catch (error) {
@@ -366,16 +400,35 @@ export class P2PMarketplaceService {
 
   async getProviderServices(providerAddress: string): Promise<Service[]> {
     try {
-      const serviceIds = await this.contract.getProviderServices(providerAddress);
+      // El contrato no tiene getProviderServices, necesitamos iterar
       const services: Service[] = [];
+      let serviceId = 0;
       
-      for (const serviceId of serviceIds) {
-        try {
-          const service = await this.getService(Number(serviceId));
-          services.push(service);
-        } catch (error) {
-          console.error(`Error getting service ${serviceId}:`, error);
+      try {
+        while (true) {
+          const service = await this.contract.services(serviceId);
+          
+          // Verificar si este servicio pertenece al proveedor
+          if (service.provider.toLowerCase() === providerAddress.toLowerCase()) {
+            services.push({
+              id: Number(serviceId),
+              title: service.title,
+              description: service.description,
+              provider: service.provider,
+              pricePerHour: Number(ethers.formatEther(service.pricePerHour)),
+              category: 'General', // El contrato no tiene categoría, usamos 'General'
+              isActive: Number(service.status) === 0, // ServiceStatus.Active = 0
+              skillIds: service.skillIds.map((id: any) => Number(id)),
+              status: Number(service.status),
+              createdAt: Number(service.createdAt)
+            });
+          }
+          
+          serviceId++;
         }
+      } catch (error) {
+        // Cuando falla, hemos encontrado el final
+        console.log(`Found ${serviceId} services total`);
       }
       
       return services;
@@ -391,12 +444,7 @@ export class P2PMarketplaceService {
     pricePerHour: string,
     skillIds: number[]
   ): Promise<any> {
-    const tx = await this.contract.createService(
-      title,
-      description,
-      ethers.parseEther(pricePerHour),
-      skillIds
-    );
+    const tx = await this.contract.createService(title, description, ethers.parseEther(pricePerHour), skillIds);
     return tx;
   }
 
@@ -421,28 +469,50 @@ export class P2PMarketplaceService {
 
   async getClientOrders(clientAddress: string): Promise<Order[]> {
     try {
-      const orderIds = await this.contract.getClientOrders(clientAddress);
+      // El contrato no tiene getClientOrders, necesitamos iterar
       const orders: Order[] = [];
+      let orderId = 0;
       
-      for (const orderId of orderIds) {
-        try {
-          const order = await this.contract.orders(Number(orderId));
+      try {
+        while (true) {
+          const order = await this.contract.orders(orderId);
           
-          orders.push({
-            id: Number(orderId),
-            serviceId: Number(order.serviceId),
-            client: order.client,
-            provider: order.provider,
-            hours: Number(order.hours),
-            totalPrice: ethers.formatEther(order.totalPrice),
-            description: order.description,
-            status: order.status,
-            createdAt: Number(order.createdAt),
-            completedAt: Number(order.completedAt)
-          });
-        } catch (error) {
-          console.error(`Error getting order ${orderId}:`, error);
+          // Verificar si esta orden pertenece al cliente
+          if (order.client.toLowerCase() === clientAddress.toLowerCase()) {
+            try {
+              const service = await this.contract.services(order.serviceId);
+              
+              orders.push({
+                id: Number(orderId),
+                service: {
+                  id: Number(order.serviceId),
+                  provider: service.provider,
+                  title: service.title,
+                  description: service.description,
+                  pricePerHour: Number(ethers.formatEther(service.pricePerHour)),
+                  category: 'General',
+                  isActive: Number(service.status) === 0,
+                  skillIds: service.skillIds.map((id: any) => Number(id)),
+                  status: Number(service.status),
+                  createdAt: Number(service.createdAt)
+                },
+                client: order.client,
+                provider: order.provider,
+                totalAmount: Number(ethers.formatEther(order.totalPrice)),
+                status: Number(order.status),
+                createdAt: Number(order.createdAt),
+                completedAt: Number(order.completedAt)
+              });
+            } catch (error) {
+              console.error(`Error getting service ${order.serviceId}:`, error);
+            }
+          }
+          
+          orderId++;
         }
+      } catch (error) {
+        // Cuando falla, hemos encontrado el final
+        console.log(`Found ${orderId} orders total`);
       }
       
       return orders;
@@ -450,6 +520,119 @@ export class P2PMarketplaceService {
       console.error('Error getting client orders:', error);
       return [];
     }
+  }
+
+  async getProviderOrders(providerAddress: string): Promise<Order[]> {
+    try {
+      // El contrato no tiene getProviderOrders, necesitamos iterar
+      const orders: Order[] = [];
+      let orderId = 0;
+      
+      try {
+        while (true) {
+          const order = await this.contract.orders(orderId);
+          
+          // Verificar si esta orden pertenece al proveedor
+          if (order.provider.toLowerCase() === providerAddress.toLowerCase()) {
+            try {
+              const service = await this.contract.services(order.serviceId);
+              
+              orders.push({
+                id: Number(orderId),
+                service: {
+                  id: Number(order.serviceId),
+                  provider: service.provider,
+                  title: service.title,
+                  description: service.description,
+                  pricePerHour: Number(ethers.formatEther(service.pricePerHour)),
+                  category: 'General',
+                  isActive: Number(service.status) === 0,
+                  skillIds: service.skillIds.map((id: any) => Number(id)),
+                  status: Number(service.status),
+                  createdAt: Number(service.createdAt)
+                },
+                client: order.client,
+                provider: order.provider,
+                totalAmount: Number(ethers.formatEther(order.totalPrice)),
+                status: Number(order.status),
+                createdAt: Number(order.createdAt),
+                completedAt: Number(order.completedAt)
+              });
+            } catch (error) {
+              console.error(`Error getting service ${order.serviceId}:`, error);
+            }
+          }
+          
+          orderId++;
+        }
+      } catch (error) {
+        // Cuando falla, hemos encontrado el final
+        console.log(`Found ${orderId} orders total`);
+      }
+      
+      return orders;
+    } catch (error) {
+      console.error('Error getting provider orders:', error);
+      return [];
+    }
+  }
+
+  async cancelOrder(orderId: number): Promise<any> {
+    const tx = await this.contract.cancelOrder(orderId);
+    return tx;
+  }
+
+  async disputeOrder(orderId: number): Promise<any> {
+    const tx = await this.contract.disputeOrder(orderId);
+    return tx;
+  }
+}
+
+// Clase de servicio para Profile NFT
+export class ProfileNFTService {
+  private contract: ethers.Contract;
+
+  constructor(provider: any, signer?: any) {
+    this.contract = new ethers.Contract(
+      CONTRACT_ADDRESSES.ProfileNFT,
+      CONTRACT_ABIS.ProfileNFT,
+      signer || provider
+    );
+  }
+
+  async mintBuild(userAddress: string, metadataURI: string): Promise<any> {
+    const tx = await this.contract.mintBuild(userAddress, metadataURI);
+    return tx;
+  }
+
+  async getUserBuild(userAddress: string): Promise<any> {
+    const build = await this.contract.getUserBuild(userAddress);
+    return build;
+  }
+
+  async hasBuild(userAddress: string): Promise<boolean> {
+    const hasBuild = await this.contract.hasBuild(userAddress);
+    return hasBuild;
+  }
+
+  async evolveBuild(userAddress: string): Promise<any> {
+    const tx = await this.contract.evolveBuild(userAddress);
+    return tx;
+  }
+
+  async updateBuildMetadata(tokenId: number, newMetadataURI: string): Promise<any> {
+    const tx = await this.contract.updateBuildMetadata(tokenId, newMetadataURI);
+    return tx;
+  }
+
+  async burnBuild(tokenId: number): Promise<any> {
+    const tx = await this.contract.burnBuild(tokenId);
+    return tx;
+  }
+
+  async getBuildCount(): Promise<number> {
+    const count = await this.contract.getBuildCount();
+    return Number(count);
   }
 }
 
