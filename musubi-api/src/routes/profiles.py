@@ -7,7 +7,7 @@ from web3 import Web3
 
 profiles_bp = Blueprint('profiles', __name__)
 
-@profiles_bp.route('/<address>', methods=['GET'])
+@profiles_bp.route('/profiles/<address>', methods=['GET'])
 def get_profile(address):
     """Obtiene el perfil de un usuario"""
     try:
@@ -53,7 +53,7 @@ def get_profile(address):
             'error': str(e)
         }), 500
 
-@profiles_bp.route('/exists/<address>', methods=['GET'])
+@profiles_bp.route('/profiles/exists/<address>', methods=['GET'])
 def check_profile_exists(address):
     """Verifica si un perfil existe"""
     try:
@@ -82,7 +82,7 @@ def check_profile_exists(address):
             'error': str(e)
         }), 500
 
-@profiles_bp.route('/count', methods=['GET'])
+@profiles_bp.route('/profiles/count', methods=['GET'])
 def get_profile_count():
     """Obtiene el número total de perfiles registrados"""
     try:
@@ -104,7 +104,7 @@ def get_profile_count():
             'error': str(e)
         }), 500
 
-@profiles_bp.route('/events/created', methods=['GET'])
+@profiles_bp.route('/profiles/events/created', methods=['GET'])
 def get_profile_created_events():
     """Obtiene eventos de perfiles creados"""
     try:

@@ -26,6 +26,9 @@ class DecentralizedDB:
     Los datos se almacenan en IPFS y los hashes en blockchain
     """
     
+    # Clave privada de la cuenta 1 de Hardhat para firmar transacciones en local
+    PRIVATE_KEY = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+    
     def __init__(self, ipfs_node_url: str = "/ip4/127.0.0.1/tcp/5002", web3_instance: Optional[Web3] = None):
         """
         Inicializa la conexión con IPFS
@@ -231,38 +234,22 @@ class DecentralizedDB:
             print(f"❌ Error verificando integridad: {e}")
             return False
     
-    def store_hash_in_blockchain(self, ipfs_hash: str, sha256_hash: str, contract_address: str, abi: List) -> str:
+    def store_hash_in_blockchain(self, ipfs_hash: str, sha256_hash: str, contract_address: str, abi: list) -> str:
         """
         Almacena el hash en la blockchain usando el contrato IPFSRegistry
-        
-        Args:
-            ipfs_hash: Hash IPFS
-            sha256_hash: Hash SHA256
-            contract_address: Dirección del contrato IPFSRegistry
-            abi: ABI del contrato
-            
-        Returns:
-            Hash de la transacción
         """
         if not self.web3:
             print("⚠️ Web3 no configurado, hash no almacenado en blockchain")
             return "no_blockchain"
-        
         try:
+            # Derivar la dirección desde la clave privada
+            sender_account = self.web3.eth.account.from_key(self.PRIVATE_KEY).address
+            print(f"🟢 Usando cuenta para firmar: {sender_account}")
+            
             # Convertir dirección a ChecksumAddress
             checksum_address = self.web3.to_checksum_address(contract_address)
-            
             # Crear instancia del contrato
             contract = self.web3.eth.contract(address=checksum_address, abi=abi)
-            
-            # Obtener la cuenta que ejecutará la transacción
-            accounts = self.web3.eth.accounts
-            if not accounts:
-                print("⚠️ No hay cuentas disponibles")
-                return "no_accounts"
-            
-            sender_account = accounts[0]
-            
             # Preparar la transacción
             transaction = contract.functions.storeRecord(
                 ipfs_hash,
@@ -275,23 +262,18 @@ class DecentralizedDB:
                 'gasPrice': self.web3.eth.gas_price,
                 'nonce': self.web3.eth.get_transaction_count(sender_account),
             })
-            
-            # Firmar y enviar la transacción
-            signed_txn = self.web3.eth.account.sign_transaction(transaction, private_key=None)
-            tx_hash = self.web3.eth.send_raw_transaction(signed_txn.rawTransaction)
-            
+            # Firmar y enviar la transacción usando la clave privada
+            signed_txn = self.web3.eth.account.sign_transaction(transaction, private_key=self.PRIVATE_KEY)
+            tx_hash = self.web3.eth.send_raw_transaction(signed_txn.raw_transaction)
             # Esperar a que se confirme
             tx_receipt = self.web3.eth.wait_for_transaction_receipt(tx_hash)
-            
             print(f"🔗 Hash almacenado en blockchain:")
             print(f"   IPFS Hash: {ipfs_hash}")
             print(f"   SHA256 Hash: {sha256_hash}")
             print(f"   Contract: {contract_address}")
             print(f"   Transaction: {tx_hash.hex()}")
             print(f"   Block: {tx_receipt['blockNumber']}")
-            
             return tx_hash.hex()
-            
         except Exception as e:
             print(f"❌ Error almacenando hash en blockchain: {e}")
             return "error"

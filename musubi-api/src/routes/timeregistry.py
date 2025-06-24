@@ -7,7 +7,7 @@ from web3 import Web3
 
 timeregistry_bp = Blueprint('timeregistry', __name__)
 
-@timeregistry_bp.route('/user/<address>', methods=['GET'])
+@timeregistry_bp.route('/timeregistry/user/<address>', methods=['GET'])
 def get_user_time_records(address):
     """Obtiene los registros de tiempo de un usuario"""
     try:
@@ -57,7 +57,7 @@ def get_user_time_records(address):
             'error': str(e)
         }), 500
 
-@timeregistry_bp.route('/<int:record_id>', methods=['GET'])
+@timeregistry_bp.route('/timeregistry/<int:record_id>', methods=['GET'])
 def get_time_record(record_id):
     """Obtiene un registro de tiempo específico"""
     try:
@@ -90,7 +90,7 @@ def get_time_record(record_id):
             'error': str(e)
         }), 500
 
-@timeregistry_bp.route('/company/<address>', methods=['GET'])
+@timeregistry_bp.route('/timeregistry/company/<address>', methods=['GET'])
 def get_company_time_records(address):
     """Obtiene los registros de tiempo para una empresa"""
     try:
@@ -139,7 +139,7 @@ def get_company_time_records(address):
             'error': str(e)
         }), 500
 
-@timeregistry_bp.route('/count', methods=['GET'])
+@timeregistry_bp.route('/timeregistry/count', methods=['GET'])
 def get_time_records_count():
     """Obtiene el número total de registros de tiempo"""
     try:
@@ -161,7 +161,7 @@ def get_time_records_count():
             'error': str(e)
         }), 500
 
-@timeregistry_bp.route('/stats/<address>', methods=['GET'])
+@timeregistry_bp.route('/timeregistry/stats/<address>', methods=['GET'])
 def get_user_stats(address):
     """Obtiene estadísticas de tiempo de un usuario"""
     try:
@@ -214,7 +214,7 @@ def get_user_stats(address):
             'error': str(e)
         }), 500
 
-@timeregistry_bp.route('/events/created', methods=['GET'])
+@timeregistry_bp.route('/timeregistry/events/created', methods=['GET'])
 def get_time_record_created_events():
     """Obtiene eventos de registros de tiempo creados"""
     try:

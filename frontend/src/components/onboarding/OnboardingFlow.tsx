@@ -9,10 +9,11 @@ export type OnboardingStep = 'welcome' | 'intro' | 'metamask' | 'musubi' | 'prof
 
 interface OnboardingFlowProps {
   onComplete: () => void;
+  initialStep?: OnboardingStep;
 }
 
-const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete }) => {
-  const [currentStep, setCurrentStep] = useState<OnboardingStep>('welcome');
+const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete, initialStep }) => {
+  const [currentStep, setCurrentStep] = useState<OnboardingStep>(initialStep || 'welcome');
 
   const handleWelcomeGetStarted = () => {
     setCurrentStep('intro');

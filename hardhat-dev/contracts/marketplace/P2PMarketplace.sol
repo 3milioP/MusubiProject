@@ -387,6 +387,24 @@ contract P2PMarketplace is AccessControl, Pausable, ReentrancyGuard {
     }
     
     /**
+     * @dev Devuelve los IDs de órdenes donde el usuario es cliente o proveedor
+     * @param user Dirección del usuario
+     */
+    function getUserOrders(address user) external view returns (uint256[] memory) {
+        uint256 clientCount = clientOrders[user].length;
+        uint256 providerCount = providerOrders[user].length;
+        uint256 total = clientCount + providerCount;
+        uint256[] memory allOrders = new uint256[](total);
+        for (uint256 i = 0; i < clientCount; i++) {
+            allOrders[i] = clientOrders[user][i];
+        }
+        for (uint256 j = 0; j < providerCount; j++) {
+            allOrders[clientCount + j] = providerOrders[user][j];
+        }
+        return allOrders;
+    }
+    
+    /**
      * @dev Pausa el contrato (solo admin)
      */
     function pause() external onlyRole(DEFAULT_ADMIN_ROLE) {

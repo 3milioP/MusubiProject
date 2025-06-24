@@ -14,6 +14,9 @@ interface OnboardingContextType extends OnboardingState {
   markWelcomeSeen: () => void;
   markProfileRegistered: () => void;
   resetOnboarding: () => void;
+  goToProfileRegistration: () => void;
+  initialStep: string | null;
+  setInitialStep: (step: string | null) => void;
 }
 
 const OnboardingContext = createContext<OnboardingContextType | undefined>(undefined);
@@ -31,6 +34,8 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({ children
     hasSeenWelcome: false,
     hasRegisteredProfile: false
   });
+
+  const [initialStep, setInitialStep] = useState<string | null>(null);
 
   // Cargar estado desde localStorage al inicializar
   useEffect(() => {
@@ -93,6 +98,11 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({ children
     localStorage.removeItem(STORAGE_KEY);
   };
 
+  const goToProfileRegistration = () => {
+    setInitialStep('profile');
+    setState(prev => ({ ...prev, showOnboarding: true, hasCompletedOnboarding: false }));
+  };
+
   const value: OnboardingContextType = {
     ...state,
     completeOnboarding,
@@ -100,7 +110,10 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({ children
     hideOnboardingFlow,
     markWelcomeSeen,
     markProfileRegistered,
-    resetOnboarding
+    resetOnboarding,
+    goToProfileRegistration,
+    initialStep,
+    setInitialStep
   };
 
   return (

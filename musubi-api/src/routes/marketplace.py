@@ -7,7 +7,7 @@ from web3 import Web3
 
 marketplace_bp = Blueprint('marketplace', __name__)
 
-@marketplace_bp.route('/services', methods=['GET'])
+@marketplace_bp.route('/marketplace/services', methods=['GET'])
 def get_all_services():
     """Obtiene todos los servicios disponibles"""
     try:
@@ -53,7 +53,7 @@ def get_all_services():
             'error': str(e)
         }), 500
 
-@marketplace_bp.route('/services/<int:service_id>', methods=['GET'])
+@marketplace_bp.route('/marketplace/services/<int:service_id>', methods=['GET'])
 def get_service(service_id):
     """Obtiene un servicio específico"""
     try:
@@ -86,7 +86,7 @@ def get_service(service_id):
             'error': str(e)
         }), 500
 
-@marketplace_bp.route('/services/provider/<address>', methods=['GET'])
+@marketplace_bp.route('/marketplace/services/provider/<address>', methods=['GET'])
 def get_provider_services(address):
     """Obtiene los servicios de un proveedor específico"""
     try:
@@ -135,7 +135,7 @@ def get_provider_services(address):
             'error': str(e)
         }), 500
 
-@marketplace_bp.route('/orders', methods=['GET'])
+@marketplace_bp.route('/marketplace/orders', methods=['GET'])
 def get_all_orders():
     """Obtiene todas las órdenes"""
     try:
@@ -186,7 +186,7 @@ def get_all_orders():
             'error': str(e)
         }), 500
 
-@marketplace_bp.route('/orders/<int:order_id>', methods=['GET'])
+@marketplace_bp.route('/marketplace/orders/<int:order_id>', methods=['GET'])
 def get_order(order_id):
     """Obtiene una orden específica"""
     try:
@@ -223,7 +223,7 @@ def get_order(order_id):
             'error': str(e)
         }), 500
 
-@marketplace_bp.route('/orders/user/<address>', methods=['GET'])
+@marketplace_bp.route('/marketplace/orders/user/<address>', methods=['GET'])
 def get_user_orders(address):
     """Obtiene las órdenes de un usuario (como cliente o proveedor)"""
     try:
@@ -278,7 +278,7 @@ def get_user_orders(address):
             'error': str(e)
         }), 500
 
-@marketplace_bp.route('/stats', methods=['GET'])
+@marketplace_bp.route('/marketplace/stats', methods=['GET'])
 def get_marketplace_stats():
     """Obtiene estadísticas generales del marketplace"""
     try:
@@ -334,7 +334,7 @@ def get_marketplace_stats():
             'error': str(e)
         }), 500
 
-@marketplace_bp.route('/events/service-created', methods=['GET'])
+@marketplace_bp.route('/marketplace/events/service-created', methods=['GET'])
 def get_service_created_events():
     """Obtiene eventos de servicios creados"""
     try:

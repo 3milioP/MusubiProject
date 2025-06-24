@@ -7,7 +7,7 @@ from web3 import Web3
 
 skills_bp = Blueprint('skills', __name__)
 
-@skills_bp.route('/user/<address>', methods=['GET'])
+@skills_bp.route('/skills/user/<address>', methods=['GET'])
 def get_user_skills(address):
     """Obtiene las habilidades de un usuario"""
     try:
@@ -53,7 +53,7 @@ def get_user_skills(address):
             'error': str(e)
         }), 500
 
-@skills_bp.route('/<int:skill_id>', methods=['GET'])
+@skills_bp.route('/skills/<int:skill_id>', methods=['GET'])
 def get_skill(skill_id):
     """Obtiene información de una habilidad específica"""
     try:
@@ -83,7 +83,7 @@ def get_skill(skill_id):
             'error': str(e)
         }), 500
 
-@skills_bp.route('/count', methods=['GET'])
+@skills_bp.route('/skills/count', methods=['GET'])
 def get_skills_count():
     """Obtiene el número total de habilidades"""
     try:
@@ -105,7 +105,7 @@ def get_skills_count():
             'error': str(e)
         }), 500
 
-@skills_bp.route('/categories', methods=['GET'])
+@skills_bp.route('/skills/categories', methods=['GET'])
 def get_skill_categories():
     """Obtiene las categorías de habilidades disponibles"""
     try:
@@ -138,7 +138,7 @@ def get_skill_categories():
             'error': str(e)
         }), 500
 
-@skills_bp.route('/events/declared', methods=['GET'])
+@skills_bp.route('/skills/events/declared', methods=['GET'])
 def get_skill_declared_events():
     """Obtiene eventos de habilidades declaradas"""
     try:
@@ -194,7 +194,7 @@ def get_skill_declared_events():
             'error': str(e)
         }), 500
 
-@skills_bp.route('/events/validated', methods=['GET'])
+@skills_bp.route('/skills/events/validated', methods=['GET'])
 def get_skill_validated_events():
     """Obtiene eventos de habilidades validadas"""
     try:

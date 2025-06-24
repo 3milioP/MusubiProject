@@ -278,4 +278,29 @@ contract TimeRegistry is AccessControl, Pausable, ReentrancyGuard {
     function unpause() external onlyRole(DEFAULT_ADMIN_ROLE) {
         _unpause();
     }
+    
+    /**
+     * @dev Devuelve el número total de registros de tiempo creados
+     */
+    function totalTimeRecords() external view returns (uint256) {
+        return _recordIdCounter;
+    }
+    
+    /**
+     * @dev Devuelve los IDs de registros de tiempo donde el usuario es profesional o empresa
+     * @param user Dirección del usuario
+     */
+    function getUserTimeRecords(address user) external view returns (uint256[] memory) {
+        uint256 profCount = professionalRecords[user].length;
+        uint256 compCount = companyRecords[user].length;
+        uint256 total = profCount + compCount;
+        uint256[] memory allRecords = new uint256[](total);
+        for (uint256 i = 0; i < profCount; i++) {
+            allRecords[i] = professionalRecords[user][i];
+        }
+        for (uint256 j = 0; j < compCount; j++) {
+            allRecords[profCount + j] = companyRecords[user][j];
+        }
+        return allRecords;
+    }
 }

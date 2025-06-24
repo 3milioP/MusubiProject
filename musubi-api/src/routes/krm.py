@@ -8,7 +8,7 @@ from web3 import Web3
 
 krm_bp = Blueprint('krm', __name__)
 
-@krm_bp.route('/balance/<address>', methods=['GET'])
+@krm_bp.route('/krm/balance/<address>', methods=['GET'])
 @swag_from({
     'tags': ['KRM Token'],
     'summary': 'Obtiene el balance de KRM de una dirección',
@@ -105,7 +105,7 @@ def get_balance(address):
             'error': str(e)
         }), 500
 
-@krm_bp.route('/total-supply', methods=['GET'])
+@krm_bp.route('/krm/total-supply', methods=['GET'])
 @swag_from({
     'tags': ['KRM Token'],
     'summary': 'Obtiene el suministro total de KRM',
@@ -184,7 +184,7 @@ def get_total_supply():
             'error': str(e)
         }), 500
 
-@krm_bp.route('/allowance', methods=['GET'])
+@krm_bp.route('/krm/allowance', methods=['GET'])
 @swag_from({
     'tags': ['KRM Token'],
     'summary': 'Obtiene la cantidad permitida entre owner y spender',
@@ -297,7 +297,7 @@ def get_allowance():
             'error': str(e)
         }), 500
 
-@krm_bp.route('/info', methods=['GET'])
+@krm_bp.route('/krm/info', methods=['GET'])
 @swag_from({
     'tags': ['KRM Token'],
     'summary': 'Obtiene información general del token KRM',
@@ -376,7 +376,7 @@ def get_token_info():
             'error': str(e)
         }), 500
 
-@krm_bp.route('/transfer-events', methods=['GET'])
+@krm_bp.route('/krm/transfer-events', methods=['GET'])
 @swag_from({
     'tags': ['KRM Token'],
     'summary': 'Obtiene eventos de transferencia recientes',

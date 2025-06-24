@@ -61,7 +61,10 @@ const AppContent = () => {
     hasCompletedOnboarding, 
     hasRegisteredProfile,
     completeOnboarding, 
-    showOnboardingFlow 
+    showOnboardingFlow,
+    goToProfileRegistration,
+    initialStep,
+    setInitialStep
   } = useOnboarding();
 
   const handleDrawerToggle = () => {
@@ -105,7 +108,7 @@ const AppContent = () => {
 
   // Mostrar onboarding si es necesario
   if (showOnboarding || (!isConnected && !hasCompletedOnboarding)) {
-    return <OnboardingFlow onComplete={handleOnboardingComplete} />;
+    return <OnboardingFlow onComplete={handleOnboardingComplete} initialStep={initialStep as any} />;
   }
 
   // Si está conectado pero no ha registrado perfil, sugerir ir a perfil
@@ -135,7 +138,7 @@ const AppContent = () => {
             <Button
               variant="contained"
               size="large"
-              onClick={() => setActiveComponent('profile')}
+              onClick={goToProfileRegistration}
               sx={{ mr: 2 }}
             >
               Registrar Perfil

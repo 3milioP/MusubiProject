@@ -267,4 +267,11 @@ contract ProfileRegistry is AccessControl, Pausable, ReentrancyGuard {
     function unpause() external onlyRole(DEFAULT_ADMIN_ROLE) {
         _unpause();
     }
+    
+    /**
+     * @dev Devuelve el número total de perfiles registrados
+     */
+    function totalProfiles() external view returns (uint256) {
+        return _profileIdCounter;
+    }
 }

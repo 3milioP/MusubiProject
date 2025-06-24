@@ -214,44 +214,23 @@ def create_user():
 def get_users():
     """Obtener todos los usuarios"""
     try:
-        # Parámetros de consulta
         profile_type = request.args.get('profile_type')
         limit = request.args.get('limit', type=int)
-        
-        # Por ahora usamos el almacenamiento temporal
-        # En producción, esto consultaría IPFS con indexación
         users = list(_temp_users.values())
-        
-        # Filtrar por tipo de perfil si se especifica
+        # Extraer solo los datos de usuario (user_data)
+        users = [u['data'] for u in users if 'data' in u]
         if profile_type:
             users = [user for user in users if user.get('profile_type') == profile_type]
-        
-        # Aplicar límite si se especifica
         if limit:
             users = users[:limit]
-        
-        # Obtener datos desde IPFS si está disponible
-        ipfs_users = []
-        if decentralized_db.client:
-            try:
-                # En una implementación real, aquí consultaríamos un índice
-                # Por ahora, intentamos recuperar algunos datos de ejemplo
-                print("🔍 Consultando IPFS para usuarios...")
-                # Esto es conceptual - en producción necesitarías un índice
-                pass
-            except Exception as e:
-                print(f"⚠️ Error consultando IPFS: {e}")
-        
         response = {
             'success': True,
             'users': users,
             'total': len(users),
-            'source': 'temporary_storage',  # o 'ipfs' si está disponible
+            'source': 'temporary_storage',
             'note': 'En producción, los datos se recuperarían desde IPFS con indexación'
         }
-        
         return jsonify(response), 200
-        
     except Exception as e:
         print(f"❌ Error obteniendo usuarios: {e}")
         return jsonify({
@@ -310,7 +289,7 @@ def get_user(user_id):
         
         return jsonify({
             'success': True,
-            'user': user
+            'user': user['data']
         }), 200
         
     except Exception as e:

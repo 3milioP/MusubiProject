@@ -784,29 +784,31 @@ start_apis() {
         return 0
     fi
     
-    cd "$PROJECT_DIR/musubi-api" || return 1
-    
-    # Verificar si ya hay APIs ejecutándose
-    if lsof -Pi :5001 -sTCP:LISTEN -t >/dev/null; then
-        echo -e "${YELLOW}⚠️  Puerto 5001 en uso, deteniendo proceso anterior...${NC}"
-        pkill -f "python.*main.py" &>/dev/null
-        sleep 3
-    fi
-    
-    # Verificar que las dependencias estén instaladas
-    if ! python3 -c "import flask, web3, flasgger" 2>/dev/null; then
-        echo -e "${YELLOW}⚠️  Dependencias de la API no instaladas, instalando...${NC}"
-        install_dependencies "api" || {
-            echo -e "${RED}❌ Error instalando dependencias de la API${NC}"
-            cd "$PROJECT_DIR"
-            return 1
-        }
-    fi
-    
-    # Iniciar APIs en background
-    echo -e "${BLUE}  🚀 Iniciando API...${NC}"
-    python3 src/main.py > api.log 2>&1 &
+    cd "$PROJECT_DIR/musubi-api/src"
+    python3 main.py > ../api.log 2>&1 &
     API_PID=$!
+    echo -e "${GREEN}  ✓ API lanzada en segundo plano (PID $API_PID)${NC}"
+    cd "$PROJECT_DIR"
+    
+    # Esperar a que la API esté disponible
+    sleep 5
+    
+    # Ejecutar tests automáticos de la API
+    if [[ -d "$PROJECT_DIR/musubi-api/src/tests" ]]; then
+      echo -e "${YELLOW}🧪 Ejecutando tests automáticos de la API (pytest)...${NC}"
+      python3 -m pytest $PROJECT_DIR/musubi-api/src/tests/ | tee $PROJECT_DIR/musubi-api/api-tests.log
+      if [[ $? -ne 0 ]]; then
+        echo -e "${RED}❌ Algunos tests de la API han fallado. ¿Deseas continuar con el despliegue? (y/N)${NC}"
+        read -r continuar
+        if [[ ! $continuar =~ ^[Yy]$ ]]; then
+          echo -e "${RED}Despliegue abortado por fallo en tests de la API.${NC}"
+          cleanup
+          exit 1
+        fi
+      else
+        echo -e "${GREEN}✅ Todos los tests de la API pasaron correctamente.${NC}"
+      fi
+    fi
     
     # Esperar a que las APIs estén listas (más tiempo para Python)
     echo -e "${BLUE}  ⏳ Esperando a que las APIs estén listas...${NC}"
