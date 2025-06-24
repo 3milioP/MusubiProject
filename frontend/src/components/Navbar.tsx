@@ -37,7 +37,9 @@ const Navbar: React.FC<NavbarProps> = ({ onMenuClick }) => {
     error, 
     connectWallet, 
     disconnectWallet,
-    clearError 
+    clearError,
+    provider,
+    signer
   } = useWeb3();
   
   const { hasRegisteredProfile } = useOnboarding();
@@ -70,6 +72,18 @@ const Navbar: React.FC<NavbarProps> = ({ onMenuClick }) => {
     if (chainId === 31337) return 'success'; // Hardhat local
     if (chainId === 1) return 'success'; // Mainnet
     return 'warning'; // Testnets
+  };
+
+  const getConnectionStatus = () => {
+    if (!isConnected) return 'No conectado';
+    if (!provider || !signer) return 'Error de conexión';
+    return 'Conectado';
+  };
+
+  const getConnectionColor = (): 'success' | 'warning' | 'error' => {
+    if (!isConnected) return 'error';
+    if (!provider || !signer) return 'warning';
+    return 'success';
   };
 
   return (
@@ -227,6 +241,24 @@ const Navbar: React.FC<NavbarProps> = ({ onMenuClick }) => {
               Desconectar
             </MenuItem>
           </Menu>
+
+          {/* Estado de conexión */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Chip
+              label={getConnectionStatus()}
+              color={getConnectionColor()}
+              size="small"
+              variant="outlined"
+            />
+            {isConnected && account && (
+              <Chip
+                label={formatAddress(account)}
+                color="primary"
+                size="small"
+                variant="outlined"
+              />
+            )}
+          </Box>
         </Toolbar>
       </AppBar>
 

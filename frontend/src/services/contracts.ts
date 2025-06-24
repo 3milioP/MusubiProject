@@ -52,6 +52,7 @@ export class KRMTokenService {
 // Clase de servicio para Profile Registry
 export class ProfileRegistryService {
   private contract: ethers.Contract;
+  private apiUrl: string;
 
   constructor(provider: any, signer?: any) {
     this.contract = new ethers.Contract(
@@ -59,6 +60,7 @@ export class ProfileRegistryService {
       CONTRACT_ABIS.ProfileRegistry,
       signer || provider
     );
+    this.apiUrl = 'http://localhost:5001'; // URL de la API de Musubi (puerto correcto)
   }
 
   async getProfile(address: string): Promise<Profile | null> {
@@ -97,18 +99,184 @@ export class ProfileRegistryService {
     profileType: number, 
     acceptDisclaimer: boolean
   ): Promise<any> {
+    console.log('🔍 ProfileRegistryService.registerProfile - Llamando al contrato con:', {
+      name,
+      description,
+      metadataURI,
+      profileType,
+      acceptDisclaimer,
+      contractAddress: this.contract.address
+    });
+    
+    // Validar que el contrato esté disponible
+    if (!this.contract) {
+      throw new Error('Contrato no disponible');
+    }
+    
     const tx = await this.contract.registerProfile(name, description, metadataURI, profileType, acceptDisclaimer);
+    console.log('🔍 ProfileRegistryService.registerProfile - Transacción creada:', tx);
     return tx;
   }
 
-  async updateProfile(metadataURI: string): Promise<any> {
-    const tx = await this.contract.updateProfile(metadataURI);
+  async updateProfile(name: string, description: string, metadataURI: string): Promise<any> {
+    console.log('🔍 ProfileRegistryService.updateProfile - Llamando al contrato con:', {
+      name,
+      description,
+      metadataURI,
+      contractAddress: this.contract.address
+    });
+    
+    // Validar que el contrato esté disponible
+    if (!this.contract) {
+      throw new Error('Contrato no disponible');
+    }
+    
+    const tx = await this.contract.updateProfile(name, description, metadataURI);
+    console.log('🔍 ProfileRegistryService.updateProfile - Transacción creada:', tx);
     return tx;
   }
 
   async deactivateProfile(): Promise<any> {
     // Esta función no existe en el contrato actual, pero podríamos implementarla
     throw new Error('Function not implemented');
+  }
+}
+
+// Clase de servicio para Profile Registry con IPFS usando la API
+export class ProfileRegistryIPFSService {
+  private apiUrl: string;
+
+  constructor() {
+    this.apiUrl = 'http://localhost:5001'; // URL de la API de Musubi (puerto correcto)
+  }
+
+  async registerProfileWithIPFS(
+    name: string, 
+    description: string, 
+    profileType: number, 
+    acceptDisclaimer: boolean,
+    additionalData: any = {}
+  ): Promise<any> {
+    console.log('🔍 ProfileRegistryIPFSService.registerProfileWithIPFS - Llamando a la API con:', {
+      name,
+      description,
+      profileType,
+      acceptDisclaimer,
+      additionalData
+    });
+
+    try {
+      // Preparar datos del perfil para IPFS
+      const profileData = {
+        name,
+        description,
+        profileType: profileType === 1 ? 'company' : 'professional',
+        acceptDisclaimer,
+        ...additionalData,
+        timestamp: new Date().toISOString()
+      };
+
+      // Llamar a la API para registrar el perfil con IPFS
+      const response = await fetch(`${this.apiUrl}/api/users`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          wallet_address: additionalData.walletAddress || '0x0000000000000000000000000000000000000000',
+          name: profileData.name,
+          email: additionalData.email || '',
+          profile_data: profileData,
+          ipfs_hash: '', // La API lo generará automáticamente
+          storage_type: 'decentralized_ipfs'
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(`Error en la API: ${errorData.detail || response.statusText}`);
+      }
+
+      const result = await response.json();
+      console.log('🔍 ProfileRegistryIPFSService.registerProfileWithIPFS - Respuesta de la API:', result);
+      
+      return result;
+    } catch (error) {
+      console.error('❌ Error en ProfileRegistryIPFSService.registerProfileWithIPFS:', error);
+      throw error;
+    }
+  }
+
+  async getProfileFromIPFS(walletAddress: string): Promise<Profile | null> {
+    try {
+      const response = await fetch(`${this.apiUrl}/api/users/${walletAddress}`);
+      
+      if (!response.ok) {
+        if (response.status === 404) {
+          return null;
+        }
+        throw new Error(`Error en la API: ${response.statusText}`);
+      }
+
+      const userData = await response.json();
+      
+      // Convertir datos de la API al formato del frontend
+      return {
+        address: walletAddress,
+        isCompany: userData.profile_data?.profileType === 'company',
+        isActive: true, // Asumimos que si existe en IPFS está activo
+        metadataURI: userData.ipfs_hash || '',
+        name: userData.name || userData.profile_data?.name || '',
+        bio: userData.profile_data?.description || '',
+        location: userData.profile_data?.location || 'No especificada',
+        website: userData.profile_data?.website || '',
+        skills: [],
+        karma: 0,
+        isVerified: false,
+        disclaimerAccepted: userData.profile_data?.acceptDisclaimer || false
+      };
+    } catch (error) {
+      console.error('Error getting profile from IPFS:', error);
+      return null;
+    }
+  }
+
+  async updateProfileInIPFS(
+    walletAddress: string,
+    name: string, 
+    description: string, 
+    additionalData: any = {}
+  ): Promise<any> {
+    try {
+      const response = await fetch(`${this.apiUrl}/api/users/${walletAddress}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name,
+          profile_data: {
+            name,
+            description,
+            ...additionalData,
+            timestamp: new Date().toISOString()
+          }
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(`Error en la API: ${errorData.detail || response.statusText}`);
+      }
+
+      const result = await response.json();
+      console.log('🔍 ProfileRegistryIPFSService.updateProfileInIPFS - Respuesta de la API:', result);
+      
+      return result;
+    } catch (error) {
+      console.error('❌ Error en ProfileRegistryIPFSService.updateProfileInIPFS:', error);
+      throw error;
+    }
   }
 }
 

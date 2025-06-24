@@ -133,7 +133,18 @@ export const getMetaMaskProvider = () => {
   if (!isMetaMaskInstalled() || !window.ethereum) {
     throw new Error('MetaMask no está instalado');
   }
-  return new ethers.BrowserProvider(window.ethereum);
+  
+  try {
+    // Asegura que devuelve un provider válido
+    const provider = new ethers.BrowserProvider(window.ethereum);
+    if (!provider) {
+      throw new Error('No se pudo inicializar el provider de MetaMask');
+    }
+    return provider;
+  } catch (error) {
+    console.error('❌ Error creando provider de MetaMask:', error);
+    throw new Error('Error al inicializar el provider de MetaMask');
+  }
 };
 
 // Cambiar a red específica

@@ -67,6 +67,16 @@ const AppContent = () => {
     setInitialStep
   } = useOnboarding();
 
+  // Debug: Monitorear estado de conexión
+  React.useEffect(() => {
+    console.log('🔍 AppContent - Estado de conexión actualizado:', {
+      isConnected,
+      showOnboarding,
+      hasCompletedOnboarding,
+      hasRegisteredProfile
+    });
+  }, [isConnected, showOnboarding, hasCompletedOnboarding, hasRegisteredProfile]);
+
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
   };

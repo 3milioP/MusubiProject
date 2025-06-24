@@ -672,7 +672,7 @@ sync_contract_addresses() {
     echo -e "${YELLOW}🔄 Sincronizando direcciones de contratos con la API...${NC}"
     
     if [ ! -f "$PROJECT_DIR/musubi-api/sync_contract_addresses.py" ]; then
-        echo -e "${YELLOW}⚠️  Script de sincronización no encontrado, saltando${NC}"
+        echo -e "${YELLOW}⚠️  Script de sincronización de API no encontrado, saltando${NC}"
         return 0
     fi
     
@@ -685,6 +685,30 @@ sync_contract_addresses() {
         return 0
     else
         echo -e "${RED}❌ Error sincronizando direcciones${NC}"
+        cd "$PROJECT_DIR"
+        return 1
+    fi
+}
+
+# Función para sincronizar direcciones de contratos con el Frontend
+sync_frontend_addresses() {
+    local network=$1
+    echo -e "${YELLOW}🔄 Sincronizando direcciones de contratos con el Frontend...${NC}"
+    
+    if [ ! -f "$PROJECT_DIR/hardhat-dev/sync_frontend_addresses.js" ]; then
+        echo -e "${YELLOW}⚠️  Script de sincronización de Frontend no encontrado, saltando${NC}"
+        return 0
+    fi
+    
+    cd "$PROJECT_DIR/hardhat-dev" || return 1
+    
+    # Ejecutar script de sincronización
+    if node sync_frontend_addresses.js; then
+        echo -e "${GREEN}✅ Direcciones del Frontend sincronizadas para red: $network${NC}"
+        cd "$PROJECT_DIR"
+        return 0
+    else
+        echo -e "${RED}❌ Error sincronizando direcciones del Frontend${NC}"
         cd "$PROJECT_DIR"
         return 1
     fi
@@ -977,6 +1001,11 @@ deploy_local() {
         echo -e "${YELLOW}⚠️  Sincronización falló, continuando sin ella${NC}"
     }
     
+    # Sincronizar direcciones con el Frontend
+    sync_frontend_addresses "local" || {
+        echo -e "${YELLOW}⚠️  Sincronización falló, continuando sin ella${NC}"
+    }
+    
     # Iniciar frontend
     start_frontend || return 1
     
@@ -1021,6 +1050,11 @@ deploy_sepolia() {
         echo -e "${YELLOW}⚠️  Sincronización falló, continuando sin ella${NC}"
     }
     
+    # Sincronizar direcciones con el Frontend
+    sync_frontend_addresses "sepolia" || {
+        echo -e "${YELLOW}⚠️  Sincronización del Frontend falló, continuando sin ella${NC}"
+    }
+    
     show_connection_info "sepolia"
     echo -e "${GREEN}✅ Despliegue en Sepolia completado${NC}"
 }
@@ -1054,6 +1088,11 @@ deploy_polygon_amoy() {
     # Sincronizar direcciones con la API
     sync_contract_addresses "polygon-amoy" || {
         echo -e "${YELLOW}⚠️  Sincronización falló, continuando sin ella${NC}"
+    }
+    
+    # Sincronizar direcciones con el Frontend
+    sync_frontend_addresses "polygon-amoy" || {
+        echo -e "${YELLOW}⚠️  Sincronización del Frontend falló, continuando sin ella${NC}"
     }
     
     show_connection_info "polygon-amoy"
@@ -1090,6 +1129,11 @@ deploy_polygon_mainnet() {
     # Sincronizar direcciones con la API
     sync_contract_addresses "polygon" || {
         echo -e "${YELLOW}⚠️  Sincronización falló, continuando sin ella${NC}"
+    }
+    
+    # Sincronizar direcciones con el Frontend
+    sync_frontend_addresses "polygon" || {
+        echo -e "${YELLOW}⚠️  Sincronización del Frontend falló, continuando sin ella${NC}"
     }
     
     show_connection_info "polygon"

@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useReducer, useEffect, ReactNode } from 'react';
 import { Web3State } from '../types';
 import { isMetaMaskInstalled, getMetaMaskProvider, parseTransactionError } from '../utils/blockchain';
+import { debugWeb3State, validateWeb3Connection } from '../utils/debugWeb3';
 
 // Estado inicial
 const initialState: Web3State = {
@@ -12,6 +13,8 @@ const initialState: Web3State = {
   connecting: false,
   error: null
 };
+
+console.log('🔍 Web3Context - Estado inicial configurado:', initialState);
 
 // Tipos de acciones
 type Web3Action =
@@ -26,28 +29,54 @@ type Web3Action =
 // Reducer
 const web3Reducer = (state: Web3State, action: Web3Action): Web3State => {
   console.log('🔍 Web3Reducer - Action:', action.type, action);
+  console.log('🔍 Web3Reducer - Estado anterior:', state);
+  
+  let newState: Web3State;
   
   switch (action.type) {
     case 'CONNECT_START':
       console.log('🔄 Iniciando conexión...');
-      return { ...state, connecting: true, error: null };
+      newState = { ...state, connecting: true, error: null };
+      break;
     
     case 'CONNECT_SUCCESS':
       console.log('✅ Conexión exitosa:', action.payload);
-      return {
-        ...state,
-        isConnected: true,
-        account: action.payload.account,
-        chainId: action.payload.chainId,
-        provider: action.payload.provider,
-        signer: action.payload.signer,
-        connecting: false,
-        error: null
-      };
+      console.log('🔍 Estado anterior:', state);
+      
+      // Validar que provider y signer son válidos antes de marcar como conectado
+      if (!action.payload.provider || !action.payload.signer) {
+        console.error('❌ CONNECT_SUCCESS con provider o signer inválidos:', {
+          hasProvider: !!action.payload.provider,
+          hasSigner: !!action.payload.signer
+        });
+        newState = {
+          ...state,
+          isConnected: false,
+          account: null,
+          chainId: null,
+          provider: null,
+          signer: null,
+          connecting: false,
+          error: 'Error: Provider o signer inválidos'
+        };
+      } else {
+        newState = {
+          ...state,
+          isConnected: true,
+          account: action.payload.account,
+          chainId: action.payload.chainId,
+          provider: action.payload.provider,
+          signer: action.payload.signer,
+          connecting: false,
+          error: null
+        };
+      }
+      console.log('🔍 Nuevo estado:', newState);
+      break;
     
     case 'CONNECT_ERROR':
       console.log('❌ Error de conexión:', action.payload);
-      return {
+      newState = {
         ...state,
         isConnected: false,
         account: null,
@@ -57,38 +86,66 @@ const web3Reducer = (state: Web3State, action: Web3Action): Web3State => {
         connecting: false,
         error: action.payload
       };
+      break;
     
     case 'DISCONNECT':
       console.log('🔌 Desconectando wallet...');
-      return {
+      newState = {
         ...initialState
       };
+      break;
     
     case 'ACCOUNT_CHANGED':
       console.log('👤 Cuenta cambiada:', action.payload);
-      return {
-        ...state,
-        account: action.payload,
-        isConnected: !!action.payload
-      };
+      // NO permitir ACCOUNT_CHANGED sin provider y signer
+      if (!state.provider || !state.signer) {
+        console.warn('⚠️ ACCOUNT_CHANGED ignorado - no hay provider/signer');
+        newState = state;
+      } else {
+        newState = {
+          ...state,
+          account: action.payload,
+          isConnected: !!action.payload
+        };
+      }
+      break;
     
     case 'CHAIN_CHANGED':
       console.log('🔗 Chain cambiada:', action.payload);
-      return {
+      newState = {
         ...state,
         chainId: action.payload
       };
+      break;
     
     case 'CLEAR_ERROR':
       console.log('🧹 Limpiando error...');
-      return {
+      newState = {
         ...state,
         error: null
       };
+      break;
     
     default:
-      return state;
+      newState = state;
   }
+  
+  // Validación final: asegurar que isConnected solo sea true si provider y signer son válidos
+  if (newState.isConnected && (!newState.provider || !newState.signer)) {
+    console.error('❌ Estado inconsistente detectado - corrigiendo:', {
+      isConnected: newState.isConnected,
+      hasProvider: !!newState.provider,
+      hasSigner: !!newState.signer
+    });
+    newState = {
+      ...newState,
+      isConnected: false,
+      error: 'Estado de conexión inconsistente - reconectando...'
+    };
+  }
+  
+  console.log('🔍 Web3Reducer - Nuevo estado:', newState);
+  return newState;
 };
 
 // Contexto
@@ -96,6 +153,7 @@ interface Web3ContextType extends Web3State {
   connectWallet: () => Promise<void>;
   disconnectWallet: () => void;
   clearError: () => void;
+  clearInconsistentState: () => void;
 }
 
 const Web3Context = createContext<Web3ContextType | undefined>(undefined);
@@ -107,6 +165,8 @@ interface Web3ProviderProps {
 
 export const Web3Provider: React.FC<Web3ProviderProps> = ({ children }) => {
   const [state, dispatch] = useReducer(web3Reducer, initialState);
+
+  console.log('🔍 Web3Provider - Renderizado con estado:', state);
 
   // Función para conectar wallet
   const connectWallet = async (): Promise<void> => {
@@ -123,6 +183,10 @@ export const Web3Provider: React.FC<Web3ProviderProps> = ({ children }) => {
     try {
       console.log('📡 Obteniendo provider...');
       const provider = getMetaMaskProvider();
+      
+      if (!provider) {
+        throw new Error('No se pudo obtener el provider de MetaMask');
+      }
       
       // Solicitar acceso a las cuentas con timeout
       if (window.ethereum) {
@@ -147,7 +211,12 @@ export const Web3Provider: React.FC<Web3ProviderProps> = ({ children }) => {
       const network = await provider.getNetwork();
       const chainId = Number(network.chainId);
 
-      console.log('✅ Datos obtenidos:', { account, chainId });
+      // Validar que todos los datos son válidos
+      if (!provider || !signer || !account) {
+        throw new Error('No se pudo obtener provider/signer/account de MetaMask');
+      }
+
+      console.log('✅ Datos obtenidos:', { account, chainId, hasProvider: !!provider, hasSigner: !!signer });
 
       dispatch({
         type: 'CONNECT_SUCCESS',
@@ -177,6 +246,26 @@ export const Web3Provider: React.FC<Web3ProviderProps> = ({ children }) => {
     dispatch({ type: 'CLEAR_ERROR' });
   };
 
+  // Función para limpiar estado inconsistente
+  const clearInconsistentState = (): void => {
+    console.log('🧹 Limpiando estado inconsistente...');
+    dispatch({ type: 'DISCONNECT' });
+    localStorage.removeItem('musubi_wallet_connected');
+  };
+
+  // Efecto para detectar y corregir estados inconsistentes
+  useEffect(() => {
+    if (state.isConnected && (!state.provider || !state.signer)) {
+      console.error('❌ Estado inconsistente detectado en useEffect:', {
+        isConnected: state.isConnected,
+        hasProvider: !!state.provider,
+        hasSigner: !!state.signer,
+        account: state.account
+      });
+      clearInconsistentState();
+    }
+  }, [state.isConnected, state.provider, state.signer]);
+
   // Efecto para manejar cambios de cuenta
   useEffect(() => {
     console.log('🔍 Configurando listeners de MetaMask...');
@@ -194,26 +283,34 @@ export const Web3Provider: React.FC<Web3ProviderProps> = ({ children }) => {
         disconnectWallet();
       } else {
         console.log('🔄 Switching to account:', accounts[0]);
-        // Actualizar el estado inmediatamente
-        dispatch({ type: 'ACCOUNT_CHANGED', payload: accounts[0] });
         
-        // También actualizar el provider y signer para la nueva cuenta
-        setTimeout(async () => {
+        // NO hacer dispatch ACCOUNT_CHANGED aquí
+        // Actualizar el provider y signer para la nueva cuenta
+        (async () => {
           try {
             const provider = getMetaMaskProvider();
             const signer = await provider.getSigner();
+            const account = await signer.getAddress();
             const network = await provider.getNetwork();
             const chainId = Number(network.chainId);
-            
+
+            // Validar que todos los datos son válidos
+            if (!provider || !signer || !account) {
+              console.error('❌ Datos inválidos al cambiar cuenta');
+              disconnectWallet();
+              return;
+            }
+
             console.log('🔄 Actualizando provider/signer para nueva cuenta');
             dispatch({
               type: 'CONNECT_SUCCESS',
-              payload: { account: accounts[0], chainId, provider, signer }
+              payload: { account, chainId, provider, signer }
             });
           } catch (error) {
             console.error('❌ Error actualizando provider para nueva cuenta:', error);
+            disconnectWallet();
           }
-        }, 100);
+        })();
       }
     };
 
@@ -247,11 +344,32 @@ export const Web3Provider: React.FC<Web3ProviderProps> = ({ children }) => {
       console.log('✅ Listeners de MetaMask configurados');
       
       // Verificar estado actual
-      window.ethereum.request({ method: 'eth_accounts' }).then((accounts: string[]) => {
+      window.ethereum.request({ method: 'eth_accounts' }).then(async (accounts: string[]) => {
         console.log('📊 Current accounts from MetaMask:', accounts);
         if (accounts.length > 0) {
           console.log('🔄 Setting initial account:', accounts[0]);
-          dispatch({ type: 'ACCOUNT_CHANGED', payload: accounts[0] });
+          
+          // Validar que tenemos provider y signer antes de marcar como conectado
+          try {
+            const provider = getMetaMaskProvider();
+            const signer = await provider.getSigner();
+            const account = await signer.getAddress();
+            const network = await provider.getNetwork();
+            const chainId = Number(network.chainId);
+
+            // Validar que todos los datos son válidos
+            if (!provider || !signer || !account) {
+              console.error('❌ Datos inválidos al verificar estado inicial');
+              return;
+            }
+
+            dispatch({
+              type: 'CONNECT_SUCCESS',
+              payload: { account, chainId, provider, signer }
+            });
+          } catch (error) {
+            console.error('❌ Error verificando estado inicial:', error);
+          }
         }
       }).catch((error: any) => {
         console.error('❌ Error getting current accounts:', error);
@@ -291,6 +409,12 @@ export const Web3Provider: React.FC<Web3ProviderProps> = ({ children }) => {
         try {
           const provider = getMetaMaskProvider();
           
+          if (!provider) {
+            console.error('❌ No se pudo obtener provider en auto-conexión');
+            localStorage.removeItem('musubi_wallet_connected');
+            return;
+          }
+          
           // Crear una promesa con timeout para eth_accounts
           const accountsPromise = window.ethereum!.request({ method: 'eth_accounts' });
           const timeoutPromise = new Promise((_, reject) => 
@@ -305,6 +429,13 @@ export const Web3Provider: React.FC<Web3ProviderProps> = ({ children }) => {
             const account = await signer.getAddress();
             const network = await provider.getNetwork();
             const chainId = Number(network.chainId);
+
+            // Validar que todos los datos son válidos
+            if (!provider || !signer || !account) {
+              console.error('❌ Datos inválidos en auto-conexión');
+              localStorage.removeItem('musubi_wallet_connected');
+              return;
+            }
 
             dispatch({
               type: 'CONNECT_SUCCESS',
@@ -329,23 +460,18 @@ export const Web3Provider: React.FC<Web3ProviderProps> = ({ children }) => {
 
   // Log del estado actual
   useEffect(() => {
-    console.log('📊 Estado actual de Web3:', {
-      isConnected: state.isConnected,
-      account: state.account,
-      chainId: state.chainId,
-      connecting: state.connecting,
-      hasProvider: !!state.provider,
-      hasSigner: !!state.signer,
-      error: state.error
-    });
+    debugWeb3State(state, 'Web3Provider');
   }, [state]);
 
   const value: Web3ContextType = {
     ...state,
     connectWallet,
     disconnectWallet,
-    clearError
+    clearError,
+    clearInconsistentState
   };
+
+  console.log('🔍 Web3Provider - Valor del contexto:', value);
 
   return (
     <Web3Context.Provider value={value}>
@@ -360,6 +486,14 @@ export const useWeb3 = (): Web3ContextType => {
   if (context === undefined) {
     throw new Error('useWeb3 debe ser usado dentro de un Web3Provider');
   }
+  
+  console.log('🔍 useWeb3 - Hook llamado con contexto:', {
+    isConnected: context.isConnected,
+    account: context.account,
+    hasProvider: !!context.provider,
+    hasSigner: !!context.signer
+  });
+  
   return context;
 };
 

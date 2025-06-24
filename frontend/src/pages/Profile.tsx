@@ -34,7 +34,7 @@ import { useProfile } from '../hooks/useContracts';
 import { formatAddress } from '../utils/blockchain';
 
 const Profile = () => {
-  const { isConnected, account } = useWeb3();
+  const { isConnected, account, provider, signer } = useWeb3();
   const { profile, loading, txState, registerProfile, updateProfile, clearTxState, loadProfile } = useProfile();
   
   const [editMode, setEditMode] = useState(false);
@@ -93,7 +93,14 @@ const Profile = () => {
   };
 
   const handleSave = async () => {
-    if (!isConnected) return;
+    if (!isConnected || !provider || !signer) {
+      setSnackbar({
+        open: true,
+        message: 'Wallet no conectada o datos de conexión incompletos. Por favor, reconecta tu wallet.',
+        severity: 'error'
+      });
+      return;
+    }
 
     try {
       // Validar campos requeridos
@@ -163,7 +170,7 @@ const Profile = () => {
       const metadataURI = `ipfs://${result.ipfs_hash}`;
       
       if (profile) {
-        await updateProfile(metadataURI);
+        await updateProfile(formData.name.trim(), formData.bio.trim(), metadataURI);
       } else {
         const profileTypeNumber = profileType === 'company' ? 1 : 0;
         await registerProfile(
@@ -220,6 +227,20 @@ const Profile = () => {
         </Typography>
         <Alert severity="warning">
           Por favor, conecta tu wallet para ver y editar tu perfil.
+        </Alert>
+      </Box>
+    );
+  }
+
+  // Si está conectada pero no tiene provider o signer, mostrar mensaje de error
+  if (isConnected && (!provider || !signer)) {
+    return (
+      <Box>
+        <Typography variant="h4" component="h1" gutterBottom>
+          Mi Perfil
+        </Typography>
+        <Alert severity="error">
+          Error de conexión: La wallet está conectada pero faltan datos de conexión. Por favor, reconecta tu wallet.
         </Alert>
       </Box>
     );

@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import WelcomeScreen from './WelcomeScreen';
 import MetaMaskTutorial from '../tutorial/MetaMaskTutorial';
 import MusubiTutorial from '../tutorial/MusubiTutorial';
 import MusubiIntroTutorial from '../tutorial/MusubiIntroTutorial';
 import ProfileRegistration from './ProfileRegistration';
+import { useWeb3 } from '../../contexts/Web3Context';
 
 export type OnboardingStep = 'welcome' | 'intro' | 'metamask' | 'musubi' | 'profile' | 'complete';
 
@@ -14,6 +15,16 @@ interface OnboardingFlowProps {
 
 const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete, initialStep }) => {
   const [currentStep, setCurrentStep] = useState<OnboardingStep>(initialStep || 'welcome');
+  const { isConnected, account } = useWeb3();
+
+  // Debug: Monitorear estado de conexión
+  useEffect(() => {
+    console.log('🔍 OnboardingFlow - Estado de conexión actualizado:', {
+      currentStep,
+      isConnected,
+      account
+    });
+  }, [currentStep, isConnected, account]);
 
   const handleWelcomeGetStarted = () => {
     setCurrentStep('intro');

@@ -4,6 +4,7 @@ import { useWeb3 } from '../contexts/Web3Context';
 import {
   KRMTokenService,
   ProfileRegistryService,
+  ProfileRegistryIPFSService,
   SkillSystemService,
   TimeRegistryService,
   P2PMarketplaceService
@@ -171,31 +172,61 @@ export const useProfile = () => {
     profileType: number, 
     acceptDisclaimer: boolean
   ) => {
-    if (!isConnected || !provider || !signer) throw new Error('Wallet not connected');
+    console.log('🔍 useProfile.registerProfile - Verificando conexión:', {
+      isConnected,
+      provider: !!provider,
+      signer: !!signer,
+      account
+    });
+    
+    if (!isConnected || !provider || !signer) {
+      const errorMsg = !isConnected ? 'Wallet not connected' : 
+                      !provider ? 'Provider not available' : 
+                      !signer ? 'Signer not available' : 'Unknown connection error';
+      throw new Error(errorMsg);
+    }
     
     setTxState({ loading: true, error: null, success: false });
     
     try {
+      console.log('🔍 useProfile.registerProfile - Llamando al servicio con:', {
+        name,
+        description,
+        metadataURI,
+        profileType,
+        acceptDisclaimer
+      });
+      
       const service = new ProfileRegistryService(provider, signer);
       const tx = await service.registerProfile(name, description, metadataURI, profileType, acceptDisclaimer);
+      console.log('🔍 useProfile.registerProfile - Transacción enviada:', tx);
+      
       await tx.wait();
+      console.log('🔍 useProfile.registerProfile - Transacción confirmada');
+      
       setTxState({ loading: false, error: null, success: true });
       await loadProfile(); // Recargar perfil
       return tx;
     } catch (error: any) {
+      console.error('❌ useProfile.registerProfile - Error:', error);
       setTxState({ loading: false, error: error.message, success: false });
       throw error;
     }
   };
 
-  const updateProfile = async (metadataURI: string) => {
-    if (!isConnected || !provider || !signer) throw new Error('Wallet not connected');
+  const updateProfile = async (name: string, description: string, metadataURI: string) => {
+    if (!isConnected || !provider || !signer) {
+      const errorMsg = !isConnected ? 'Wallet not connected' : 
+                      !provider ? 'Provider not available' : 
+                      !signer ? 'Signer not available' : 'Unknown connection error';
+      throw new Error(errorMsg);
+    }
     
     setTxState({ loading: true, error: null, success: false });
     
     try {
       const service = new ProfileRegistryService(provider, signer);
-      const tx = await service.updateProfile(metadataURI);
+      const tx = await service.updateProfile(name, description, metadataURI);
       await tx.wait();
       setTxState({ loading: false, error: null, success: true });
       await loadProfile(); // Recargar perfil
@@ -639,6 +670,162 @@ export const useMarketplace = () => {
     loadServices,
     loadUserServices,
     loadOrders,
+    clearTxState: () => setTxState({ loading: false, error: null, success: false })
+  };
+};
+
+// Hook para Profile Registry con IPFS
+export const useProfileIPFS = () => {
+  const { provider, signer, account, isConnected } = useWeb3();
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [txState, setTxState] = useState<TransactionState>({
+    loading: false,
+    error: null,
+    success: false
+  });
+
+  const loadProfile = useCallback(async (address?: string) => {
+    // Solo cargar si hay conexión completa
+    if (!isConnected || !provider) {
+      setProfile(null);
+      setLoading(false);
+      return;
+    }
+    
+    const targetAddress = address || account;
+    if (!targetAddress) {
+      setProfile(null);
+      setLoading(false);
+      return;
+    }
+    
+    try {
+      setLoading(true);
+      console.log('🔍 Cargando perfil desde IPFS...');
+      const service = new ProfileRegistryIPFSService();
+      const userProfile = await service.getProfileFromIPFS(targetAddress);
+      setProfile(userProfile);
+      console.log('✅ Perfil cargado desde IPFS:', userProfile);
+    } catch (error) {
+      console.error('❌ Error loading profile from IPFS:', error);
+      setProfile(null);
+    } finally {
+      setLoading(false);
+    }
+  }, [isConnected, provider, account]);
+
+  const registerProfile = async (
+    name: string,
+    description: string, 
+    profileType: number, 
+    acceptDisclaimer: boolean,
+    additionalData: any = {}
+  ) => {
+    console.log('🔍 useProfileIPFS.registerProfile - Verificando conexión:', {
+      isConnected,
+      provider: !!provider,
+      signer: !!signer,
+      account
+    });
+    
+    if (!isConnected || !provider || !signer) {
+      const errorMsg = !isConnected ? 'Wallet not connected' : 
+                      !provider ? 'Provider not available' : 
+                      !signer ? 'Signer not available' : 'Unknown connection error';
+      throw new Error(errorMsg);
+    }
+    
+    setTxState({ loading: true, error: null, success: false });
+    
+    try {
+      console.log('🔍 useProfileIPFS.registerProfile - Llamando al servicio IPFS con:', {
+        name,
+        description,
+        profileType,
+        acceptDisclaimer,
+        additionalData: {
+          ...additionalData,
+          walletAddress: account
+        }
+      });
+      
+      const service = new ProfileRegistryIPFSService();
+      const result = await service.registerProfileWithIPFS(
+        name, 
+        description, 
+        profileType, 
+        acceptDisclaimer,
+        {
+          ...additionalData,
+          walletAddress: account
+        }
+      );
+      
+      console.log('🔍 useProfileIPFS.registerProfile - Respuesta del servicio IPFS:', result);
+      
+      setTxState({ loading: false, error: null, success: true });
+      
+      // Recargar perfil después del registro
+      await loadProfile();
+      
+      return result;
+    } catch (error: any) {
+      console.error('❌ useProfileIPFS.registerProfile - Error:', error);
+      setTxState({ loading: false, error: error.message, success: false });
+      throw error;
+    }
+  };
+
+  const updateProfile = async (name: string, description: string, additionalData: any = {}) => {
+    if (!isConnected || !provider || !signer || !account) {
+      throw new Error('Wallet not connected');
+    }
+    
+    setTxState({ loading: true, error: null, success: false });
+    
+    try {
+      console.log('🔍 useProfileIPFS.updateProfile - Llamando al servicio IPFS con:', {
+        name,
+        description,
+        additionalData
+      });
+      
+      const service = new ProfileRegistryIPFSService();
+      const result = await service.updateProfileInIPFS(account, name, description, additionalData);
+      
+      console.log('🔍 useProfileIPFS.updateProfile - Respuesta del servicio IPFS:', result);
+      
+      setTxState({ loading: false, error: null, success: true });
+      
+      // Recargar perfil después de la actualización
+      await loadProfile();
+      
+      return result;
+    } catch (error: any) {
+      console.error('❌ useProfileIPFS.updateProfile - Error:', error);
+      setTxState({ loading: false, error: error.message, success: false });
+      throw error;
+    }
+  };
+
+  // Cargar perfil cuando cambie la conexión
+  useEffect(() => {
+    if (isConnected && provider && account) {
+      loadProfile();
+    } else {
+      setProfile(null);
+      setLoading(false);
+    }
+  }, [isConnected, provider, account, loadProfile]);
+
+  return {
+    profile,
+    loading,
+    txState,
+    registerProfile,
+    updateProfile,
+    loadProfile,
     clearTxState: () => setTxState({ loading: false, error: null, success: false })
   };
 };

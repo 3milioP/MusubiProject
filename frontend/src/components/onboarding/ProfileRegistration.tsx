@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -31,6 +31,7 @@ import {
 import { useWeb3 } from '../../contexts/Web3Context';
 import { useProfile } from '../../hooks/useContracts';
 import { useOnboarding } from '../../contexts/OnboardingContext';
+import { debugWeb3State, debugProfileRegistryContract, simulateProfileRegistration } from '../../utils/debugWeb3';
 
 interface ProfileRegistrationProps {
   onComplete: () => void;
@@ -40,10 +41,18 @@ interface ProfileRegistrationProps {
 const steps = ['Información Básica', 'Disclaimer Legal', 'Confirmación'];
 
 const ProfileRegistration: React.FC<ProfileRegistrationProps> = ({ onComplete, onSkip }) => {
-  const { isConnected, account } = useWeb3();
-  const { profile, loading, txState, registerProfile, loadProfile } = useProfile();
+  const { isConnected, account, provider, signer, connectWallet, clearInconsistentState } = useWeb3();
+  const { registerProfile, loadProfile, txState } = useProfile();
   const { markProfileRegistered } = useOnboarding();
   
+  console.log('🔍 ProfileRegistration - Renderizado con estado:', {
+    isConnected,
+    account,
+    provider: !!provider,
+    signer: !!signer,
+    txState
+  });
+
   const [activeStep, setActiveStep] = useState(0);
   const [profileType, setProfileType] = useState<'individual' | 'company'>('individual');
   const [formData, setFormData] = useState({
@@ -54,6 +63,18 @@ const ProfileRegistration: React.FC<ProfileRegistrationProps> = ({ onComplete, o
   });
   const [acceptDisclaimer, setAcceptDisclaimer] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isRegistering, setIsRegistering] = useState(false);
+
+  // Debug: Monitorear estado de conexión
+  useEffect(() => {
+    console.log('🔍 ProfileRegistration - Renderizado con estado:', {
+      isConnected,
+      account,
+      provider: !!provider,
+      signer: !!signer,
+      txState
+    });
+  }, [isConnected, account, provider, signer, txState]);
 
   const handleProfileTypeChange = (event: SelectChangeEvent) => {
     setProfileType(event.target.value as 'individual' | 'company');
@@ -96,17 +117,71 @@ const ProfileRegistration: React.FC<ProfileRegistrationProps> = ({ onComplete, o
   };
 
   const handleRegister = async () => {
-    if (!isConnected) {
-      setError('Wallet no conectada');
+    if (!acceptDisclaimer) {
+      setError('Debes aceptar el disclaimer para continuar');
       return;
     }
 
+    if (!formData.name.trim() || !formData.bio.trim()) {
+      setError('Por favor completa todos los campos obligatorios');
+      return;
+    }
+
+    setError('');
+    setIsRegistering(true);
+
     try {
-      setError(null);
+      console.log('🔍 ProfileRegistration - Iniciando registro de perfil...');
       
-      // En una implementación real, aquí subirías los datos a IPFS
+      // Debug: Verificar estado Web3
+      const web3Debug = debugWeb3State({ 
+        provider, 
+        signer, 
+        account, 
+        isConnected,
+        chainId: null,
+        connecting: false,
+        error: null
+      });
+      console.log('🔍 ProfileRegistration - Estado Web3:', web3Debug);
+      
+      // Debug: Verificar estado del contrato
+      const contractDebug = await debugProfileRegistryContract(provider, signer);
+      console.log('🔍 ProfileRegistration - Estado del contrato:', contractDebug);
+      
+      if (contractDebug.error) {
+        throw new Error(`Error en el contrato: ${contractDebug.error}`);
+      }
+      
+      // Debug: Simular registro antes de enviar
       const metadataURI = `ipfs://example-hash-${Date.now()}`;
       const profileTypeNumber = profileType === 'company' ? 1 : 0;
+      
+      const simulation = await simulateProfileRegistration(
+        provider,
+        signer,
+        formData.name.trim(),
+        formData.bio.trim(),
+        metadataURI,
+        profileTypeNumber,
+        acceptDisclaimer
+      );
+      
+      console.log('🔍 ProfileRegistration - Resultado de simulación:', simulation);
+      
+      if (simulation.error) {
+        throw new Error(`Error en simulación: ${simulation.error}`);
+      }
+      
+      console.log('🔍 ProfileRegistration - Simulación exitosa, procediendo con registro real...');
+
+      console.log('🔍 Debug - Llamando a registerProfile con:', {
+        name: formData.name.trim(),
+        description: formData.bio.trim(),
+        metadataURI,
+        profileTypeNumber,
+        acceptDisclaimer
+      });
       
       await registerProfile(
         formData.name.trim(),
@@ -123,6 +198,8 @@ const ProfileRegistration: React.FC<ProfileRegistrationProps> = ({ onComplete, o
     } catch (error) {
       console.error('Error registering profile:', error);
       setError(error instanceof Error ? error.message : 'Error al registrar el perfil');
+    } finally {
+      setIsRegistering(false);
     }
   };
 
@@ -346,9 +423,49 @@ const ProfileRegistration: React.FC<ProfileRegistrationProps> = ({ onComplete, o
             <Typography variant="body1" color="textSecondary" sx={{ mb: 3 }}>
               Para registrar tu perfil, primero debes conectar tu wallet MetaMask.
             </Typography>
-            <Button variant="outlined" onClick={onSkip}>
-              Continuar sin Perfil
-            </Button>
+            <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center' }}>
+              <Button variant="contained" onClick={connectWallet}>
+                Conectar Wallet
+              </Button>
+              <Button variant="outlined" onClick={onSkip}>
+                Continuar sin Perfil
+              </Button>
+            </Box>
+          </Card>
+        </Box>
+      </Box>
+    );
+  }
+
+  // Si está conectada pero no tiene provider o signer, mostrar mensaje de error
+  if (isConnected && (!provider || !signer)) {
+    return (
+      <Box sx={{ 
+        minHeight: '100vh', 
+        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        display: 'flex',
+        alignItems: 'center',
+        py: 4
+      }}>
+        <Box sx={{ maxWidth: 600, mx: 'auto', px: 3 }}>
+          <Card sx={{ p: 4, textAlign: 'center' }}>
+            <Typography variant="h5" gutterBottom>
+              Error de Conexión
+            </Typography>
+            <Typography variant="body1" color="textSecondary" sx={{ mb: 3 }}>
+              La wallet está conectada pero faltan datos de conexión. Por favor, reconecta tu wallet.
+            </Typography>
+            <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center', flexWrap: 'wrap' }}>
+              <Button variant="contained" onClick={connectWallet}>
+                Reconectar Wallet
+              </Button>
+              <Button variant="outlined" onClick={clearInconsistentState} color="warning">
+                Limpiar Estado
+              </Button>
+              <Button variant="outlined" onClick={onSkip}>
+                Continuar sin Perfil
+              </Button>
+            </Box>
           </Card>
         </Box>
       </Box>
@@ -418,10 +535,10 @@ const ProfileRegistration: React.FC<ProfileRegistrationProps> = ({ onComplete, o
                 <Button
                   variant="contained"
                   onClick={handleRegister}
-                  disabled={txState.loading}
-                  startIcon={txState.loading ? <CircularProgress size={20} /> : <CheckCircle />}
+                  disabled={isRegistering || txState.loading}
+                  startIcon={isRegistering || txState.loading ? <CircularProgress size={20} /> : <CheckCircle />}
                 >
-                  {txState.loading ? 'Registrando...' : 'Registrar Perfil'}
+                  {isRegistering || txState.loading ? 'Registrando...' : 'Registrar Perfil'}
                 </Button>
               ) : (
                 <Button
