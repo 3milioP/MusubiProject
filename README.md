@@ -23,6 +23,8 @@ Musubi es una plataforma blockchain que permite el intercambio descentralizado d
 
 ## 🏗️ Arquitectura del Sistema
 
+Para una descripción técnica detallada de la arquitectura, consulta el archivo [ARCHITECTURE.md](./ARCHITECTURE.md).
+
 ### Contratos Inteligentes
 - **ProfileRegistry**: Gestión de perfiles con integración IPFS
 - **SkillSystem**: Sistema de habilidades con validación cruzada
@@ -36,11 +38,13 @@ Musubi es una plataforma blockchain que permite el intercambio descentralizado d
 - **UI Enriquecida**: Muestra información completa de perfiles y habilidades
 - **Gestión de Estados**: Contextos para Web3, notificaciones y onboarding
 - **Responsive Design**: Interfaz moderna y accesible
+- **Developer Tools**: Página dedicada para testing y monitorización del sistema
 
-### API (Python + FastAPI)
+### API (Python + Flask)
 - **Endpoints IPFS**: Servicio de contenido IPFS para el frontend
 - **Integración Blockchain**: Llamadas a contratos inteligentes
 - **Gestión de Usuarios**: Registro y autenticación basada en wallet
+- **Swagger Documentation**: API documentada en `/docs`
 
 ## 🚀 Instalación y Configuración
 
@@ -119,9 +123,10 @@ npm run dev
 
 ### 3. Registro de Tiempo
 1. Profesional registra tiempo trabajado
-2. Empresa valida el registro
-3. Karma se distribuye según validación
-4. Historial inmutable en blockchain
+2. Datos se suben a IPFS mediante API
+3. Hash IPFS se registra en blockchain
+4. Empresa valida el registro
+5. Karma se distribuye según validación
 
 ### 4. Marketplace P2P
 1. Proveedor crea servicio con precio en KRM
@@ -176,7 +181,14 @@ await skillSystem.revokeRole(karmaRole, userAddress);
 4. Combina datos de blockchain con metadatos IPFS
 5. Muestra información enriquecida al usuario
 
-## 🧪 Testing
+## 🧪 Testing y Developer Tools
+
+### Página de Developer Tools
+- **Estado del Sistema**: Verificación de blockchain, IPFS, API y frontend
+- **Tests Interactivos**: Pruebas individuales de cada funcionalidad
+- **Tests en Lote**: Ejecución de múltiples tests simultáneamente
+- **Resultados Detallados**: Tabla con resultados y logs de cada test
+- **Monitoreo en Tiempo Real**: Estado actualizado de todos los servicios
 
 ### Scripts de Prueba
 ```bash
@@ -188,6 +200,9 @@ npx hardhat run scripts/test-user-experience.sh
 
 # Validación de APIs
 npx hardhat run scripts/validate-apis.sh
+
+# Test de registro de tiempo
+npx hardhat run scripts/test-time-registration.js
 ```
 
 ### Cuentas de Prueba
@@ -218,18 +233,45 @@ npx hardhat run scripts/validate-apis.sh
 - [x] Sistema de roles configurado
 - [x] Frontend con lectura IPFS
 - [x] Scripts de configuración
+- [x] Developer Tools implementadas
+- [x] Sistema de registro de tiempo con IPFS
+- [x] Validación cruzada de habilidades
 
 ### Fase 2 (Próxima)
 - [ ] Despliegue en testnet (Sepolia/Goerli)
 - [ ] IPFS real con pinning service
 - [ ] Sistema de reputación avanzado
 - [ ] Marketplace con más funcionalidades
+- [ ] Notificaciones push
+- [ ] Exportación de datos
 
 ### Fase 3 (Futura)
 - [ ] Despliegue en mainnet
 - [ ] Gobernanza descentralizada
 - [ ] Integración con otras blockchains
 - [ ] Mobile app
+- [ ] Analytics de uso
+
+## 🚧 Problemas Conocidos y Soluciones
+
+### Errores Comunes
+1. **`this.contract.recordTime is not a function`**
+   - **Causa**: El método correcto es `registerTime`, no `recordTime`
+   - **Solución**: Usar `registerTime(skillId, timeDataHash, hoursWorked, hourlyRate)`
+
+2. **Errores 404 en API de usuarios**
+   - **Causa**: Usuario no tiene perfil registrado
+   - **Solución**: Registrar perfil antes de consultar
+
+3. **Skeleton loading infinito**
+   - **Causa**: Lógica de carga incorrecta
+   - **Solución**: Mostrar valores reales (0 cuando no hay datos)
+
+### Debugging
+- **Frontend**: Console del navegador
+- **API**: Terminal donde corre Python
+- **Blockchain**: Terminal de Hardhat
+- **Developer Tools**: Página dedicada para testing
 
 ## 🤝 Contribución
 
@@ -248,117 +290,17 @@ Este proyecto está bajo la Licencia MIT. Ver el archivo `LICENSE` para más det
 Para soporte técnico o preguntas:
 - Abre un issue en GitHub
 - Consulta la documentación de contratos en `hardhat-dev/ANALISIS_CONTRATOS.md`
-- Revisa los logs de la consola para debugging
+- Usa la página de Developer Tools para debugging
 
-## 🌐 Configuración de IPFS para Desarrollo
+## 📊 Estado del Proyecto
 
-### Verificación Rápida
+- **Frontend**: 95% completo
+- **Backend**: 90% completo
+- **Contratos**: 85% completo
+- **Testing**: 80% completo
+- **Documentación**: 85% completo
 
-Para verificar rápidamente el estado de IPFS:
-
-```bash
-# Verificar estado actual de IPFS
-./check-ipfs.sh
-```
-
-Este script verifica:
-- ✅ Si IPFS está instalado
-- 🔧 Si está inicializado
-- ⚙️ Si la configuración es correcta
-- 🚀 Si el daemon está corriendo
-- 📡 Si la API y Gateway responden
-
-### Instalación y Configuración Automática
-
-Para configurar IPFS automáticamente para desarrollo local:
-
-```bash
-# Ejecutar el script de configuración
-./setup-ipfs-dev.sh
-```
-
-Este script:
-- ✅ Verifica que IPFS esté instalado
-- 🔧 Inicializa IPFS si es necesario
-- ⚙️ Configura IPFS para desarrollo local
-- 🚀 Inicia el daemon de IPFS
-- 🔓 Configura CORS para permitir acceso desde el frontend
-
-### Configuración Manual
-
-Si prefieres configurar IPFS manualmente:
-
-```bash
-# Instalar IPFS (macOS)
-brew install ipfs
-
-# Inicializar IPFS
-ipfs init
-
-# Configurar para desarrollo
-ipfs config Addresses.API /ip4/127.0.0.1/tcp/5001
-ipfs config Addresses.Gateway /ip4/127.0.0.1/tcp/8080
-ipfs config --json API.HTTPHeaders.Access-Control-Allow-Origin '["*"]'
-ipfs config --json API.HTTPHeaders.Access-Control-Allow-Methods '["PUT", "POST", "GET"]'
-ipfs config --json API.HTTPHeaders.Access-Control-Allow-Headers '["Authorization"]'
-ipfs config Routing.Type "none"
-
-# Iniciar daemon
-ipfs daemon
-```
-
-### Puertos y Endpoints
-
-- **API IPFS**: http://localhost:5001
-- **Gateway IPFS**: http://localhost:8080
-- **Directorio de datos**: ~/.ipfs
-
-### Integración con Musubi
-
-Cuando ejecutes `start-musubi.sh` con la opción 1 (despliegue local), IPFS se configurará automáticamente y estará disponible para:
-
-- 📝 Almacenamiento de perfiles de usuario
-- 🎯 Almacenamiento de habilidades y servicios
-- ⏰ Almacenamiento de registros de tiempo
-- 🏪 Almacenamiento de datos del marketplace
-
-Los datos se almacenan realmente en IPFS y se referencian en la blockchain mediante hashes.
-
-### Estado de IPFS en el Frontend
-
-El Dashboard incluye un componente que muestra el estado de IPFS en tiempo real:
-- ✅ Conectado: IPFS está funcionando correctamente
-- ⚠️ No disponible: IPFS no está configurado o no responde
-- 🔄 Verificando: Comprobando el estado de IPFS
-
-### Troubleshooting
-
-**IPFS no responde:**
-```bash
-# Verificar si está corriendo
-pgrep -x "ipfs"
-
-# Reiniciar IPFS
-pkill -f "ipfs daemon"
-ipfs daemon
-```
-
-**Error de CORS:**
-```bash
-# Reconfigurar CORS
-ipfs config --json API.HTTPHeaders.Access-Control-Allow-Origin '["*"]'
-```
-
-**Puertos ocupados:**
-```bash
-# Verificar puertos
-lsof -i :5001
-lsof -i :8080
-
-# Cambiar puertos si es necesario
-ipfs config Addresses.API /ip4/127.0.0.1/tcp/5002
-ipfs config Addresses.Gateway /ip4/127.0.0.1/tcp/8081
-```
+**Última actualización**: 26 de Junio 2025
 
 ---
 

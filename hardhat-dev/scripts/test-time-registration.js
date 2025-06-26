@@ -21,14 +21,14 @@ async function main() {
     const skillSystem = await ethers.getContractAt("SkillSystem", addresses.SkillSystem);
 
     console.log("\n🔍 Verificando skills disponibles...");
-    const allSkills = await skillSystem.getAllSkills();
-    console.log(`  ✅ Skills disponibles: ${allSkills.length}`);
-
-    if (allSkills.length === 0) {
-      console.log("  ⚠️ No hay skills disponibles, creando una...");
+    // Intentar crear una skill directamente
+    try {
+      console.log("  ⚠️ Creando skill de prueba...");
       const createSkillTx = await skillSystem.connect(accounts[0]).createSkill("QmTestSkillHash");
       await createSkillTx.wait();
       console.log("  ✅ Skill creada");
+    } catch (error) {
+      console.log("  ⚠️ Skill ya existe o error al crear:", error.message);
     }
 
     console.log("\n🔍 Verificando perfil del profesional...");
