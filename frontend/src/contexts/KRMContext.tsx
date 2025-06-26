@@ -1,6 +1,9 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { useWeb3 } from './Web3Context';
 import { KRMTokenService } from '../services/contracts';
+import { CONTRACT_ADDRESSES } from '../config';
+import { CONTRACT_ABIS } from '../services/abis';
+import { ethers } from 'ethers';
 
 interface KRMContextType {
   balance: string;
@@ -50,11 +53,40 @@ export const KRMProvider: React.FC<KRMProviderProps> = ({ children }) => {
 
   // Cargar balance cuando cambie la conexión
   useEffect(() => {
+    console.log('🔍 KRMContext.useEffect - Estado de conexión:', {
+      isConnected,
+      hasProvider: !!provider,
+      account,
+      currentBalance: balance
+    });
+    
     if (isConnected && provider && account) {
-      console.log('🔍 KRMContext - Ejecutando loadBalance...');
+      console.log('🔍 KRMContext.useEffect - Ejecutando loadBalance...');
       loadBalance();
+      
+      // Escuchar eventos de transferencia para actualizar el balance automáticamente
+      const krmToken = new ethers.Contract(
+        CONTRACT_ADDRESSES.KRMToken,
+        CONTRACT_ABIS.KRMToken,
+        provider
+      );
+      
+      const handleTransfer = (from: string, to: string, value: any) => {
+        if (from.toLowerCase() === account.toLowerCase() || to.toLowerCase() === account.toLowerCase()) {
+          console.log('🔄 KRMContext - Evento de transferencia detectado, actualizando balance...');
+          console.log('🔄 KRMContext - From:', from, 'To:', to, 'Value:', ethers.formatEther(value));
+          setTimeout(() => loadBalance(), 1000); // Esperar 1 segundo para que se confirme la transacción
+        }
+      };
+      
+      krmToken.on('Transfer', handleTransfer);
+      
+      return () => {
+        console.log('🔍 KRMContext - Limpiando listener de eventos');
+        krmToken.off('Transfer', handleTransfer);
+      };
     } else {
-      console.log('🔍 KRMContext - No hay conexión completa, reseteando balance');
+      console.log('🔍 KRMContext.useEffect - No hay conexión completa, reseteando balance');
       setBalance('0');
       setLoading(false);
     }

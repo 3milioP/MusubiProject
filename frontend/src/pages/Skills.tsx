@@ -34,12 +34,12 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
 import { useWeb3 } from '../contexts/Web3Context';
 import { useSkills } from '../hooks/useContracts';
-import { ProfessionalSkill } from '../types';
+import { ProfessionalSkill, ContractSkill } from '../types';
 
 const Skills = () => {
   const { account, isConnected } = useWeb3();
   const { 
-    userSkills, 
+    userSkills, // Solo las habilidades declaradas por el usuario
     loading, 
     txState, 
     createSkill, 
@@ -67,7 +67,7 @@ const Skills = () => {
 
   useEffect(() => {
     if (isConnected && account) {
-      loadUserSkills();
+      loadUserSkills(); // Cargar habilidades del usuario
     }
   }, [isConnected, account, loadUserSkills]);
 
@@ -207,10 +207,41 @@ const Skills = () => {
 
       {loading ? (
         <Box sx={{ width: '100%', mt: 4 }}>
-          <LinearProgress />
-          <Typography variant="body2" sx={{ mt: 2, textAlign: 'center' }}>
-            Cargando habilidades desde la blockchain...
+          <Typography variant="h6" gutterBottom sx={{ mb: 3 }}>
+            Mis Habilidades Declaradas
           </Typography>
+          <Grid container spacing={3}>
+            {[1, 2, 3].map((index) => (
+              <Grid item xs={12} md={6} lg={4} key={index}>
+                <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+                  <CardContent sx={{ flexGrow: 1 }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                        <Box sx={{ width: 80, height: 24, bgcolor: 'grey.300', borderRadius: 1, animation: 'pulse 1.5s ease-in-out infinite' }} />
+                      </Box>
+                      <Box sx={{ width: 70, height: 24, bgcolor: 'grey.200', borderRadius: 1, animation: 'pulse 1.5s ease-in-out infinite' }} />
+                    </Box>
+                    
+                    <Box sx={{ width: 100, height: 24, bgcolor: 'grey.200', borderRadius: 1, mb: 2, animation: 'pulse 1.5s ease-in-out infinite' }} />
+                    
+                    <Box sx={{ width: '60%', height: 16, bgcolor: 'grey.100', borderRadius: 1, mb: 1, animation: 'pulse 1.5s ease-in-out infinite' }} />
+                    <Box sx={{ width: '40%', height: 16, bgcolor: 'grey.100', borderRadius: 1, animation: 'pulse 1.5s ease-in-out infinite' }} />
+                  </CardContent>
+                  
+                  <CardActions>
+                    <Box sx={{ width: 120, height: 32, bgcolor: 'grey.200', borderRadius: 1, animation: 'pulse 1.5s ease-in-out infinite' }} />
+                    <Box sx={{ flexGrow: 1 }} />
+                    <Box sx={{ width: 32, height: 32, bgcolor: 'grey.200', borderRadius: 1, animation: 'pulse 1.5s ease-in-out infinite' }} />
+                  </CardActions>
+                </Card>
+              </Grid>
+            ))}
+          </Grid>
+          <Box sx={{ mt: 3, textAlign: 'center' }}>
+            <Typography variant="body2" color="text.secondary">
+              Cargando habilidades desde la blockchain...
+            </Typography>
+          </Box>
         </Box>
       ) : (
         <>

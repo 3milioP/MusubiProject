@@ -36,11 +36,12 @@ import { debugWeb3State, debugProfileRegistryContract, simulateProfileRegistrati
 interface ProfileRegistrationProps {
   onComplete: () => void;
   onSkip: () => void;
+  onRestartTutorial?: () => void;
 }
 
 const steps = ['Información Básica', 'Disclaimer Legal', 'Confirmación'];
 
-const ProfileRegistration: React.FC<ProfileRegistrationProps> = ({ onComplete, onSkip }) => {
+const ProfileRegistration: React.FC<ProfileRegistrationProps> = ({ onComplete, onSkip, onRestartTutorial }) => {
   const { isConnected, account, provider, signer, connectWallet, clearInconsistentState } = useWeb3();
   const { registerProfile, loadProfile, txState } = useProfile();
   const { markProfileRegistered } = useOnboarding();
@@ -409,8 +410,8 @@ const ProfileRegistration: React.FC<ProfileRegistrationProps> = ({ onComplete, o
               <Button variant="contained" onClick={connectWallet}>
                 Conectar Wallet
               </Button>
-              <Button variant="outlined" onClick={onSkip}>
-                Continuar sin Perfil
+              <Button variant="outlined" onClick={onRestartTutorial || onSkip}>
+                Volver a ver el tutorial
               </Button>
             </Box>
           </Card>
@@ -444,8 +445,8 @@ const ProfileRegistration: React.FC<ProfileRegistrationProps> = ({ onComplete, o
               <Button variant="outlined" onClick={clearInconsistentState} color="warning">
                 Limpiar Estado
               </Button>
-              <Button variant="outlined" onClick={onSkip}>
-                Continuar sin Perfil
+              <Button variant="outlined" onClick={onRestartTutorial || onSkip}>
+                Volver a ver el tutorial
               </Button>
             </Box>
           </Card>
@@ -508,9 +509,9 @@ const ProfileRegistration: React.FC<ProfileRegistrationProps> = ({ onComplete, o
             <Box sx={{ display: 'flex', gap: 2 }}>
               <Button
                 variant="outlined"
-                onClick={onSkip}
+                onClick={onRestartTutorial || onSkip}
               >
-                Omitir
+                Volver a ver el tutorial
               </Button>
               
               {activeStep === steps.length - 1 ? (

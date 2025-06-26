@@ -11,6 +11,7 @@ import StoreIcon from '@mui/icons-material/Store';
 import SettingsIcon from '@mui/icons-material/Settings';
 import HelpIcon from '@mui/icons-material/Help';
 import BuildIcon from '@mui/icons-material/Build';
+import PeopleIcon from '@mui/icons-material/People';
 
 // Importar contextos y componentes
 import { Web3Provider } from './contexts/Web3Context';
@@ -24,6 +25,7 @@ import NotificationContainer from './components/NotificationContainer';
 import Dashboard from './pages/Dashboard';
 import Profile from './pages/Profile';
 import Skills from './pages/Skills';
+import Users from './pages/Users';
 import TimeRegistry from './pages/TimeRegistry';
 import Marketplace from './pages/Marketplace';
 import Settings from './pages/Settings';
@@ -57,6 +59,7 @@ const menuItems = [
   { text: 'Dashboard', icon: <DashboardIcon />, component: 'dashboard' },
   { text: 'Mi Perfil', icon: <PersonIcon />, component: 'profile' },
   { text: 'Habilidades', icon: <WorkIcon />, component: 'skills' },
+  { text: 'Usuarios', icon: <PeopleIcon />, component: 'users' },
   { text: 'Registro de Tiempo', icon: <AccessTimeIcon />, component: 'timeregistry' },
   { text: 'Marketplace', icon: <StoreIcon />, component: 'marketplace' },
   { text: 'Configuración', icon: <SettingsIcon />, component: 'settings' },
@@ -186,6 +189,8 @@ const AppContent = () => {
         return <Settings />;
       case 'developertools':
         return <DeveloperTools />;
+      case 'users':
+        return <Users />;
       default:
         return <Dashboard />;
     }

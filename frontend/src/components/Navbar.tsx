@@ -61,7 +61,9 @@ const Navbar: React.FC<NavbarProps> = ({ onMenuClick }) => {
     profile,
     hasRegisteredProfile,
     profileName: profile?.name,
-    profileType: typeof profile?.name
+    profileType: typeof profile?.name,
+    profileAddress: profile?.address,
+    accountMatch: account === profile?.address
   });
 
   // Cargar perfil automáticamente

@@ -200,7 +200,7 @@ export class ProfileRegistryIPFSService {
   private apiUrl: string;
 
   constructor() {
-    this.apiUrl = 'http://localhost:5004'; // URL correcta de la API Musubi
+    this.apiUrl = 'http://localhost:5003'; // URL correcta de la API Musubi
   }
 
   async registerProfileWithIPFS(
@@ -219,15 +219,22 @@ export class ProfileRegistryIPFSService {
     });
 
     try {
-      // Preparar datos del perfil para IPFS
+      // Obtener la dirección de wallet del additionalData o usar una por defecto
+      const walletAddress = additionalData.walletAddress || '0x0000000000000000000000000000000000000000';
+      
+      // Preparar datos del perfil en el formato que espera la API
       const profileData = {
-        name,
-        description,
-        profileType: profileType === 1 ? 'company' : 'professional',
-        acceptDisclaimer,
-        ...additionalData,
-        timestamp: new Date().toISOString()
+        name: name,
+        email: additionalData.email || `user_${Date.now()}@musubi.com`,
+        wallet_address: walletAddress,
+        profile_type: profileType === 1 ? 'company' : 'professional',
+        description: description,
+        skills: additionalData.skills || [],
+        acceptDisclaimer: acceptDisclaimer,
+        ...additionalData
       };
+
+      console.log('🔍 ProfileRegistryIPFSService.registerProfileWithIPFS - Datos a enviar:', profileData);
 
       // Llamar a la API para registrar el perfil con IPFS
       const response = await fetch(`${this.apiUrl}/api/users`, {
@@ -235,19 +242,13 @@ export class ProfileRegistryIPFSService {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          wallet_address: additionalData.walletAddress || '0x0000000000000000000000000000000000000000',
-          name: profileData.name,
-          email: additionalData.email || '',
-          profile_data: profileData,
-          ipfs_hash: '', // La API lo generará automáticamente
-          storage_type: 'decentralized_ipfs'
-        })
+        body: JSON.stringify(profileData)
       });
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(`Error en la API: ${errorData.detail || response.statusText}`);
+        console.error('❌ Error response from API:', errorData);
+        throw new Error(`Error en la API: ${errorData.error || errorData.detail || response.statusText}`);
       }
 
       const result = await response.json();
@@ -395,7 +396,7 @@ export class SkillSystemService {
 
   async getAllSkills(): Promise<Skill[]> {
     try {
-      const skillCount = await this.contract.getSkillCount();
+      const skillCount = await this.contract.totalSkills();
       const skills: Skill[] = [];
 
       for (let i = 0; i < skillCount; i++) {
@@ -450,9 +451,13 @@ export class SkillSystemService {
       contractAddress: this.contract.address
     });
     
-    const tx = await this.contract.declareSkill(skillId, level);
-    console.log('🔍 SkillSystemService.declareSkill - Transacción creada:', tx);
-    return tx;
+    // NOTA: Este método ahora se usa principalmente para compatibilidad
+    // La declaración real se hace a través de la API que maneja IPFS + blockchain
+    // Este método puede usarse para llamadas directas al contrato si es necesario
+    
+    // Para compatibilidad, intentamos llamar al contrato directamente
+    // pero esto requeriría que ya tengamos el declarationDataHash
+    throw new Error('declareSkill debe llamarse a través de la API para manejar IPFS correctamente');
   }
 
   async validateSkill(professionalAddress: string, skillId: number, isValid: boolean): Promise<any> {
@@ -468,14 +473,13 @@ export class SkillSystemService {
     return tx;
   }
 
-  async createSkill(name: string, category: string): Promise<any> {
+  async createSkill(ipfsHash: string): Promise<any> {
     console.log('🔍 SkillSystemService.createSkill - Llamando al contrato con:', {
-      name,
-      category,
+      ipfsHash,
       contractAddress: this.contract.address
     });
     
-    const tx = await this.contract.createSkill(name, category);
+    const tx = await this.contract.createSkill(ipfsHash);
     console.log('🔍 SkillSystemService.createSkill - Transacción creada:', tx);
     return tx;
   }
@@ -602,13 +606,12 @@ export class TimeRegistryService {
   }
 
   async registerTime(
-    company: string,
     skillId: number,
-    startTime: number,
-    endTime: number,
-    description: string
+    timeDataHash: string,
+    hoursWorked: number,
+    hourlyRate: number
   ): Promise<any> {
-    const tx = await this.contract.recordTime(company, skillId, startTime, endTime, description);
+    const tx = await this.contract.registerTime(skillId, timeDataHash, hoursWorked, hourlyRate);
     return tx;
   }
 

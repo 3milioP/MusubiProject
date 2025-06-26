@@ -12,6 +12,7 @@ import {
 import { CONTRACT_ADDRESSES } from '../config';
 import { CONTRACT_ABIS } from '../services/abis';
 import {
+  User,
   Profile,
   Skill,
   DeclaredSkill,
@@ -19,7 +20,9 @@ import {
   TimeRecord,
   Service,
   Order,
-  TransactionState
+  TransactionState,
+  Web3State,
+  ContractSkill
 } from '../types';
 import { ethers } from 'ethers';
 
@@ -183,7 +186,7 @@ export const useProfile = () => {
       // PRIMERO: Intentar cargar desde la API
       console.log('🔍 useProfile.loadProfile - Intentando cargar desde API...');
       try {
-        const apiResponse = await fetch(`http://localhost:5004/api/users/wallet/${targetAddress}`);
+        const apiResponse = await fetch(`http://localhost:5003/api/users/wallet/${targetAddress}`);
         if (apiResponse.ok) {
           const apiData = await apiResponse.json();
           console.log('🔍 useProfile.loadProfile - Datos de API:', apiData);
@@ -340,7 +343,7 @@ export const useProfile = () => {
 // Hook para Skills
 export const useSkills = () => {
   const { provider, signer, account, isConnected } = useWeb3();
-  const [skills, setSkills] = useState<Skill[]>([]);
+  const [skills, setSkills] = useState<ContractSkill[]>([]);
   const [userSkills, setUserSkills] = useState<ProfessionalSkill[]>([]);
   const [loading, setLoading] = useState(false);
   const [txState, setTxState] = useState<TransactionState>({
@@ -360,17 +363,25 @@ export const useSkills = () => {
     try {
       setLoading(true);
       console.log('🔍 Cargando skills...');
-      const service = new SkillSystemService(provider, signer);
-      const allSkills = await service.getAllSkills();
-      setSkills(allSkills);
-      console.log('✅ Skills cargados:', allSkills.length);
+      
+      // Llamar al endpoint de la API
+      const response = await fetch('http://localhost:5003/api/skills/all');
+      const result = await response.json();
+      
+      if (result.success) {
+        console.log('✅ Skills cargados desde API:', result.data.skills.length);
+        setSkills(result.data.skills);
+      } else {
+        console.error('❌ Error cargando skills desde API:', result.error);
+        setSkills([]);
+      }
     } catch (error) {
       console.error('❌ Error loading skills:', error);
       setSkills([]);
     } finally {
       setLoading(false);
     }
-  }, [isConnected, provider, signer]);
+  }, [isConnected, provider]);
 
   const loadUserSkills = useCallback(async (address?: string) => {
     // Solo cargar si hay conexión completa
@@ -402,13 +413,51 @@ export const useSkills = () => {
     setTxState({ loading: true, error: null, success: false });
     
     try {
+      console.log('🔍 useSkills.createSkill - Iniciando flujo completo...');
+      console.log('📋 Datos:', { name, category, account });
+      
+      // 1. Llamar al endpoint de la API para subir a IPFS
+      console.log('📤 Subiendo datos a IPFS...');
+      const response = await fetch('http://localhost:5003/api/skills/create', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name,
+          category,
+          description: `${name} - ${category}`
+        })
+      });
+      
+      const result = await response.json();
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Error subiendo datos a IPFS');
+      }
+      
+      console.log('✅ Datos subidos a IPFS:', result);
+      
+      // 2. Registrar en SkillSystem desde el frontend (requiere firma)
+      console.log('⛓️ Registrando en blockchain...');
       const service = new SkillSystemService(provider, signer);
-      const tx = await service.createSkill(name, category);
-      await tx.wait();
+      const tx = await service.createSkill(result.ipfs_hash);
+      
+      console.log('🔄 Esperando confirmación de transacción...');
+      const receipt = await tx.wait();
+      
+      console.log('✅ Habilidad creada exitosamente en blockchain:', receipt);
+      
       setTxState({ loading: false, error: null, success: true });
       await loadSkills(); // Recargar skills
-      return tx;
+      
+      return {
+        ...result,
+        blockchainTx: receipt.transactionHash,
+        receipt
+      };
     } catch (error: any) {
+      console.error('❌ Error creating skill:', error);
       setTxState({ loading: false, error: error.message, success: false });
       throw error;
     }
@@ -420,13 +469,38 @@ export const useSkills = () => {
     setTxState({ loading: true, error: null, success: false });
     
     try {
-      const service = new SkillSystemService(provider, signer);
-      const tx = await service.declareSkill(skillId, level);
-      await tx.wait();
+      console.log('🔍 useSkills.declareSkill - Llamando a la API con:', { skillId, level, account });
+      
+      // Llamar al endpoint de la API para declarar habilidad
+      const response = await fetch('http://localhost:5003/api/skills/declare', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          skillId,
+          level,
+          professional: account,
+          description: `Declaración de habilidad nivel ${level}`,
+          experience: 'Experiencia profesional',
+          projects: [],
+          certifications: []
+        })
+      });
+      
+      const result = await response.json();
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Error declarando habilidad');
+      }
+      
+      console.log('✅ Habilidad declarada exitosamente:', result);
+      
       setTxState({ loading: false, error: null, success: true });
       await loadUserSkills(); // Recargar skills del usuario
-      return tx;
+      return result;
     } catch (error: any) {
+      console.error('❌ Error declaring skill:', error);
       setTxState({ loading: false, error: error.message, success: false });
       throw error;
     }
@@ -508,13 +582,63 @@ export const useTimeRegistry = () => {
     setTxState({ loading: true, error: null, success: false });
     
     try {
+      console.log('🔍 useTimeRegistry.registerTime - Iniciando flujo completo...');
+      console.log('📋 Datos:', { company, skillId, startTime, endTime, description, account });
+      
+      // 1. Subir datos a IPFS
+      console.log('📤 Subiendo datos de tiempo a IPFS...');
+      const timeData = {
+        company,
+        skillId,
+        startTime,
+        endTime,
+        description,
+        professional: account,
+        hoursWorked: Math.floor((endTime - startTime) / 3600), // Convertir segundos a horas
+        hourlyRate: 50, // Tarifa por defecto
+        registeredAt: new Date().toISOString(),
+        type: 'time_registry'
+      };
+      
+      const ipfsResponse = await fetch('http://localhost:5003/api/timeregistry/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(timeData)
+      });
+      
+      const ipfsResult = await ipfsResponse.json();
+      
+      if (!ipfsResult.success) {
+        throw new Error(ipfsResult.error || 'Error subiendo datos a IPFS');
+      }
+      
+      console.log('✅ Datos subidos a IPFS:', ipfsResult);
+      
+      // 2. Registrar en blockchain
+      console.log('⛓️ Registrando en blockchain...');
       const service = new TimeRegistryService(provider, signer);
-      const tx = await service.registerTime(company, skillId, startTime, endTime, description);
-      await tx.wait();
+      const hoursWorked = Math.floor((endTime - startTime) / 3600);
+      const hourlyRate = 50; // Tarifa por defecto en wei
+      
+      const tx = await service.registerTime(skillId, ipfsResult.ipfs_hash, hoursWorked, hourlyRate);
+      
+      console.log('🔄 Esperando confirmación de transacción...');
+      const receipt = await tx.wait();
+      
+      console.log('✅ Tiempo registrado exitosamente en blockchain:', receipt);
+      
       setTxState({ loading: false, error: null, success: true });
       await loadTimeRecords(); // Recargar registros
-      return tx;
+      
+      return {
+        ...ipfsResult,
+        blockchainTx: receipt.transactionHash,
+        receipt
+      };
     } catch (error: any) {
+      console.error('❌ Error registering time:', error);
       setTxState({ loading: false, error: error.message, success: false });
       throw error;
     }
@@ -577,12 +701,10 @@ export const useMarketplace = () => {
     // Solo cargar si hay conexión completa
     if (!isConnected || !provider) {
       setServices([]);
-      setLoading(false);
       return;
     }
     
     try {
-      setLoading(true);
       console.log('🔍 Cargando servicios...');
       const service = new P2PMarketplaceService(provider, signer);
       const allServices = await service.getAllServices();
@@ -591,8 +713,6 @@ export const useMarketplace = () => {
     } catch (error) {
       console.error('❌ Error loading services:', error);
       setServices([]);
-    } finally {
-      setLoading(false);
     }
   }, [isConnected, provider, signer]);
 
@@ -723,11 +843,23 @@ export const useMarketplace = () => {
   // Cargar datos cuando cambie la conexión
   useEffect(() => {
     if (isConnected && provider) {
-      loadServices();
-      if (account) {
-        loadUserServices();
-        loadOrders();
-      }
+      setLoading(true);
+      
+      const loadAllData = async () => {
+        try {
+          await loadServices();
+          if (account) {
+            await loadUserServices();
+            await loadOrders();
+          }
+        } catch (error) {
+          console.error('❌ Error loading marketplace data:', error);
+        } finally {
+          setLoading(false);
+        }
+      };
+      
+      loadAllData();
     } else {
       setServices([]);
       setUserServices([]);
@@ -910,4 +1042,3 @@ export const useProfileIPFS = () => {
     clearTxState: () => setTxState({ loading: false, error: null, success: false })
   };
 };
-

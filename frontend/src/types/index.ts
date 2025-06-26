@@ -51,6 +51,17 @@ export interface Skill {
   declaredAt: number;
 }
 
+export interface ContractSkill {
+  id: number;
+  skillDataHash: string;
+  creator: string;
+  isActive: boolean;
+  totalDeclarations: number;
+  totalValidations: number;
+  createdAt: number;
+  updatedAt: number;
+}
+
 export interface ProfessionalSkill {
   skillId: number;
   name: string;

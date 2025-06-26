@@ -3,7 +3,10 @@ API endpoints para el registro de tiempo
 """
 from flask import Blueprint, jsonify, request
 from config.contracts import get_contract_instance, get_web3_instance
+from config.decentralized_db import decentralized_db
 from web3 import Web3
+import json
+from datetime import datetime
 
 timeregistry_bp = Blueprint('timeregistry', __name__)
 
@@ -273,5 +276,93 @@ def get_time_record_created_events():
         return jsonify({
             'success': False,
             'error': str(e)
+        }), 500
+
+@timeregistry_bp.route('/timeregistry/register', methods=['POST'])
+def register_time():
+    """Registra tiempo trabajado subiendo datos a IPFS"""
+    try:
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({
+                'success': False,
+                'error': 'Datos JSON requeridos'
+            }), 400
+        
+        # Validaciones
+        required_fields = ['company', 'skillId', 'startTime', 'endTime', 'description', 'professional']
+        for field in required_fields:
+            if field not in data:
+                return jsonify({
+                    'success': False,
+                    'error': f'Campo requerido: {field}'
+                }), 400
+        
+        # Validar dirección del profesional
+        if not Web3.is_address(data['professional']):
+            return jsonify({
+                'success': False,
+                'error': 'Dirección del profesional inválida'
+            }), 400
+        
+        # Crear objeto de datos del registro de tiempo
+        time_data = {
+            'company': str(data['company']),
+            'skillId': int(data['skillId']),
+            'startTime': int(data['startTime']),
+            'endTime': int(data['endTime']),
+            'description': str(data['description']),
+            'professional': str(data['professional']),
+            'hoursWorked': int(data.get('hoursWorked', 0)),
+            'hourlyRate': int(data.get('hourlyRate', 0)),
+            'registeredAt': str(datetime.now()),
+            'type': 'time_registry'
+        }
+        
+        # 1. Subir datos a IPFS
+        ipfs_result = decentralized_db.store_data(time_data)
+        
+        if not ipfs_result or 'ipfs_hash' not in ipfs_result:
+            return jsonify({
+                'success': False,
+                'error': 'Error almacenando datos en IPFS'
+            }), 500
+        
+        ipfs_hash = ipfs_result['ipfs_hash']
+        
+        # 2. Registrar hash en IPFSRegistry
+        contract_instance = get_contract_instance('IPFSRegistry', 'local')
+        contract_address = str(contract_instance.address)
+        contract_abi = list(contract_instance.abi)
+        
+        blockchain_tx = "no_contract"
+        if contract_address and contract_abi:
+            # Calcular hash SHA256 de los datos
+            import hashlib
+            data_str = json.dumps(time_data, sort_keys=True)
+            sha256_hash = hashlib.sha256(data_str.encode()).hexdigest()
+            
+            # Almacenar hash en blockchain
+            blockchain_tx = decentralized_db.store_hash_in_blockchain(
+                ipfs_hash,
+                sha256_hash,
+                contract_address,
+                contract_abi
+            )
+        
+        return jsonify({
+            'success': True,
+            'message': 'Datos de tiempo almacenados en IPFS',
+            'ipfs_hash': ipfs_hash,
+            'blockchain_tx': blockchain_tx,
+            'time_data': time_data
+        }), 201
+        
+    except Exception as e:
+        print(f"❌ Error registrando tiempo: {e}")
+        return jsonify({
+            'success': False,
+            'error': f'Error interno: {str(e)}'
         }), 500
 
