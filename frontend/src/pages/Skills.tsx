@@ -21,24 +21,20 @@ import {
   Alert,
   Snackbar,
   IconButton,
-  Tooltip
+  Tooltip,
+  Tabs,
+  Tab,
+  Divider
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import VerifiedIcon from '@mui/icons-material/Verified';
 import PendingIcon from '@mui/icons-material/Pending';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import CancelIcon from '@mui/icons-material/Cancel';
 import { useWeb3 } from '../contexts/Web3Context';
 import { useSkills } from '../hooks/useContracts';
-
-interface Skill {
-  id: number;
-  name: string;
-  category: string;
-  isValidated: boolean;
-  validatedBy: string;
-  validatedAt: number;
-  declaredAt: number;
-}
+import { ProfessionalSkill } from '../types';
 
 const Skills = () => {
   const { account, isConnected } = useWeb3();
@@ -240,7 +236,7 @@ const Skills = () => {
           ) : (
             <Grid container spacing={3}>
               {userSkills.map((skill) => (
-                <Grid item xs={12} md={6} lg={4} key={skill.id}>
+                <Grid item xs={12} md={6} lg={4} key={skill.skillId}>
                   <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
                     <CardContent sx={{ flexGrow: 1 }}>
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
@@ -248,7 +244,7 @@ const Skills = () => {
                           <Chip
                             size="small"
                             color="primary"
-                            label={skill.skillName || 'Habilidad'}
+                            label={skill.name || 'Habilidad'}
                           />
                         </Typography>
                         <Chip 
@@ -262,7 +258,7 @@ const Skills = () => {
                       <Chip
                         size="small"
                         variant="outlined"
-                        label={skill.skillCategory || 'Sin categoría'}
+                        label={skill.category || 'Sin categoría'}
                       />
 
                       <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
@@ -276,7 +272,7 @@ const Skills = () => {
                             fontSize: '0.75rem',
                             wordBreak: 'break-all'
                           }}>
-                            <strong>Validada por:</strong> {skill.validatedBy}
+                            <strong>Validada por:</strong> {skill.validator}
                           </Typography>
                         </>
                       )}

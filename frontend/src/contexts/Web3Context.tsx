@@ -168,6 +168,35 @@ export const Web3Provider: React.FC<Web3ProviderProps> = ({ children }) => {
 
   console.log('🔍 Web3Provider - Renderizado con estado:', state);
 
+  // Función para mostrar notificación de desconexión
+  const showDisconnectNotification = () => {
+    // Importación dinámica para evitar dependencias circulares
+    import('../contexts/NotificationContext').then(({ useNotification }) => {
+      // Como no podemos usar hooks aquí, vamos a usar un evento personalizado
+      window.dispatchEvent(new CustomEvent('showNotification', {
+        detail: {
+          message: 'Se ha perdido la conexión con la wallet. Por seguridad, se ha cerrado la sesión.',
+          type: 'warning',
+          duration: 8000
+        }
+      }));
+    }).catch(() => {
+      // Si no está disponible el contexto de notificaciones, mostrar alerta básica
+      console.warn('⚠️ Se ha perdido la conexión con la wallet. Por seguridad, se ha cerrado la sesión.');
+    });
+  };
+
+  // Función para limpiar estado del onboarding
+  const clearOnboardingState = () => {
+    // Importación dinámica para evitar dependencias circulares
+    import('../contexts/OnboardingContext').then(({ useOnboarding }) => {
+      // Usar evento personalizado para comunicar con el contexto de onboarding
+      window.dispatchEvent(new CustomEvent('resetOnboarding'));
+    }).catch(() => {
+      console.log('Contexto de onboarding no disponible');
+    });
+  };
+
   // Función para conectar wallet
   const connectWallet = async (): Promise<void> => {
     console.log('🔗 Iniciando conexión de wallet...');
@@ -198,45 +227,50 @@ export const Web3Provider: React.FC<Web3ProviderProps> = ({ children }) => {
           setTimeout(() => reject(new Error('Timeout: MetaMask no respondió en 10 segundos')), 10000)
         );
         
-        const accounts = await Promise.race([accountsPromise, timeoutPromise]);
+        const accounts = await Promise.race([accountsPromise, timeoutPromise]) as string[];
         
-        if (!accounts || accounts.length === 0) {
+        if (accounts && accounts.length > 0) {
+          console.log('✅ Cuentas obtenidas:', accounts);
+          const signer = await provider.getSigner();
+          const account = accounts[0];
+          const network = await provider.getNetwork();
+          const chainId = Number(network.chainId);
+
+          // Validar que todos los datos son válidos
+          if (!provider || !signer || !account) {
+            throw new Error('Datos de conexión inválidos');
+          }
+
+          console.log('✅ Conexión exitosa con cuenta:', account);
+          dispatch({
+            type: 'CONNECT_SUCCESS',
+            payload: { account, chainId, provider, signer }
+          });
+          
+          // Guardar estado de conexión
+          localStorage.setItem('musubi_wallet_connected', 'true');
+        } else {
           throw new Error('No se obtuvieron cuentas de MetaMask');
         }
+      } else {
+        throw new Error('MetaMask no está disponible');
       }
-      
-      console.log('✍️ Obteniendo signer...');
-      const signer = await provider.getSigner();
-      const account = await signer.getAddress();
-      const network = await provider.getNetwork();
-      const chainId = Number(network.chainId);
-
-      // Validar que todos los datos son válidos
-      if (!provider || !signer || !account) {
-        throw new Error('No se pudo obtener provider/signer/account de MetaMask');
-      }
-
-      console.log('✅ Datos obtenidos:', { account, chainId, hasProvider: !!provider, hasSigner: !!signer });
-
-      dispatch({
-        type: 'CONNECT_SUCCESS',
-        payload: { account, chainId, provider, signer }
-      });
-
-      // Guardar en localStorage
-      localStorage.setItem('musubi_wallet_connected', 'true');
-      console.log('💾 Estado guardado en localStorage');
-
     } catch (error: any) {
-      console.error('❌ Error durante la conexión:', error);
+      console.error('❌ Error conectando wallet:', error);
       const errorMessage = parseTransactionError(error);
       dispatch({ type: 'CONNECT_ERROR', payload: errorMessage });
     }
   };
 
-  // Función para desconectar wallet
   const disconnectWallet = (): void => {
     console.log('🔌 Desconectando wallet...');
+    
+    // Mostrar notificación de desconexión
+    showDisconnectNotification();
+    
+    // Limpiar estado del onboarding
+    clearOnboardingState();
+    
     dispatch({ type: 'DISCONNECT' });
     localStorage.removeItem('musubi_wallet_connected');
   };
@@ -266,135 +300,80 @@ export const Web3Provider: React.FC<Web3ProviderProps> = ({ children }) => {
     }
   }, [state.isConnected, state.provider, state.signer]);
 
-  // Efecto para manejar cambios de cuenta
+  // Efecto para manejar eventos de MetaMask
   useEffect(() => {
-    console.log('🔍 Configurando listeners de MetaMask...');
-    
-    // Solo agregar listeners si MetaMask está disponible
-    if (!isMetaMaskInstalled() || !window.ethereum) {
-      console.log('⚠️ MetaMask no disponible para listeners');
-      return;
-    }
+    if (typeof window !== 'undefined' && window.ethereum) {
+      console.log('🔍 Web3Provider - Configurando listeners de MetaMask...');
 
-    const handleAccountsChanged = (accounts: string[]) => {
-      console.log('👤 Accounts changed event triggered:', accounts);
-      if (accounts.length === 0) {
-        console.log('🔌 No accounts, disconnecting...');
-        disconnectWallet();
-      } else {
-        console.log('🔄 Switching to account:', accounts[0]);
+      const handleAccountsChanged = (accounts: string[]) => {
+        console.log('🔍 Web3Provider - handleAccountsChanged llamado con:', accounts);
         
-        // NO hacer dispatch ACCOUNT_CHANGED aquí
-        // Actualizar el provider y signer para la nueva cuenta
-        (async () => {
-          try {
-            const provider = getMetaMaskProvider();
-            const signer = await provider.getSigner();
-            const account = await signer.getAddress();
-            const network = await provider.getNetwork();
-            const chainId = Number(network.chainId);
-
-            // Validar que todos los datos son válidos
-            if (!provider || !signer || !account) {
-              console.error('❌ Datos inválidos al cambiar cuenta');
-              disconnectWallet();
-              return;
-            }
-
-            console.log('🔄 Actualizando provider/signer para nueva cuenta');
-            dispatch({
-              type: 'CONNECT_SUCCESS',
-              payload: { account, chainId, provider, signer }
-            });
-          } catch (error) {
-            console.error('❌ Error actualizando provider para nueva cuenta:', error);
-            disconnectWallet();
-          }
-        })();
-      }
-    };
-
-    const handleChainChanged = (chainId: string) => {
-      console.log('🔗 Chain changed event triggered:', chainId);
-      const chainIdDecimal = parseInt(chainId, 16);
-      console.log('🔄 Switching to chain ID:', chainIdDecimal);
-      dispatch({ type: 'CHAIN_CHANGED', payload: chainIdDecimal });
-      
-      // Recargar la página si cambia la red (para evitar problemas de compatibilidad)
-      if (chainIdDecimal !== 31337) {
-        console.log('⚠️ Red incorrecta detectada, recargando página...');
-        setTimeout(() => {
-          window.location.reload();
-        }, 1000);
-      }
-    };
-
-    // Agregar listeners solo si están disponibles
-    try {
-      console.log('📡 Adding MetaMask listeners...');
-      
-      // Remover listeners existentes para evitar duplicados
-      if (window.ethereum.removeListener) {
-        window.ethereum.removeListener('accountsChanged', handleAccountsChanged);
-        window.ethereum.removeListener('chainChanged', handleChainChanged);
-      }
-      
-      window.ethereum.on('accountsChanged', handleAccountsChanged);
-      window.ethereum.on('chainChanged', handleChainChanged);
-      console.log('✅ Listeners de MetaMask configurados');
-      
-      // Verificar estado actual
-      window.ethereum.request({ method: 'eth_accounts' }).then(async (accounts: string[]) => {
-        console.log('📊 Current accounts from MetaMask:', accounts);
-        if (accounts.length > 0) {
-          console.log('🔄 Setting initial account:', accounts[0]);
-          
-          // Validar que tenemos provider y signer antes de marcar como conectado
-          try {
-            const provider = getMetaMaskProvider();
-            const signer = await provider.getSigner();
-            const account = await signer.getAddress();
-            const network = await provider.getNetwork();
-            const chainId = Number(network.chainId);
-
-            // Validar que todos los datos son válidos
-            if (!provider || !signer || !account) {
-              console.error('❌ Datos inválidos al verificar estado inicial');
-              return;
-            }
-
-            dispatch({
-              type: 'CONNECT_SUCCESS',
-              payload: { account, chainId, provider, signer }
-            });
-          } catch (error) {
-            console.error('❌ Error verificando estado inicial:', error);
-          }
+        if (accounts.length === 0) {
+          console.log('🔍 Web3Provider - No hay cuentas, desconectando...');
+          dispatch({ type: 'DISCONNECT' });
+          showDisconnectNotification();
+          clearOnboardingState();
+        } else {
+          console.log('🔍 Web3Provider - Cuenta cambiada a:', accounts[0]);
+          dispatch({ type: 'ACCOUNT_CHANGED', payload: accounts[0] });
         }
-      }).catch((error: any) => {
-        console.error('❌ Error getting current accounts:', error);
-      });
-      
-    } catch (error) {
-      // Silenciar errores de listeners si MetaMask no está completamente disponible
-      console.error('❌ Error setting up MetaMask listeners:', error);
+      };
+
+      const handleChainChanged = (chainId: string) => {
+        console.log('🔍 Web3Provider - handleChainChanged llamado con:', chainId);
+        const newChainId = parseInt(chainId, 16);
+        dispatch({ type: 'CHAIN_CHANGED', payload: newChainId });
+      };
+
+      const handleConnect = () => {
+        console.log('🔍 Web3Provider - handleConnect llamado');
+        // No hacer nada aquí, la conexión se maneja manualmente
+      };
+
+      const handleDisconnect = () => {
+        console.log('🔍 Web3Provider - handleDisconnect llamado');
+        dispatch({ type: 'DISCONNECT' });
+        showDisconnectNotification();
+        clearOnboardingState();
+      };
+
+      // Listener para responder a solicitudes de contexto Web3
+      const handleRequestWeb3Context = () => {
+        console.log('🔍 Web3Provider - Respondiendo a solicitud de contexto Web3');
+        window.dispatchEvent(new CustomEvent('web3ContextResponse', {
+          detail: {
+            provider: state.provider,
+            signer: state.signer,
+            isConnected: state.isConnected,
+            account: state.account
+          }
+        }));
+      };
+
+      // Agregar listeners
+      const ethereum = window.ethereum;
+      if (ethereum && typeof ethereum.on === 'function') {
+        ethereum.on('accountsChanged', handleAccountsChanged);
+        ethereum.on('chainChanged', handleChainChanged);
+        ethereum.on('connect', handleConnect);
+        ethereum.on('disconnect', handleDisconnect);
+      }
+      window.addEventListener('requestWeb3Context', handleRequestWeb3Context);
+
+      // Limpiar listeners al desmontar
+      return () => {
+        console.log('🔍 Web3Provider - Limpiando listeners de MetaMask...');
+        const ethereum = window.ethereum;
+        if (ethereum && typeof ethereum.removeListener === 'function') {
+          ethereum.removeListener('accountsChanged', handleAccountsChanged);
+          ethereum.removeListener('chainChanged', handleChainChanged);
+          ethereum.removeListener('connect', handleConnect);
+          ethereum.removeListener('disconnect', handleDisconnect);
+        }
+        window.removeEventListener('requestWeb3Context', handleRequestWeb3Context);
+      };
     }
-
-    // Cleanup
-    return () => {
-      try {
-        if (window.ethereum?.removeListener) {
-          console.log('🧹 Removing MetaMask listeners...');
-          window.ethereum.removeListener('accountsChanged', handleAccountsChanged);
-          window.ethereum.removeListener('chainChanged', handleChainChanged);
-          console.log('✅ Listeners de MetaMask removidos');
-        }
-      } catch (error) {
-        // Silenciar errores de cleanup
-        console.error('❌ Error removing MetaMask listeners:', error);
-      }
-    };
-  }, []);
+  }, [state.provider, state.signer, state.isConnected, state.account]);
 
   // Efecto para auto-conectar
   useEffect(() => {
@@ -426,7 +405,7 @@ export const Web3Provider: React.FC<Web3ProviderProps> = ({ children }) => {
           if (accounts && accounts.length > 0) {
             console.log('✅ Auto-conexión exitosa');
             const signer = await provider.getSigner();
-            const account = await signer.getAddress();
+            const account = accounts[0];
             const network = await provider.getNetwork();
             const chainId = Number(network.chainId);
 
@@ -471,8 +450,6 @@ export const Web3Provider: React.FC<Web3ProviderProps> = ({ children }) => {
     clearInconsistentState
   };
 
-  console.log('🔍 Web3Provider - Valor del contexto:', value);
-
   return (
     <Web3Context.Provider value={value}>
       {children}
@@ -480,20 +457,11 @@ export const Web3Provider: React.FC<Web3ProviderProps> = ({ children }) => {
   );
 };
 
-// Hook para usar el contexto
 export const useWeb3 = (): Web3ContextType => {
   const context = useContext(Web3Context);
   if (context === undefined) {
-    throw new Error('useWeb3 debe ser usado dentro de un Web3Provider');
+    throw new Error('useWeb3 must be used within a Web3Provider');
   }
-  
-  console.log('🔍 useWeb3 - Hook llamado con contexto:', {
-    isConnected: context.isConnected,
-    account: context.account,
-    hasProvider: !!context.provider,
-    hasSigner: !!context.signer
-  });
-  
   return context;
 };
 

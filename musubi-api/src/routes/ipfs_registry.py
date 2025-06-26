@@ -353,4 +353,80 @@ def get_ipfs_stats():
         return jsonify({
             'success': False,
             'error': f'Error interno: {str(e)}'
+        }), 500
+
+@ipfs_registry_bp.route('/ipfs/<ipfs_hash>', methods=['GET'])
+@swag_from({
+    'tags': ['IPFS Registry'],
+    'summary': 'Obtener contenido de IPFS',
+    'description': 'Obtiene el contenido de un hash de IPFS',
+    'parameters': [
+        {
+            'name': 'ipfs_hash',
+            'in': 'path',
+            'type': 'string',
+            'required': True,
+            'description': 'Hash de IPFS'
+        }
+    ],
+    'responses': {
+        200: {
+            'description': 'Contenido de IPFS',
+            'schema': {
+                'type': 'object',
+                'properties': {
+                    'success': {'type': 'boolean'},
+                    'data': {'type': 'object'},
+                    'ipfs_hash': {'type': 'string'}
+                }
+            }
+        },
+        404: {
+            'description': 'Contenido no encontrado',
+            'schema': {
+                'type': 'object',
+                'properties': {
+                    'success': {'type': 'boolean'},
+                    'error': {'type': 'string'}
+                }
+            }
+        }
+    }
+})
+def get_ipfs_content(ipfs_hash):
+    """Obtiene el contenido de un hash de IPFS"""
+    try:
+        import requests
+        
+        # Intentar obtener desde IPFS público
+        ipfs_url = f"https://ipfs.io/ipfs/{ipfs_hash}"
+        response = requests.get(ipfs_url, timeout=10)
+        
+        if response.status_code == 200:
+            try:
+                data = response.json()
+                return jsonify({
+                    'success': True,
+                    'data': data,
+                    'ipfs_hash': ipfs_hash
+                }), 200
+            except json.JSONDecodeError:
+                # Si no es JSON, devolver como texto
+                return jsonify({
+                    'success': True,
+                    'data': response.text,
+                    'ipfs_hash': ipfs_hash,
+                    'content_type': 'text'
+                }), 200
+        else:
+            return jsonify({
+                'success': False,
+                'error': f'No se pudo obtener contenido de IPFS: {response.status_code}'
+            }), 404
+            
+    except Exception as e:
+        print(f"❌ Error obteniendo contenido de IPFS: {e}")
+        return jsonify({
+            'success': False,
+            'error': f'Error interno: {str(e)}'
         }), 500 

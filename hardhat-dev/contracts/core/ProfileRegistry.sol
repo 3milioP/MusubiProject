@@ -4,254 +4,230 @@ pragma solidity ^0.8.20;
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "./IPFSRegistry.sol";
 
 /**
  * @title ProfileRegistry
- * @dev Registro de perfiles profesionales y empresas con sistema de karma
- * @notice Para este prototipo, los perfiles se registran sin verificación obligatoria
+ * @dev Registro de perfiles de usuarios con datos almacenados en IPFS
+ * Solo almacena hashes de IPFS y referencias, no datos personales
  */
 contract ProfileRegistry is AccessControl, Pausable, ReentrancyGuard {
-    bytes32 public constant VERIFIER_ROLE = keccak256("VERIFIER_ROLE");
     bytes32 public constant KARMA_ROLE = keccak256("KARMA_ROLE");
-    bytes32 public constant COMPANY_ROLE = keccak256("COMPANY_ROLE");
+    bytes32 public constant VERIFIER_ROLE = keccak256("VERIFIER_ROLE");
+    
+    IPFSRegistry public ipfsRegistry;
+    
+    enum ProfileType { Individual, Professional, Company }
+    enum ProfileStatus { Pending, Active, Suspended, Deleted }
     
     struct Profile {
-        uint256 id;
-        address wallet_addr;
-        string name;
-        string description;
-        string metadataURI;
+        address wallet;
+        string profileDataHash; // Hash de IPFS con datos del perfil
         ProfileType profileType;
-        bool isVerified;
-        bool disclaimerAccepted; // Nuevo campo para el disclaimer
-        uint256 karma;
+        ProfileStatus status;
+        uint256 karmaScore;
         uint256 createdAt;
         uint256 updatedAt;
         uint256 verifiedAt;
         address verifiedBy;
     }
     
-    enum ProfileType { Professional, Company }
-    
     mapping(address => Profile) public profiles;
-    mapping(uint256 => address) public profileById;
-    address[] public profileAddresses;
+    mapping(address => bool) public hasRegisteredProfile;
+    mapping(address => bool) public hasVerifiedProfile;
     
-    uint256 private _profileIdCounter;
+    uint256 public totalProfiles;
+    uint256 public totalVerifiedProfiles;
     
-    event ProfileRegistered(uint256 indexed profileId, address indexed wallet, ProfileType profileType);
-    event ProfileUpdated(uint256 indexed profileId, address indexed wallet);
-    event ProfileVerified(uint256 indexed profileId, address indexed wallet, address indexed verifier);
-    event KarmaUpdated(uint256 indexed profileId, address indexed wallet, uint256 newKarma);
-    event DisclaimerAccepted(uint256 indexed profileId, address indexed wallet);
+    event ProfileRegistered(address indexed wallet, string profileDataHash, ProfileType profileType);
+    event ProfileUpdated(address indexed wallet, string newProfileDataHash);
+    event ProfileVerified(address indexed wallet, address indexed verifier, uint256 karmaScore);
+    event ProfileStatusChanged(address indexed wallet, ProfileStatus newStatus);
+    event KarmaScoreUpdated(address indexed wallet, uint256 newKarmaScore);
     
-    modifier onlyProfileOwner(address wallet) {
-        require(profiles[wallet].wallet_addr == wallet, "Profile not found");
+    modifier onlyRegisteredUser(address user) {
+        require(hasRegisteredProfile[user], "Profile not registered");
         _;
     }
     
-    modifier onlyRegisteredProfile(address wallet) {
-        require(profiles[wallet].wallet_addr != address(0), "Profile not registered");
+    modifier onlyVerifiedUser(address user) {
+        require(hasVerifiedProfile[user], "Profile not verified");
         _;
     }
     
-    modifier onlyVerifiedProfile(address wallet) {
-        require(profiles[wallet].isVerified, "Profile not verified");
+    modifier onlyProfileOwner(address user) {
+        require(profiles[user].wallet == msg.sender, "Not profile owner");
         _;
     }
     
-    modifier onlyProfessional(address wallet) {
-        require(profiles[wallet].profileType == ProfileType.Professional, "Only professionals can perform this action");
+    modifier onlyActiveProfile(address user) {
+        require(profiles[user].status == ProfileStatus.Active, "Profile not active");
         _;
     }
     
-    modifier onlyCompany(address wallet) {
-        require(profiles[wallet].profileType == ProfileType.Company, "Only companies can perform this action");
-        _;
-    }
-    
-    constructor() {
+    constructor(address _ipfsRegistry) {
+        require(_ipfsRegistry != address(0), "IPFSRegistry address cannot be zero");
+        
+        ipfsRegistry = IPFSRegistry(_ipfsRegistry);
+        
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
-        _grantRole(VERIFIER_ROLE, msg.sender);
         _grantRole(KARMA_ROLE, msg.sender);
+        _grantRole(VERIFIER_ROLE, msg.sender);
     }
     
     /**
-     * @dev Registra un nuevo perfil (sin verificación obligatoria para prototipo)
-     * @param name Nombre del perfil
-     * @param description Descripción del perfil
-     * @param metadataURI URI de metadatos (opcional)
-     * @param profileType Tipo de perfil (Professional o Company)
-     * @param acceptDisclaimer Aceptación del disclaimer
+     * @dev Registra un nuevo perfil con datos en IPFS
+     * @param profileDataHash Hash de IPFS con los datos del perfil
+     * @param profileType Tipo de perfil
      */
-    function registerProfile(
-        string calldata name,
-        string calldata description,
-        string calldata metadataURI,
-        ProfileType profileType,
-        bool acceptDisclaimer
-    ) external whenNotPaused nonReentrant {
-        require(bytes(name).length > 0, "Name cannot be empty");
-        require(profiles[msg.sender].wallet_addr == address(0), "Profile already exists");
-        require(acceptDisclaimer, "Disclaimer must be accepted");
+    function registerProfile(string calldata profileDataHash, ProfileType profileType) external whenNotPaused nonReentrant {
+        require(!hasRegisteredProfile[msg.sender], "Profile already registered");
+        require(bytes(profileDataHash).length > 0, "Profile data hash cannot be empty");
+        require(profileType != ProfileType.Individual || profileType != ProfileType.Professional || profileType != ProfileType.Company, "Invalid profile type");
         
-        uint256 profileId = _profileIdCounter++;
+        // Verificar que el hash existe en IPFSRegistry
+        require(ipfsRegistry.hashExists(profileDataHash), "Profile data not found in IPFS");
         
         profiles[msg.sender] = Profile({
-            id: profileId,
-            wallet_addr: msg.sender,
-            name: name,
-            description: description,
-            metadataURI: metadataURI,
+            wallet: msg.sender,
+            profileDataHash: profileDataHash,
             profileType: profileType,
-            isVerified: false, // Para prototipo, no requiere verificación
-            disclaimerAccepted: true,
-            karma: 0,
+            status: ProfileStatus.Pending,
+            karmaScore: 0,
             createdAt: block.timestamp,
             updatedAt: block.timestamp,
             verifiedAt: 0,
             verifiedBy: address(0)
         });
         
-        profileById[profileId] = msg.sender;
-        profileAddresses.push(msg.sender);
+        hasRegisteredProfile[msg.sender] = true;
+        totalProfiles++;
         
-        emit ProfileRegistered(profileId, msg.sender, profileType);
-        emit DisclaimerAccepted(profileId, msg.sender);
+        emit ProfileRegistered(msg.sender, profileDataHash, profileType);
     }
     
     /**
-     * @dev Actualiza un perfil existente
-     * @param name Nuevo nombre
-     * @param description Nueva descripción
-     * @param metadataURI Nueva URI de metadatos
+     * @dev Actualiza los datos del perfil (solo propietario)
+     * @param newProfileDataHash Nuevo hash de IPFS con datos actualizados
      */
-    function updateProfile(
-        string calldata name,
-        string calldata description,
-        string calldata metadataURI
-    ) external whenNotPaused onlyProfileOwner(msg.sender) {
-        require(bytes(name).length > 0, "Name cannot be empty");
+    function updateProfile(string calldata newProfileDataHash) external whenNotPaused onlyRegisteredUser(msg.sender) onlyActiveProfile(msg.sender) {
+        require(bytes(newProfileDataHash).length > 0, "Profile data hash cannot be empty");
+        require(ipfsRegistry.hashExists(newProfileDataHash), "Profile data not found in IPFS");
         
         Profile storage profile = profiles[msg.sender];
-        profile.name = name;
-        profile.description = description;
-        profile.metadataURI = metadataURI;
+        profile.profileDataHash = newProfileDataHash;
         profile.updatedAt = block.timestamp;
         
-        emit ProfileUpdated(profile.id, msg.sender);
+        // Si el perfil estaba verificado, requiere nueva verificación
+        if (hasVerifiedProfile[msg.sender]) {
+            hasVerifiedProfile[msg.sender] = false;
+            totalVerifiedProfiles--;
+            profile.verifiedAt = 0;
+            profile.verifiedBy = address(0);
+        }
+        
+        emit ProfileUpdated(msg.sender, newProfileDataHash);
     }
     
     /**
-     * @dev Verifica un perfil (opcional para prototipo)
-     * @param wallet Dirección del perfil a verificar
+     * @dev Verifica un perfil (solo verificadores autorizados)
+     * @param user Dirección del usuario a verificar
+     * @param karmaScore Puntuación de karma inicial
      */
-    function verifyProfile(address wallet) external whenNotPaused onlyRole(VERIFIER_ROLE) {
-        require(profiles[wallet].wallet_addr != address(0), "Profile not found");
-        require(!profiles[wallet].isVerified, "Profile already verified");
-        require(wallet != msg.sender, "Cannot verify own profile");
+    function verifyProfile(address user, uint256 karmaScore) external whenNotPaused onlyRole(VERIFIER_ROLE) onlyRegisteredUser(user) {
+        require(!hasVerifiedProfile[user], "Profile already verified");
+        require(profiles[user].status == ProfileStatus.Active, "Profile not active");
+        require(user != msg.sender, "Cannot verify own profile");
         
-        Profile storage profile = profiles[wallet];
-        profile.isVerified = true;
+        Profile storage profile = profiles[user];
+        profile.status = ProfileStatus.Active;
+        profile.karmaScore = karmaScore;
         profile.verifiedAt = block.timestamp;
         profile.verifiedBy = msg.sender;
         
-        emit ProfileVerified(profile.id, wallet, msg.sender);
+        hasVerifiedProfile[user] = true;
+        totalVerifiedProfiles++;
+        
+        emit ProfileVerified(user, msg.sender, karmaScore);
     }
     
     /**
-     * @dev Actualiza el karma de un perfil (solo roles autorizados)
-     * @param wallet Dirección del perfil
-     * @param newKarma Nuevo valor de karma
+     * @dev Cambia el estado de un perfil (solo admin)
+     * @param user Dirección del usuario
+     * @param newStatus Nuevo estado
      */
-    function updateKarma(address wallet, uint256 newKarma) external onlyRole(KARMA_ROLE) {
-        require(profiles[wallet].wallet_addr != address(0), "Profile not found");
-        
-        Profile storage profile = profiles[wallet];
-        profile.karma = newKarma;
+    function changeProfileStatus(address user, ProfileStatus newStatus) external whenNotPaused onlyRole(DEFAULT_ADMIN_ROLE) onlyRegisteredUser(user) {
+        Profile storage profile = profiles[user];
+        profile.status = newStatus;
         profile.updatedAt = block.timestamp;
         
-        emit KarmaUpdated(profile.id, wallet, newKarma);
-    }
-    
-    /**
-     * @dev Obtiene un perfil por dirección
-     * @param wallet Dirección del perfil
-     */
-    function getProfile(address wallet) external view returns (Profile memory) {
-        return profiles[wallet];
-    }
-    
-    /**
-     * @dev Obtiene un perfil por ID
-     * @param profileId ID del perfil
-     */
-    function getProfileById(uint256 profileId) external view returns (Profile memory) {
-        address wallet = profileById[profileId];
-        require(wallet != address(0), "Profile not found");
-        return profiles[wallet];
-    }
-    
-    /**
-     * @dev Verifica si una dirección tiene un perfil
-     * @param wallet Dirección a verificar
-     */
-    function hasProfile(address wallet) external view returns (bool) {
-        return profiles[wallet].wallet_addr != address(0);
-    }
-    
-    /**
-     * @dev Verifica si una dirección tiene un perfil verificado
-     * @param wallet Dirección a verificar
-     */
-    function hasVerifiedProfile(address wallet) external view returns (bool) {
-        return profiles[wallet].isVerified;
-    }
-    
-    /**
-     * @dev Verifica si una dirección tiene un perfil registrado (para prototipo)
-     * @param wallet Dirección a verificar
-     */
-    function hasRegisteredProfile(address wallet) external view returns (bool) {
-        return profiles[wallet].wallet_addr != address(0);
-    }
-    
-    /**
-     * @dev Obtiene todos los perfiles
-     */
-    function getAllProfiles() external view returns (address[] memory) {
-        return profileAddresses;
-    }
-    
-    /**
-     * @dev Obtiene el número total de perfiles
-     */
-    function getProfileCount() external view returns (uint256) {
-        return _profileIdCounter;
-    }
-    
-    /**
-     * @dev Obtiene perfiles por tipo
-     * @param profileType Tipo de perfil a filtrar
-     */
-    function getProfilesByType(ProfileType profileType) external view returns (address[] memory) {
-        address[] memory filteredProfiles = new address[](profileAddresses.length);
-        uint256 count = 0;
-        
-        for (uint256 i = 0; i < profileAddresses.length; i++) {
-            if (profiles[profileAddresses[i]].profileType == profileType) {
-                filteredProfiles[count] = profileAddresses[i];
-                count++;
+        // Si se suspende o elimina, remover verificación
+        if (newStatus == ProfileStatus.Suspended || newStatus == ProfileStatus.Deleted) {
+            if (hasVerifiedProfile[user]) {
+                hasVerifiedProfile[user] = false;
+                totalVerifiedProfiles--;
             }
         }
         
-        // Redimensionar el array al tamaño real
-        address[] memory result = new address[](count);
-        for (uint256 i = 0; i < count; i++) {
-            result[i] = filteredProfiles[i];
-        }
+        emit ProfileStatusChanged(user, newStatus);
+    }
+    
+    /**
+     * @dev Actualiza la puntuación de karma (solo rol KARMA)
+     * @param user Dirección del usuario
+     * @param newKarmaScore Nueva puntuación de karma
+     */
+    function updateKarmaScore(address user, uint256 newKarmaScore) external whenNotPaused onlyRole(KARMA_ROLE) onlyRegisteredUser(user) {
+        Profile storage profile = profiles[user];
+        profile.karmaScore = newKarmaScore;
+        profile.updatedAt = block.timestamp;
         
-        return result;
+        emit KarmaScoreUpdated(user, newKarmaScore);
+    }
+    
+    /**
+     * @dev Obtiene el perfil completo de un usuario
+     * @param user Dirección del usuario
+     */
+    function getProfile(address user) external view returns (Profile memory) {
+        require(hasRegisteredProfile[user], "Profile not registered");
+        return profiles[user];
+    }
+    
+    /**
+     * @dev Obtiene solo el hash de datos del perfil
+     * @param user Dirección del usuario
+     */
+    function getProfileDataHash(address user) external view returns (string memory) {
+        require(hasRegisteredProfile[user], "Profile not registered");
+        return profiles[user].profileDataHash;
+    }
+    
+    /**
+     * @dev Obtiene la puntuación de karma de un usuario
+     * @param user Dirección del usuario
+     */
+    function getKarmaScore(address user) external view returns (uint256) {
+        require(hasRegisteredProfile[user], "Profile not registered");
+        return profiles[user].karmaScore;
+    }
+    
+    /**
+     * @dev Obtiene el tipo de perfil de un usuario
+     * @param user Dirección del usuario
+     */
+    function getProfileType(address user) external view returns (ProfileType) {
+        require(hasRegisteredProfile[user], "Profile not registered");
+        return profiles[user].profileType;
+    }
+    
+    /**
+     * @dev Obtiene el estado del perfil de un usuario
+     * @param user Dirección del usuario
+     */
+    function getProfileStatus(address user) external view returns (ProfileStatus) {
+        require(hasRegisteredProfile[user], "Profile not registered");
+        return profiles[user].status;
     }
     
     /**
@@ -262,16 +238,9 @@ contract ProfileRegistry is AccessControl, Pausable, ReentrancyGuard {
     }
     
     /**
-     * @dev Despausa el contrato (solo admin)
+     * @dev Reanuda el contrato (solo admin)
      */
     function unpause() external onlyRole(DEFAULT_ADMIN_ROLE) {
         _unpause();
-    }
-    
-    /**
-     * @dev Devuelve el número total de perfiles registrados
-     */
-    function totalProfiles() external view returns (uint256) {
-        return _profileIdCounter;
     }
 }

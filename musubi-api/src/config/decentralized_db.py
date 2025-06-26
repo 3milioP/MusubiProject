@@ -29,7 +29,7 @@ class DecentralizedDB:
     # Clave privada de la cuenta 1 de Hardhat para firmar transacciones en local
     PRIVATE_KEY = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
     
-    def __init__(self, ipfs_node_url: str = "/ip4/127.0.0.1/tcp/5002", web3_instance: Optional[Web3] = None):
+    def __init__(self, ipfs_node_url: str = "/ip4/127.0.0.1/tcp/5001", web3_instance: Optional[Web3] = None):
         """
         Inicializa la conexión con IPFS
         
@@ -73,7 +73,7 @@ class DecentralizedDB:
                 port = self.ipfs_node_url.split("tcp/")[1]
                 self.http_url = f"http://127.0.0.1:{port}"
             else:
-                self.http_url = "http://127.0.0.1:5002"
+                self.http_url = "http://127.0.0.1:5001"
             
             # Verificar conexión
             response = requests.post(f"{self.http_url}/api/v0/version", timeout=5)
@@ -295,7 +295,7 @@ class DecentralizedDB:
         return []
 
 # Instancia global
-decentralized_db = DecentralizedDB(ipfs_node_url="/ip4/127.0.0.1/tcp/5002")
+decentralized_db = DecentralizedDB(ipfs_node_url="/ip4/127.0.0.1/tcp/5001")
 
 # Funciones de conveniencia
 def store_user_data(user_data: Dict[str, Any]) -> Dict[str, Union[str, Dict[str, Any]]]:

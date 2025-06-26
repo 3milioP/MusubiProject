@@ -7,23 +7,25 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "../tokens/KRMToken.sol";
 import "../core/ProfileRegistry.sol";
 import "../core/SkillSystem.sol";
+import "../core/IPFSRegistry.sol";
 
 /**
  * @title P2PMarketplace
- * @dev Marketplace P2P para servicios profesionales con validación de perfiles y habilidades
+ * @dev Marketplace P2P para servicios profesionales con datos almacenados en IPFS
+ * Solo almacena hashes de IPFS y referencias, no datos personales
  */
 contract P2PMarketplace is AccessControl, Pausable, ReentrancyGuard {
     bytes32 public constant FEE_MANAGER_ROLE = keccak256("FEE_MANAGER_ROLE");
     
     ProfileRegistry public profileRegistry;
     SkillSystem public skillSystem;
+    IPFSRegistry public ipfsRegistry;
     KRMToken public krmToken;
     
     struct Service {
         uint256 id;
         address provider;
-        string title;
-        string description;
+        string serviceDataHash; // Hash de IPFS con datos del servicio
         uint256 pricePerHour;
         uint256[] skillIds;
         ServiceStatus status;
@@ -38,7 +40,7 @@ contract P2PMarketplace is AccessControl, Pausable, ReentrancyGuard {
         address provider;
         uint256 totalPrice;
         uint256 numHours;
-        string details;
+        string orderDataHash; // Hash de IPFS con datos de la orden
         OrderStatus status;
         uint256 createdAt;
         uint256 completedAt;
@@ -60,10 +62,10 @@ contract P2PMarketplace is AccessControl, Pausable, ReentrancyGuard {
     uint256 private _serviceIdCounter;
     uint256 private _orderIdCounter;
     
-    event ServiceCreated(uint256 indexed serviceId, address indexed provider);
-    event ServiceUpdated(uint256 indexed serviceId);
+    event ServiceCreated(uint256 indexed serviceId, address indexed provider, string serviceDataHash);
+    event ServiceUpdated(uint256 indexed serviceId, string newServiceDataHash);
     event ServiceStatusChanged(uint256 indexed serviceId, ServiceStatus status);
-    event OrderCreated(uint256 indexed orderId, uint256 indexed serviceId, address indexed client);
+    event OrderCreated(uint256 indexed orderId, uint256 indexed serviceId, address indexed client, string orderDataHash);
     event OrderAccepted(uint256 indexed orderId);
     event OrderCompleted(uint256 indexed orderId, uint256 amount, uint256 fee);
     event OrderCancelled(uint256 indexed orderId);
@@ -126,29 +128,31 @@ contract P2PMarketplace is AccessControl, Pausable, ReentrancyGuard {
      * @dev Configura las direcciones de los contratos relacionados
      * @param _profileRegistry Dirección del ProfileRegistry
      * @param _skillSystem Dirección del SkillSystem
+     * @param _ipfsRegistry Dirección del IPFSRegistry
      */
-    function setContractAddresses(address _profileRegistry, address _skillSystem) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function setContractAddresses(address _profileRegistry, address _skillSystem, address _ipfsRegistry) external onlyRole(DEFAULT_ADMIN_ROLE) {
         require(_profileRegistry != address(0), "ProfileRegistry address cannot be zero");
         require(_skillSystem != address(0), "SkillSystem address cannot be zero");
+        require(_ipfsRegistry != address(0), "IPFSRegistry address cannot be zero");
         
         profileRegistry = ProfileRegistry(_profileRegistry);
         skillSystem = SkillSystem(_skillSystem);
+        ipfsRegistry = IPFSRegistry(_ipfsRegistry);
     }
     
     /**
-     * @dev Crea un nuevo servicio (solo profesionales registrados)
-     * @param title Título del servicio
-     * @param description Descripción del servicio
+     * @dev Crea un nuevo servicio con datos en IPFS (solo profesionales registrados)
+     * @param serviceDataHash Hash de IPFS con datos del servicio
      * @param pricePerHour Precio por hora en KRM
      * @param skillIds IDs de las habilidades requeridas
      */
     function createService(
-        string calldata title,
-        string calldata description,
+        string calldata serviceDataHash,
         uint256 pricePerHour,
         uint256[] calldata skillIds
     ) external whenNotPaused onlyRegisteredProfile(msg.sender) onlyProfessional(msg.sender) {
-        require(bytes(title).length > 0, "Title cannot be empty");
+        require(bytes(serviceDataHash).length > 0, "Service data hash cannot be empty");
+        require(ipfsRegistry.hashExists(serviceDataHash), "Service data not found in IPFS");
         require(pricePerHour > 0, "Price must be greater than zero");
         require(skillIds.length > 0, "At least one skill required");
         
@@ -167,8 +171,7 @@ contract P2PMarketplace is AccessControl, Pausable, ReentrancyGuard {
         services[serviceId] = Service({
             id: serviceId,
             provider: msg.sender,
-            title: title,
-            description: description,
+            serviceDataHash: serviceDataHash,
             pricePerHour: pricePerHour,
             skillIds: skillIds,
             status: ServiceStatus.Active,
@@ -178,25 +181,24 @@ contract P2PMarketplace is AccessControl, Pausable, ReentrancyGuard {
         
         providerServices[msg.sender].push(serviceId);
         
-        emit ServiceCreated(serviceId, msg.sender);
+        emit ServiceCreated(serviceId, msg.sender, serviceDataHash);
     }
     
     /**
      * @dev Actualiza un servicio existente
      * @param serviceId ID del servicio
-     * @param title Nuevo título
-     * @param description Nueva descripción
+     * @param newServiceDataHash Nuevo hash de IPFS con datos del servicio
      * @param pricePerHour Nuevo precio por hora
      * @param skillIds Nuevos IDs de habilidades
      */
     function updateService(
         uint256 serviceId,
-        string calldata title,
-        string calldata description,
+        string calldata newServiceDataHash,
         uint256 pricePerHour,
         uint256[] calldata skillIds
     ) external whenNotPaused serviceExists(serviceId) onlyServiceProvider(serviceId) {
-        require(bytes(title).length > 0, "Title cannot be empty");
+        require(bytes(newServiceDataHash).length > 0, "Service data hash cannot be empty");
+        require(ipfsRegistry.hashExists(newServiceDataHash), "Service data not found in IPFS");
         require(pricePerHour > 0, "Price must be greater than zero");
         require(skillIds.length > 0, "At least one skill required");
         
@@ -211,13 +213,12 @@ contract P2PMarketplace is AccessControl, Pausable, ReentrancyGuard {
         }
         
         Service storage service = services[serviceId];
-        service.title = title;
-        service.description = description;
+        service.serviceDataHash = newServiceDataHash;
         service.pricePerHour = pricePerHour;
         service.skillIds = skillIds;
         service.updatedAt = block.timestamp;
         
-        emit ServiceUpdated(serviceId);
+        emit ServiceUpdated(serviceId, newServiceDataHash);
     }
     
     /**
@@ -234,16 +235,19 @@ contract P2PMarketplace is AccessControl, Pausable, ReentrancyGuard {
     }
     
     /**
-     * @dev Crea una nueva orden para un servicio
+     * @dev Crea una nueva orden para un servicio con datos en IPFS
      * @param serviceId ID del servicio
      * @param numHours Número de horas solicitadas
-     * @param details Detalles específicos de la solicitud
+     * @param orderDataHash Hash de IPFS con datos de la orden
      */
     function createOrder(
         uint256 serviceId,
         uint256 numHours,
-        string calldata details
+        string calldata orderDataHash
     ) external whenNotPaused serviceExists(serviceId) onlyVerifiedProfile(msg.sender) {
+        require(bytes(orderDataHash).length > 0, "Order data hash cannot be empty");
+        require(ipfsRegistry.hashExists(orderDataHash), "Order data not found in IPFS");
+        
         Service storage service = services[serviceId];
         
         require(service.status == ServiceStatus.Active, "Service not active");
@@ -265,7 +269,7 @@ contract P2PMarketplace is AccessControl, Pausable, ReentrancyGuard {
             provider: service.provider,
             totalPrice: totalPrice,
             numHours: numHours,
-            details: details,
+            orderDataHash: orderDataHash,
             status: OrderStatus.Created,
             createdAt: block.timestamp,
             completedAt: 0
@@ -274,7 +278,7 @@ contract P2PMarketplace is AccessControl, Pausable, ReentrancyGuard {
         clientOrders[msg.sender].push(orderId);
         providerOrders[service.provider].push(orderId);
         
-        emit OrderCreated(orderId, serviceId, msg.sender);
+        emit OrderCreated(orderId, serviceId, msg.sender, orderDataHash);
     }
     
     /**
@@ -402,6 +406,38 @@ contract P2PMarketplace is AccessControl, Pausable, ReentrancyGuard {
             allOrders[clientCount + j] = providerOrders[user][j];
         }
         return allOrders;
+    }
+    
+    /**
+     * @dev Obtiene un servicio por ID
+     * @param serviceId ID del servicio
+     */
+    function getService(uint256 serviceId) external view serviceExists(serviceId) returns (Service memory) {
+        return services[serviceId];
+    }
+    
+    /**
+     * @dev Obtiene el hash de datos de un servicio
+     * @param serviceId ID del servicio
+     */
+    function getServiceDataHash(uint256 serviceId) external view serviceExists(serviceId) returns (string memory) {
+        return services[serviceId].serviceDataHash;
+    }
+    
+    /**
+     * @dev Obtiene una orden por ID
+     * @param orderId ID de la orden
+     */
+    function getOrder(uint256 orderId) external view orderExists(orderId) returns (Order memory) {
+        return orders[orderId];
+    }
+    
+    /**
+     * @dev Obtiene el hash de datos de una orden
+     * @param orderId ID de la orden
+     */
+    function getOrderDataHash(uint256 orderId) external view orderExists(orderId) returns (string memory) {
+        return orders[orderId].orderDataHash;
     }
     
     /**

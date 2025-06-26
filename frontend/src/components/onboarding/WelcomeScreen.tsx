@@ -11,7 +11,8 @@ import {
   ListItemIcon,
   ListItemText,
   Alert,
-  Chip
+  Chip,
+  IconButton
 } from '@mui/material';
 import {
   Rocket,
@@ -20,15 +21,21 @@ import {
   AccessTime,
   Store,
   CheckCircle,
-  Star
+  Star,
+  Close,
+  ConnectWithoutContact
 } from '@mui/icons-material';
+import { useWeb3 } from '../../contexts/Web3Context';
 
 interface WelcomeScreenProps {
   onGetStarted: () => void;
   onSkipTutorial: () => void;
+  onExit?: () => void;
 }
 
-const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onGetStarted, onSkipTutorial }) => {
+const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onGetStarted, onSkipTutorial, onExit }) => {
+  const { connectWallet, isConnected, account, connecting, error } = useWeb3();
+
   const features = [
     {
       icon: <AccountBalanceWallet color="primary" />,
@@ -60,14 +67,43 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onGetStarted, onSkipTutor
     'Control total de tus datos profesionales'
   ];
 
+  const handleConnectWallet = async () => {
+    try {
+      console.log('🔗 Intentando conectar wallet desde WelcomeScreen...');
+      await connectWallet();
+    } catch (error) {
+      console.error('❌ Error conectando wallet:', error);
+    }
+  };
+
   return (
     <Box sx={{ 
       minHeight: '100vh', 
       background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
       display: 'flex',
       alignItems: 'center',
-      py: 4
+      py: 4,
+      position: 'relative'
     }}>
+      {/* Botón de salida */}
+      {onExit && (
+        <IconButton
+          onClick={onExit}
+          sx={{
+            position: 'absolute',
+            top: 16,
+            right: 16,
+            color: 'white',
+            backgroundColor: 'rgba(255,255,255,0.1)',
+            '&:hover': {
+              backgroundColor: 'rgba(255,255,255,0.2)'
+            }
+          }}
+        >
+          <Close />
+        </IconButton>
+      )}
+      
       <Box sx={{ maxWidth: 1200, mx: 'auto', px: 3 }}>
         <Grid container spacing={4} alignItems="center">
           {/* Lado izquierdo - Información */}
@@ -160,28 +196,65 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onGetStarted, onSkipTutor
                 </Typography>
               </Alert>
 
+              {/* Mostrar estado de conexión si está conectado */}
+              {isConnected && account && (
+                <Alert severity="success" sx={{ mb: 3 }}>
+                  <Typography variant="body2">
+                    <strong>¡Wallet conectada!</strong> Cuenta: {account.substring(0, 6)}...{account.substring(account.length - 4)}
+                  </Typography>
+                </Alert>
+              )}
+
+              {/* Mostrar error si hay alguno */}
+              {error && (
+                <Alert severity="error" sx={{ mb: 3 }}>
+                  <Typography variant="body2">
+                    <strong>Error:</strong> {error}
+                  </Typography>
+                </Alert>
+              )}
+
               <Box sx={{ display: 'flex', gap: 2, flexDirection: { xs: 'column', sm: 'row' } }}>
-                <Button
-                  variant="contained"
-                  size="large"
-                  onClick={onGetStarted}
-                  startIcon={<Star />}
-                  sx={{ flex: 1 }}
-                >
-                  Configurar Wallet
-                </Button>
-                <Button
-                  variant="outlined"
-                  size="large"
-                  onClick={onSkipTutorial}
-                  sx={{ flex: 1 }}
-                >
-                  Ya tengo Wallet
-                </Button>
+                {!isConnected ? (
+                  <>
+                    <Button
+                      variant="contained"
+                      size="large"
+                      onClick={handleConnectWallet}
+                      startIcon={<ConnectWithoutContact />}
+                      disabled={connecting}
+                      sx={{ flex: 1 }}
+                    >
+                      {connecting ? 'Conectando...' : 'Conectar Wallet'}
+                    </Button>
+                    <Button
+                      variant="outlined"
+                      size="large"
+                      onClick={onGetStarted}
+                      startIcon={<Star />}
+                      sx={{ flex: 1 }}
+                    >
+                      Tutorial Completo
+                    </Button>
+                  </>
+                ) : (
+                  <Button
+                    variant="contained"
+                    size="large"
+                    onClick={onSkipTutorial}
+                    startIcon={<AccountBalanceWallet />}
+                    sx={{ flex: 1 }}
+                  >
+                    Continuar al Perfil
+                  </Button>
+                )}
               </Box>
 
               <Typography variant="caption" display="block" sx={{ textAlign: 'center', mt: 2, opacity: 0.7 }}>
-                El tutorial incluye configuración de wallet y registro de perfil
+                {!isConnected 
+                  ? 'Conecta tu wallet o sigue el tutorial completo'
+                  : 'Tu wallet está conectada. Puedes continuar al registro de perfil.'
+                }
               </Typography>
             </Card>
           </Grid>

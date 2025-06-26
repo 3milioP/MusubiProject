@@ -1,258 +1,248 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
 
-describe("ProfileRegistry Contract", function () {
-  let ProfileRegistry;
-  let profileRegistry;
-  let owner;
-  let professional;
-  let company;
-  let verifier;
+describe("ProfileRegistry", function () {
+  let ProfileRegistry, profileRegistry;
+  let IPFSRegistry, ipfsRegistry;
+  let owner, user1, user2, verifier;
   let addrs;
-  const metadataURI = "ipfs://QmXnnyufdzAWL5CqZ2RnSNgPbvCc1ALT73s6epPrRnZ1Xy";
 
   beforeEach(async function () {
-    [owner, professional, company, verifier, ...addrs] = await ethers.getSigners();
+    [owner, user1, user2, verifier, ...addrs] = await ethers.getSigners();
 
+    // Desplegar IPFSRegistry primero
+    IPFSRegistry = await ethers.getContractFactory("IPFSRegistry");
+    ipfsRegistry = await IPFSRegistry.deploy();
+    await ipfsRegistry.waitForDeployment();
+
+    // Desplegar ProfileRegistry
     ProfileRegistry = await ethers.getContractFactory("ProfileRegistry");
-    profileRegistry = await ProfileRegistry.deploy();
+    profileRegistry = await ProfileRegistry.deploy(await ipfsRegistry.getAddress());
     await profileRegistry.waitForDeployment();
 
+    // Registrar algunos hashes de IPFS para las pruebas
+    const profileHash1 = "ipfs://QmProfileHash1";
+    const profileHash2 = "ipfs://QmProfileHash2";
+    
+    await ipfsRegistry.connect(owner).storeRecord(profileHash1, "sha256hash1", "profiles", "profile");
+    await ipfsRegistry.connect(owner).storeRecord(profileHash2, "sha256hash2", "profiles", "profile");
+
     // Otorgar rol VERIFIER_ROLE al verifier
-    await profileRegistry.connect(owner).grantRole(await profileRegistry.VERIFIER_ROLE(), verifier.address);
+    const verifierRole = await profileRegistry.VERIFIER_ROLE();
+    await profileRegistry.connect(owner).grantRole(verifierRole, verifier.address);
   });
 
-  describe("Registro de perfiles", function () {
-    it("Debería permitir registrar un perfil profesional", async function () {
-      await profileRegistry.connect(professional).registerProfile("Juan Pérez", "Desarrollador", metadataURI, 0, true); // ProfileType.Professional
-      
-      const profile = await profileRegistry.profiles(professional.address);
-      expect(profile.name).to.equal("Juan Pérez");
-      expect(profile.description).to.equal("Desarrollador");
-      expect(profile.metadataURI).to.equal(metadataURI);
-      expect(profile.profileType).to.equal(0); // Professional
-      expect(profile.isVerified).to.equal(false);
-      expect(profile.disclaimerAccepted).to.equal(true);
+  describe("Constructor", function () {
+    it("Debería establecer correctamente la dirección de IPFSRegistry", async function () {
+      expect(await profileRegistry.ipfsRegistry()).to.equal(await ipfsRegistry.getAddress());
     });
 
-    it("Debería permitir registrar un perfil de empresa", async function () {
-      await profileRegistry.connect(company).registerProfile("TechCorp", "Empresa de software", metadataURI, 1, true); // ProfileType.Company
-      
-      const profile = await profileRegistry.profiles(company.address);
-      expect(profile.name).to.equal("TechCorp");
-      expect(profile.description).to.equal("Empresa de software");
-      expect(profile.metadataURI).to.equal(metadataURI);
-      expect(profile.profileType).to.equal(1); // Company
-      expect(profile.isVerified).to.equal(false);
-      expect(profile.disclaimerAccepted).to.equal(true);
-    });
+    it("Debería otorgar roles correctamente al deployer", async function () {
+      const DEFAULT_ADMIN_ROLE = await profileRegistry.DEFAULT_ADMIN_ROLE();
+      const KARMA_ROLE = await profileRegistry.KARMA_ROLE();
+      const VERIFIER_ROLE = await profileRegistry.VERIFIER_ROLE();
 
-    it("No debería permitir registrar un perfil duplicado", async function () {
-      await profileRegistry.connect(professional).registerProfile("Juan Pérez", "Desarrollador", metadataURI, 0, true);
-      
-      await expect(
-        profileRegistry.connect(professional).registerProfile("Juan Pérez", "Desarrollador", metadataURI, 0, true)
-      ).to.be.revertedWith("Profile already exists");
-    });
-
-    it("Debería emitir un evento al registrar un perfil", async function () {
-      await expect(profileRegistry.connect(professional).registerProfile("Juan Pérez", "Desarrollador", metadataURI, 0, true))
-        .to.emit(profileRegistry, "ProfileRegistered")
-        .withArgs(0, professional.address, 0); // profileId, wallet, profileType
-    });
-
-    it("No debería permitir registrar sin aceptar el disclaimer", async function () {
-      await expect(
-        profileRegistry.connect(professional).registerProfile("Juan Pérez", "Desarrollador", metadataURI, 0, false)
-      ).to.be.revertedWith("Disclaimer must be accepted");
+      expect(await profileRegistry.hasRole(DEFAULT_ADMIN_ROLE, owner.address)).to.be.true;
+      expect(await profileRegistry.hasRole(KARMA_ROLE, owner.address)).to.be.true;
+      expect(await profileRegistry.hasRole(VERIFIER_ROLE, owner.address)).to.be.true;
     });
   });
 
-  describe("Actualización de perfiles", function () {
+  describe("Profile Registration", function () {
+    it("Debería permitir registrar un perfil", async function () {
+      const profileHash = "ipfs://QmProfileHash1";
+      
+      await profileRegistry.connect(user1).registerProfile(profileHash, 0); // Individual
+      
+      expect(await profileRegistry.hasRegisteredProfile(user1.address)).to.be.true;
+      const profile = await profileRegistry.getProfile(user1.address);
+      expect(profile.wallet).to.equal(user1.address);
+      expect(profile.profileDataHash).to.equal(profileHash);
+      expect(profile.profileType).to.equal(0); // Individual
+      expect(profile.status).to.equal(0); // Pending
+    });
+
+    it("Debería rechazar registro con hash que no existe en IPFS", async function () {
+      const invalidHash = "ipfs://QmInvalidHash";
+      
+      await expect(
+        profileRegistry.connect(user1).registerProfile(invalidHash, 0)
+      ).to.be.revertedWith("Profile data not found in IPFS");
+    });
+
+    it("Debería rechazar registro duplicado", async function () {
+      const profileHash = "ipfs://QmProfileHash1";
+      
+      await profileRegistry.connect(user1).registerProfile(profileHash, 0);
+      
+      await expect(
+        profileRegistry.connect(user1).registerProfile(profileHash, 1)
+      ).to.be.revertedWith("Profile already registered");
+    });
+
+    it("Debería rechazar hash vacío", async function () {
+      await expect(
+        profileRegistry.connect(user1).registerProfile("", 0)
+      ).to.be.revertedWith("Profile data hash cannot be empty");
+    });
+  });
+
+  describe("Profile Verification", function () {
     beforeEach(async function () {
-      await profileRegistry.connect(professional).registerProfile("Juan Pérez", "Desarrollador", metadataURI, 0, true);
-    });
-
-    it("Debería permitir actualizar un perfil existente", async function () {
-      await profileRegistry.connect(professional).updateProfile("Juan Pérez Actualizado", "Senior Developer", "ipfs://new-metadata");
+      const profileHash = "ipfs://QmProfileHash1";
+      await profileRegistry.connect(user1).registerProfile(profileHash, 0);
       
-      const profile = await profileRegistry.profiles(professional.address);
-      expect(profile.name).to.equal("Juan Pérez Actualizado");
-      expect(profile.description).to.equal("Senior Developer");
-      expect(profile.metadataURI).to.equal("ipfs://new-metadata");
+      // Cambiar el estado del perfil a Active antes de verificar
+      await profileRegistry.connect(owner).changeProfileStatus(user1.address, 1); // Active
     });
 
-    it("No debería permitir actualizar un perfil no existente", async function () {
-      await expect(
-        profileRegistry.connect(company).updateProfile("Nuevo Nombre", "Nueva Descripción", "ipfs://new-metadata")
-      ).to.be.revertedWith("Profile not found");
-    });
-
-    it("No debería permitir actualizar con nombre vacío", async function () {
-      await expect(
-        profileRegistry.connect(professional).updateProfile("", "Descripción", "ipfs://metadata")
-      ).to.be.revertedWith("Name cannot be empty");
-    });
-  });
-
-  describe("Verificación de perfiles", function () {
-    beforeEach(async function () {
-      await profileRegistry.connect(professional).registerProfile("Juan Pérez", "Desarrollador", metadataURI, 0, true);
-    });
-
-    it("Debería permitir al verificador verificar un perfil", async function () {
-      await profileRegistry.connect(verifier).verifyProfile(professional.address);
+    it("Debería permitir verificar un perfil", async function () {
+      const karmaScore = 100;
       
-      const profile = await profileRegistry.profiles(professional.address);
-      expect(profile.isVerified).to.equal(true);
+      await profileRegistry.connect(verifier).verifyProfile(user1.address, karmaScore);
+      
+      expect(await profileRegistry.hasVerifiedProfile(user1.address)).to.be.true;
+      const profile = await profileRegistry.getProfile(user1.address);
+      expect(profile.status).to.equal(1); // Active
+      expect(profile.karmaScore).to.equal(karmaScore);
       expect(profile.verifiedBy).to.equal(verifier.address);
     });
 
-    it("No debería permitir a usuarios no autorizados verificar perfiles", async function () {
+    it("Debería rechazar verificación de perfil inexistente", async function () {
       await expect(
-        profileRegistry.connect(company).verifyProfile(professional.address)
-      ).to.be.revertedWith("AccessControl: account 0x3c44cdddb6a900fa2b585dd299e03d12fa4293bc is missing role 0x0ce23c3e399818cfee81a7ab0880f714e53d7672b08df0fa62f2843416e1ea09");
+        profileRegistry.connect(verifier).verifyProfile(user2.address, 100)
+      ).to.be.revertedWith("Profile not registered");
     });
 
-    it("No debería permitir verificar un perfil no existente", async function () {
-      await expect(
-        profileRegistry.connect(verifier).verifyProfile(company.address)
-      ).to.be.revertedWith("Profile not found");
-    });
-
-    it("No debería permitir verificar un perfil ya verificado", async function () {
-      await profileRegistry.connect(verifier).verifyProfile(professional.address);
+    it("Debería rechazar verificación de perfil ya verificado", async function () {
+      await profileRegistry.connect(verifier).verifyProfile(user1.address, 100);
       
       await expect(
-        profileRegistry.connect(verifier).verifyProfile(professional.address)
+        profileRegistry.connect(verifier).verifyProfile(user1.address, 200)
       ).to.be.revertedWith("Profile already verified");
     });
 
-    it("No debería permitir verificar el propio perfil", async function () {
-      // Usar una dirección diferente para evitar duplicado y asegurar rol
-      const [owner, professional, company, verifier, newProfessional] = await ethers.getSigners();
-      await profileRegistry.connect(newProfessional).registerProfile("María García", "Tech Lead", metadataURI, 0, true);
-      await profileRegistry.connect(owner).grantRole(await profileRegistry.VERIFIER_ROLE(), newProfessional.address);
+    it("Debería rechazar auto-verificación", async function () {
+      // Otorgar rol VERIFIER_ROLE al user1 para que pueda intentar auto-verificarse
+      const verifierRole = await profileRegistry.VERIFIER_ROLE();
+      await profileRegistry.connect(owner).grantRole(verifierRole, user1.address);
+      
       await expect(
-        profileRegistry.connect(newProfessional).verifyProfile(newProfessional.address)
+        profileRegistry.connect(user1).verifyProfile(user1.address, 100)
       ).to.be.revertedWith("Cannot verify own profile");
     });
 
-    it("Debería emitir un evento al verificar un perfil", async function () {
-      await expect(profileRegistry.connect(verifier).verifyProfile(professional.address))
-        .to.emit(profileRegistry, "ProfileVerified")
-        .withArgs(0, professional.address, verifier.address);
+    it("Debería rechazar verificación sin rol VERIFIER_ROLE", async function () {
+      await expect(
+        profileRegistry.connect(user2).verifyProfile(user1.address, 100)
+      ).to.be.reverted;
     });
   });
 
-  describe("Gestión de karma", function () {
+  describe("Profile Updates", function () {
     beforeEach(async function () {
-      await profileRegistry.connect(professional).registerProfile("Juan Pérez", "Desarrollador", metadataURI, 0, true);
+      const profileHash = "ipfs://QmProfileHash1";
+      await profileRegistry.connect(user1).registerProfile(profileHash, 0);
+      await profileRegistry.connect(owner).changeProfileStatus(user1.address, 1); // Active
+      await profileRegistry.connect(verifier).verifyProfile(user1.address, 100);
+    });
+
+    it("Debería permitir actualizar perfil", async function () {
+      const newProfileHash = "ipfs://QmProfileHash2";
       
-      // Otorgar rol ADMIN_ROLE al owner para poder actualizar karma
-      const karmaRole = await profileRegistry.KARMA_ROLE();
-      await profileRegistry.grantRole(karmaRole, owner.address);
-    });
-
-    it("Debería permitir al admin actualizar el karma", async function () {
-      await profileRegistry.connect(owner).updateKarma(professional.address, 100);
+      await profileRegistry.connect(user1).updateProfile(newProfileHash);
       
-      const profile = await profileRegistry.profiles(professional.address);
-      expect(profile.karma).to.equal(100);
+      const profile = await profileRegistry.getProfile(user1.address);
+      expect(profile.profileDataHash).to.equal(newProfileHash);
+      expect(profile.verifiedAt).to.equal(0); // Debería resetear verificación
+      expect(await profileRegistry.hasVerifiedProfile(user1.address)).to.be.false;
     });
 
-    it("No debería permitir a usuarios no autorizados actualizar el karma", async function () {
+    it("Debería rechazar actualización con hash inválido", async function () {
+      const invalidHash = "ipfs://QmInvalidHash";
+      
       await expect(
-        profileRegistry.connect(company).updateKarma(professional.address, 100)
-      ).to.be.revertedWith("AccessControl: account 0x3c44cdddb6a900fa2b585dd299e03d12fa4293bc is missing role 0x1f4a8853fae4baa0116250328da4015ef744ff86f81340bbdcffb0cfaeaa0bd3");
+        profileRegistry.connect(user1).updateProfile(invalidHash)
+      ).to.be.revertedWith("Profile data not found in IPFS");
     });
 
-    it("No debería permitir actualizar karma de perfil no existente", async function () {
+    it("Debería rechazar actualización de perfil no activo", async function () {
+      // Suspender el perfil primero
+      await profileRegistry.connect(owner).changeProfileStatus(user1.address, 2); // Suspended
+      
+      const newProfileHash = "ipfs://QmProfileHash2";
       await expect(
-        profileRegistry.connect(owner).updateKarma(company.address, 100)
-      ).to.be.revertedWith("Profile not found");
-    });
-
-    it("Debería emitir un evento al actualizar el karma", async function () {
-      await expect(profileRegistry.connect(owner).updateKarma(professional.address, 100))
-        .to.emit(profileRegistry, "KarmaUpdated")
-        .withArgs(0, professional.address, 100);
+        profileRegistry.connect(user1).updateProfile(newProfileHash)
+      ).to.be.revertedWith("Profile not active");
     });
   });
 
-  describe("Consultas", function () {
+  describe("Profile Status Management", function () {
     beforeEach(async function () {
-      await profileRegistry.connect(professional).registerProfile("Juan Pérez", "Desarrollador", metadataURI, 0, true);
-      await profileRegistry.connect(company).registerProfile("TechCorp", "Empresa de software", metadataURI, 1, true);
+      const profileHash = "ipfs://QmProfileHash1";
+      await profileRegistry.connect(user1).registerProfile(profileHash, 0);
+      await profileRegistry.connect(owner).changeProfileStatus(user1.address, 1); // Active
+      await profileRegistry.connect(verifier).verifyProfile(user1.address, 100);
     });
 
-    it("Debería verificar si una dirección tiene un perfil", async function () {
-      expect(await profileRegistry.hasProfile(professional.address)).to.equal(true);
-      expect(await profileRegistry.hasProfile(verifier.address)).to.equal(false);
-    });
-
-    it("Debería verificar si una dirección tiene un perfil verificado", async function () {
-      expect(await profileRegistry.hasVerifiedProfile(professional.address)).to.equal(false);
+    it("Debería permitir cambiar estado del perfil", async function () {
+      await profileRegistry.connect(owner).changeProfileStatus(user1.address, 2); // Suspended
       
-      await profileRegistry.connect(verifier).verifyProfile(professional.address);
-      expect(await profileRegistry.hasVerifiedProfile(professional.address)).to.equal(true);
+      const profile = await profileRegistry.getProfile(user1.address);
+      expect(profile.status).to.equal(2); // Suspended
+      expect(await profileRegistry.hasVerifiedProfile(user1.address)).to.be.false;
     });
 
-    it("Debería obtener todos los perfiles", async function () {
-      const profiles = await profileRegistry.getAllProfiles();
-      expect(profiles).to.include(professional.address);
-      expect(profiles).to.include(company.address);
-      expect(profiles.length).to.equal(2);
-    });
-
-    it("Debería obtener perfiles por tipo", async function () {
-      const professionals = await profileRegistry.getProfilesByType(0); // Professional
-      const companies = await profileRegistry.getProfilesByType(1); // Company
-      
-      expect(professionals).to.include(professional.address);
-      expect(companies).to.include(company.address);
-      expect(professionals.length).to.equal(1);
-      expect(companies.length).to.equal(1);
-    });
-  });
-
-  describe("Control de acceso", function () {
-    it("Debería verificar que el owner tiene el rol DEFAULT_ADMIN_ROLE", async function () {
-      expect(await profileRegistry.hasRole(await profileRegistry.DEFAULT_ADMIN_ROLE(), owner.address)).to.equal(true);
-    });
-
-    it("Debería verificar que el owner tiene el rol VERIFIER_ROLE", async function () {
-      expect(await profileRegistry.hasRole(await profileRegistry.VERIFIER_ROLE(), owner.address)).to.equal(true);
-    });
-
-    it("Debería verificar que el owner tiene el rol KARMA_ROLE", async function () {
-      expect(await profileRegistry.hasRole(await profileRegistry.KARMA_ROLE(), owner.address)).to.equal(true);
-    });
-
-    it("Debería permitir otorgar roles a otros usuarios", async function () {
-      await profileRegistry.connect(owner).grantRole(await profileRegistry.VERIFIER_ROLE(), verifier.address);
-      expect(await profileRegistry.hasRole(await profileRegistry.VERIFIER_ROLE(), verifier.address)).to.equal(true);
-    });
-  });
-
-  describe("Pausabilidad", function () {
-    it("Debería permitir al admin pausar el contrato", async function () {
-      await profileRegistry.connect(owner).pause();
-      expect(await profileRegistry.paused()).to.equal(true);
-    });
-
-    it("No debería permitir registrar perfiles cuando está pausado", async function () {
-      await profileRegistry.connect(owner).pause();
-      
+    it("Debería rechazar cambio de estado sin rol ADMIN", async function () {
       await expect(
-        profileRegistry.connect(professional).registerProfile("Juan Pérez", "Desarrollador", metadataURI, 0, true)
-      ).to.be.revertedWith("Pausable: paused");
+        profileRegistry.connect(user1).changeProfileStatus(user1.address, 2)
+      ).to.be.reverted;
+    });
+  });
+
+  describe("Karma Score Management", function () {
+    beforeEach(async function () {
+      const profileHash = "ipfs://QmProfileHash1";
+      await profileRegistry.connect(user1).registerProfile(profileHash, 0);
     });
 
-    it("Debería permitir al admin despausar el contrato", async function () {
-      await profileRegistry.connect(owner).pause();
-      await profileRegistry.connect(owner).unpause();
-      expect(await profileRegistry.paused()).to.equal(false);
+    it("Debería permitir actualizar karma score", async function () {
+      const newKarmaScore = 200;
+      
+      await profileRegistry.connect(owner).updateKarmaScore(user1.address, newKarmaScore);
+      
+      const profile = await profileRegistry.getProfile(user1.address);
+      expect(profile.karmaScore).to.equal(newKarmaScore);
+    });
+
+    it("Debería rechazar actualización de karma sin rol KARMA_ROLE", async function () {
+      await expect(
+        profileRegistry.connect(user1).updateKarmaScore(user1.address, 200)
+      ).to.be.reverted;
+    });
+  });
+
+  describe("View Functions", function () {
+    beforeEach(async function () {
+      const profileHash = "ipfs://QmProfileHash1";
+      await profileRegistry.connect(user1).registerProfile(profileHash, 0);
+    });
+
+    it("Debería obtener perfil completo", async function () {
+      const profile = await profileRegistry.getProfile(user1.address);
+      expect(profile.wallet).to.equal(user1.address);
+      expect(profile.profileDataHash).to.equal("ipfs://QmProfileHash1");
+    });
+
+    it("Debería rechazar obtener perfil inexistente", async function () {
+      await expect(
+        profileRegistry.getProfile(user2.address)
+      ).to.be.revertedWith("Profile not registered");
+    });
+
+    it("Debería obtener solo el hash de datos del perfil", async function () {
+      const hash = await profileRegistry.getProfileDataHash(user1.address);
+      expect(hash).to.equal("ipfs://QmProfileHash1");
     });
   });
 });

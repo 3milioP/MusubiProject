@@ -8,8 +8,10 @@ import {
   DeclaredSkill, 
   TimeRecord, 
   Service, 
-  Order 
+  Order,
+  ProfessionalSkill
 } from '../types';
+import { IPFSService } from './ipfs';
 
 // Clase de servicio para KRM Token
 export class KRMTokenService {
@@ -24,8 +26,19 @@ export class KRMTokenService {
   }
 
   async getBalance(address: string): Promise<string> {
-    const balance = await this.contract.balanceOf(address);
-    return ethers.formatEther(balance);
+    console.log('🔍 KRMTokenService.getBalance - Llamando con dirección:', address);
+    console.log('🔍 KRMTokenService.getBalance - Contrato:', this.contract.address);
+    
+    try {
+      const balance = await this.contract.balanceOf(address);
+      console.log('🔍 KRMTokenService.getBalance - Balance raw:', balance.toString());
+      const formattedBalance = ethers.formatEther(balance);
+      console.log('🔍 KRMTokenService.getBalance - Balance formateado:', formattedBalance);
+      return formattedBalance;
+    } catch (error) {
+      console.error('❌ KRMTokenService.getBalance - Error:', error);
+      throw error;
+    }
   }
 
   async getTotalSupply(): Promise<string> {
@@ -52,59 +65,99 @@ export class KRMTokenService {
 // Clase de servicio para Profile Registry
 export class ProfileRegistryService {
   private contract: ethers.Contract;
-  private apiUrl: string;
 
   constructor(provider: any, signer?: any) {
-    this.contract = new ethers.Contract(
-      CONTRACT_ADDRESSES.ProfileRegistry,
-      CONTRACT_ABIS.ProfileRegistry,
-      signer || provider
-    );
-    this.apiUrl = 'http://localhost:5001'; // URL de la API de Musubi (puerto correcto)
+    const contractAddress = CONTRACT_ADDRESSES.ProfileRegistry;
+    const contractABI = CONTRACT_ABIS.ProfileRegistry;
+    this.contract = new ethers.Contract(contractAddress, contractABI, signer || provider);
   }
 
   async getProfile(address: string): Promise<Profile | null> {
     try {
-      const profile = await this.contract.getProfile(address);
+      console.log('🔍 ProfileRegistryService.getProfile - Iniciando búsqueda para:', address);
+      console.log('🔍 ProfileRegistryService.getProfile - Contrato en dirección:', this.contract.address);
       
-      // Verificar si el perfil existe
-      if (profile.wallet_addr === '0x0000000000000000000000000000000000000000') {
+      // Obtener datos básicos del contrato
+      console.log('🔍 ProfileRegistryService.getProfile - Llamando al contrato...');
+      const profileData = await this.contract.getProfile(address);
+      console.log('🔍 ProfileRegistryService.getProfile - Datos obtenidos del contrato:', profileData);
+      
+      // Verificar si el perfil existe (wallet_addr no debe ser address(0))
+      console.log('🔍 ProfileRegistryService.getProfile - Verificando si existe perfil...');
+      if (!profileData || profileData.wallet_addr === ethers.ZeroAddress) {
+        console.log('❌ No se encontró perfil para:', address);
         return null;
       }
-      
-      return {
-        address: address,
-        isCompany: profile.profileType === 1, // 0 = Professional, 1 = Company
-        isActive: profile.isVerified,
-        metadataURI: profile.metadataURI,
-        name: profile.name,
-        bio: profile.description,
-        location: 'No especificada',
-        website: '',
-        skills: [],
-        karma: Number(profile.karma),
-        isVerified: profile.isVerified,
-        disclaimerAccepted: profile.disclaimerAccepted
+
+      console.log('✅ Perfil encontrado en blockchain:', profileData);
+
+      // Construir el objeto Profile con los datos del contrato
+      console.log('🔍 ProfileRegistryService.getProfile - Construyendo objeto Profile...');
+      let enrichedData: Profile = {
+        address,
+        name: profileData.name || '',
+        bio: profileData.description || '',
+        isCompany: profileData.profileType === 1, // 0 = Professional, 1 = Company
+        isActive: true, // Si existe en blockchain, está activo
+        metadataURI: profileData.metadataURI || '',
+        karma: profileData.karma?.toNumber() || 0,
+        isVerified: profileData.isVerified || false,
+        disclaimerAccepted: profileData.disclaimerAccepted || false
       };
-    } catch (error) {
-      console.error('Error getting profile:', error);
+
+      console.log('🔍 ProfileRegistryService.getProfile - Objeto Profile construido:', enrichedData);
+
+      // Si hay metadataURI, intentar obtener datos de IPFS
+      if (profileData.metadataURI && profileData.metadataURI !== '') {
+        console.log('🔍 ProfileRegistryService.getProfile - Intentando obtener datos de IPFS...');
+        try {
+          const ipfsData = await this.getProfileFromIPFS(profileData.metadataURI);
+          console.log('🔍 ProfileRegistryService.getProfile - Datos de IPFS obtenidos:', ipfsData);
+          if (ipfsData) {
+            enrichedData = {
+              ...enrichedData,
+              name: ipfsData.name || enrichedData.name,
+              bio: ipfsData.description || ipfsData.bio || enrichedData.bio,
+              location: ipfsData.location || '',
+              website: ipfsData.website || '',
+              skills: ipfsData.skills || []
+            };
+            console.log('🔍 ProfileRegistryService.getProfile - Datos enriquecidos con IPFS:', enrichedData);
+          }
+        } catch (ipfsError) {
+          console.warn('⚠️ Error obteniendo datos de IPFS, usando solo datos de blockchain:', ipfsError);
+        }
+      } else {
+        console.log('🔍 ProfileRegistryService.getProfile - No hay metadataURI, usando solo datos de blockchain');
+      }
+
+      console.log('🔍 ProfileRegistryService.getProfile - Retornando perfil final:', enrichedData);
+      return enrichedData;
+    } catch (error: any) {
+      console.error('❌ Error obteniendo perfil:', error);
+      console.error('❌ Stack trace:', error.stack);
       return null;
     }
   }
 
+  async getProfileFromIPFS(ipfsHash: string): Promise<any> {
+    try {
+      // Usar el nuevo servicio IPFS directo
+      const data = await IPFSService.get(ipfsHash);
+      return data;
+    } catch (error) {
+      console.error('Error getting profile from IPFS:', error);
+      throw error;
+    }
+  }
+
   async registerProfile(
-    name: string, 
-    description: string, 
     metadataURI: string, 
-    profileType: number, 
-    acceptDisclaimer: boolean
+    profileType: number
   ): Promise<any> {
     console.log('🔍 ProfileRegistryService.registerProfile - Llamando al contrato con:', {
-      name,
-      description,
       metadataURI,
       profileType,
-      acceptDisclaimer,
       contractAddress: this.contract.address
     });
     
@@ -113,7 +166,7 @@ export class ProfileRegistryService {
       throw new Error('Contrato no disponible');
     }
     
-    const tx = await this.contract.registerProfile(name, description, metadataURI, profileType, acceptDisclaimer);
+    const tx = await this.contract.registerProfile(metadataURI, profileType);
     console.log('🔍 ProfileRegistryService.registerProfile - Transacción creada:', tx);
     return tx;
   }
@@ -147,7 +200,7 @@ export class ProfileRegistryIPFSService {
   private apiUrl: string;
 
   constructor() {
-    this.apiUrl = 'http://localhost:5001'; // URL de la API de Musubi (puerto correcto)
+    this.apiUrl = 'http://localhost:5004'; // URL correcta de la API Musubi
   }
 
   async registerProfileWithIPFS(
@@ -209,7 +262,7 @@ export class ProfileRegistryIPFSService {
 
   async getProfileFromIPFS(walletAddress: string): Promise<Profile | null> {
     try {
-      const response = await fetch(`${this.apiUrl}/api/users/${walletAddress}`);
+      const response = await fetch(`${this.apiUrl}/api/users/wallet/${walletAddress}`);
       
       if (!response.ok) {
         if (response.status === 404) {
@@ -220,20 +273,26 @@ export class ProfileRegistryIPFSService {
 
       const userData = await response.json();
       
+      // Verificar si la respuesta indica que el usuario no fue encontrado
+      if (userData.success === false || userData.error) {
+        console.log('🔍 Usuario no encontrado en la API:', userData.error);
+        return null;
+      }
+      
       // Convertir datos de la API al formato del frontend
       return {
         address: walletAddress,
-        isCompany: userData.profile_data?.profileType === 'company',
+        isCompany: userData.user?.profile_type === 'company',
         isActive: true, // Asumimos que si existe en IPFS está activo
-        metadataURI: userData.ipfs_hash || '',
-        name: userData.name || userData.profile_data?.name || '',
-        bio: userData.profile_data?.description || '',
-        location: userData.profile_data?.location || 'No especificada',
-        website: userData.profile_data?.website || '',
-        skills: [],
+        metadataURI: userData.user?.ipfs_hash || '',
+        name: userData.user?.name || '',
+        bio: userData.user?.description || '',
+        location: userData.user?.location || 'No especificada',
+        website: userData.user?.website || '',
+        skills: userData.user?.skills || [],
         karma: 0,
         isVerified: false,
-        disclaimerAccepted: userData.profile_data?.acceptDisclaimer || false
+        disclaimerAccepted: userData.user?.acceptDisclaimer || false
       };
     } catch (error) {
       console.error('Error getting profile from IPFS:', error);
@@ -248,19 +307,16 @@ export class ProfileRegistryIPFSService {
     additionalData: any = {}
   ): Promise<any> {
     try {
-      const response = await fetch(`${this.apiUrl}/api/users/${walletAddress}`, {
+      const response = await fetch(`${this.apiUrl}/api/users/wallet/${walletAddress}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           name,
-          profile_data: {
-            name,
-            description,
-            ...additionalData,
-            timestamp: new Date().toISOString()
-          }
+          description,
+          ...additionalData,
+          timestamp: new Date().toISOString()
         })
       });
 
@@ -285,106 +341,142 @@ export class SkillSystemService {
   private contract: ethers.Contract;
 
   constructor(provider: any, signer?: any) {
-    this.contract = new ethers.Contract(
-      CONTRACT_ADDRESSES.SkillSystem,
-      CONTRACT_ABIS.SkillSystem,
-      signer || provider
-    );
+    const contractAddress = CONTRACT_ADDRESSES.SkillSystem;
+    const contractABI = CONTRACT_ABIS.SkillSystem;
+    this.contract = new ethers.Contract(contractAddress, contractABI, signer || provider);
   }
 
-  async getSkillsCount(): Promise<number> {
-    // Como no hay un contador público, intentamos obtener habilidades hasta que falle
-    let count = 0;
+  async getSkill(skillId: number): Promise<Skill | null> {
     try {
-      while (true) {
-        await this.contract.skills(count);
-        count++;
+      const skill = await this.contract.skills(skillId);
+      
+      // Intentar obtener metadatos desde IPFS
+      let ipfsData = null;
+      if (skill.metadataURI && skill.metadataURI.startsWith('Qm')) {
+        try {
+          console.log(`🔍 Intentando obtener metadatos IPFS para skill ${skillId}: ${skill.metadataURI}`);
+          ipfsData = await this.getSkillFromIPFS(skill.metadataURI);
+          console.log(`✅ Metadatos IPFS obtenidos para skill ${skillId}:`, ipfsData);
+        } catch (ipfsError) {
+          console.warn(`⚠️ No se pudieron obtener metadatos IPFS para skill ${skillId}:`, (ipfsError as Error).message);
+        }
       }
+
+      return {
+        id: skillId,
+        name: skill.name,
+        category: skill.category,
+        description: ipfsData?.description || skill.description || '',
+        level: ipfsData?.level || 'No especificado',
+        tags: ipfsData?.tags || [],
+        metadataURI: skill.metadataURI,
+        isActive: skill.isActive,
+        isValidated: true, // Por defecto asumimos que está validada
+        validatedBy: '',
+        validatedAt: 0,
+        declaredAt: 0
+      };
     } catch (error) {
-      // Cuando falla, hemos encontrado el final
-      return count;
+      console.error('Error getting skill:', error);
+      return null;
     }
   }
 
-  async getSkill(skillId: number): Promise<Skill> {
-    const skill = await this.contract.skills(skillId);
-    return {
-      id: skillId,
-      name: skill.name,
-      category: skill.category,
-      isValidated: true, // Por defecto asumimos que está validada
-      validatedBy: '',
-      validatedAt: 0,
-      declaredAt: 0
-    };
+  async getSkillFromIPFS(ipfsHash: string): Promise<any> {
+    try {
+      // Usar el nuevo servicio IPFS directo
+      const data = await IPFSService.get(ipfsHash);
+      return data;
+    } catch (error) {
+      console.error('Error getting skill from IPFS:', error);
+      throw error;
+    }
   }
 
   async getAllSkills(): Promise<Skill[]> {
-    const skills: Skill[] = [];
-    const count = await this.getSkillsCount();
-    
-    for (let i = 0; i < count; i++) {
-      try {
+    try {
+      const skillCount = await this.contract.getSkillCount();
+      const skills: Skill[] = [];
+
+      for (let i = 0; i < skillCount; i++) {
         const skill = await this.getSkill(i);
-        if (skill.name) {
+        if (skill) {
           skills.push(skill);
         }
-      } catch (error) {
-        console.error(`Error getting skill ${i}:`, error);
       }
-    }
-    
-    return skills;
-  }
 
-  async getUserDeclaredSkills(userAddress: string): Promise<DeclaredSkill[]> {
-    try {
-      const declaredSkills: DeclaredSkill[] = [];
-      
-      // Usar la nueva función del contrato
-      const skillIds = await this.contract.getProfessionalSkills(userAddress);
-      
-      for (let i = 0; i < skillIds.length; i++) {
-        try {
-          const declaredSkill = await this.contract.getDeclaredSkill(userAddress, skillIds[i]);
-          const skill = await this.contract.skills(skillIds[i]);
-          
-          declaredSkills.push({
-            id: Number(skillIds[i]),
-            skillId: Number(skillIds[i]),
-            skillName: skill.name,
-            skillCategory: skill.category,
-            declaredLevel: Number(declaredSkill.level),
-            karma: Number(declaredSkill.level) * 10, // Karma basado en nivel
-            isValidated: declaredSkill.isValidated,
-            validatedBy: declaredSkill.validatedBy,
-            validatedAt: Number(declaredSkill.validationDate),
-            declaredAt: Number(declaredSkill.declaredAt)
-          });
-        } catch (error) {
-          console.error(`Error getting declared skill ${skillIds[i]}:`, error);
-        }
-      }
-      
-      return declaredSkills;
+      return skills;
     } catch (error) {
-      console.error('Error getting user declared skills:', error);
+      console.error('Error getting all skills:', error);
       return [];
     }
   }
 
-  async createSkill(name: string, category: string): Promise<any> {
-    const tx = await this.contract.createSkill(name, category);
-    return tx;
+  async getProfessionalSkills(address: string): Promise<ProfessionalSkill[]> {
+    try {
+      const skills = await this.contract.getProfessionalSkills(address);
+      const enrichedSkills: ProfessionalSkill[] = [];
+
+      for (const skill of skills) {
+        // Obtener datos completos de la skill
+        const skillData = await this.getSkill(skill.skillId);
+        if (skillData) {
+          enrichedSkills.push({
+            skillId: skill.skillId,
+            name: skillData.name,
+            category: skillData.category,
+            description: skillData.description,
+            level: skillData.level,
+            tags: skillData.tags,
+            declaredLevel: skill.declaredLevel,
+            isValidated: skill.isValidated,
+            validator: skill.validator,
+            validationDate: skill.validationDate ? new Date(Number(skill.validationDate) * 1000) : null
+          });
+        }
+      }
+
+      return enrichedSkills;
+    } catch (error) {
+      console.error('Error getting professional skills:', error);
+      return [];
+    }
   }
 
   async declareSkill(skillId: number, level: number): Promise<any> {
+    console.log('🔍 SkillSystemService.declareSkill - Llamando al contrato con:', {
+      skillId,
+      level,
+      contractAddress: this.contract.address
+    });
+    
     const tx = await this.contract.declareSkill(skillId, level);
+    console.log('🔍 SkillSystemService.declareSkill - Transacción creada:', tx);
     return tx;
   }
 
-  async validateSkill(professional: string, skillId: number, isValid: boolean): Promise<any> {
-    const tx = await this.contract.validateSkill(professional, skillId, isValid);
+  async validateSkill(professionalAddress: string, skillId: number, isValid: boolean): Promise<any> {
+    console.log('🔍 SkillSystemService.validateSkill - Llamando al contrato con:', {
+      professionalAddress,
+      skillId,
+      isValid,
+      contractAddress: this.contract.address
+    });
+    
+    const tx = await this.contract.validateSkill(professionalAddress, skillId, isValid);
+    console.log('🔍 SkillSystemService.validateSkill - Transacción creada:', tx);
+    return tx;
+  }
+
+  async createSkill(name: string, category: string): Promise<any> {
+    console.log('🔍 SkillSystemService.createSkill - Llamando al contrato con:', {
+      name,
+      category,
+      contractAddress: this.contract.address
+    });
+    
+    const tx = await this.contract.createSkill(name, category);
+    console.log('🔍 SkillSystemService.createSkill - Transacción creada:', tx);
     return tx;
   }
 }
@@ -403,7 +495,6 @@ export class TimeRegistryService {
 
   async getUserTimeRecords(userAddress: string): Promise<TimeRecord[]> {
     try {
-      // El contrato no tiene getEmployeeRecords, necesitamos iterar
       const timeRecords: TimeRecord[] = [];
       let recordId = 0;
       
@@ -412,16 +503,32 @@ export class TimeRegistryService {
           const record = await this.contract.timeRecords(recordId);
           
           // Verificar si este registro pertenece al usuario
-          if (record.employee.toLowerCase() === userAddress.toLowerCase()) {
+          if (record.professional.toLowerCase() === userAddress.toLowerCase()) {
+            // Obtener información de la skill
+            let skillName = `Skill ${record.skillId}`;
+            try {
+              const skillSystem = new ethers.Contract(
+                CONTRACT_ADDRESSES.SkillSystem,
+                CONTRACT_ABIS.SkillSystem,
+                this.contract.runner
+              );
+              const skill = await skillSystem.skills(record.skillId);
+              skillName = skill.name;
+            } catch (error) {
+              console.warn(`Could not get skill name for skillId ${record.skillId}:`, error);
+            }
+            
             timeRecords.push({
               id: Number(recordId),
-              worker: record.employee,
+              worker: record.professional,
               company: record.company,
+              skillId: Number(record.skillId),
+              skillName: skillName,
               description: record.description,
-              duration: Number(record.endTime) - Number(record.startTime),
+              duration: Number(record.totalHours),
               timestamp: Number(record.startTime),
               isValidated: Number(record.status) === 1, // RecordStatus.Validated
-              validatedBy: '',
+              validatedBy: record.validatedBy,
               validatedAt: Number(record.validatedAt)
             });
           }
@@ -442,7 +549,6 @@ export class TimeRegistryService {
 
   async getCompanyTimeRecords(companyAddress: string): Promise<TimeRecord[]> {
     try {
-      // El contrato no tiene getCompanyRecords, necesitamos iterar
       const timeRecords: TimeRecord[] = [];
       let recordId = 0;
       
@@ -452,15 +558,31 @@ export class TimeRegistryService {
           
           // Verificar si este registro pertenece a la empresa
           if (record.company.toLowerCase() === companyAddress.toLowerCase()) {
+            // Obtener información de la skill
+            let skillName = `Skill ${record.skillId}`;
+            try {
+              const skillSystem = new ethers.Contract(
+                CONTRACT_ADDRESSES.SkillSystem,
+                CONTRACT_ABIS.SkillSystem,
+                this.contract.runner
+              );
+              const skill = await skillSystem.skills(record.skillId);
+              skillName = skill.name;
+            } catch (error) {
+              console.warn(`Could not get skill name for skillId ${record.skillId}:`, error);
+            }
+            
             timeRecords.push({
               id: Number(recordId),
-              worker: record.employee,
+              worker: record.professional,
               company: record.company,
+              skillId: Number(record.skillId),
+              skillName: skillName,
               description: record.description,
-              duration: Number(record.endTime) - Number(record.startTime),
+              duration: Number(record.totalHours),
               timestamp: Number(record.startTime),
               isValidated: Number(record.status) === 1, // RecordStatus.Validated
-              validatedBy: '',
+              validatedBy: record.validatedBy,
               validatedAt: Number(record.validatedAt)
             });
           }

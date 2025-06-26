@@ -194,3 +194,10 @@ frontend/public/test-*.html
 # =============================================================================
 # Local API configuration
 musubi-api/src/config/api_config.local.json
+
+# =============================================================================
+# ARCHIVOS DE DESARROLLO INTERNOS
+# =============================================================================
+# Project status reports (no subir al repo)
+PROJECT_STATUS_REPORT.md
+PROJECT_STATUS_REPORT.md

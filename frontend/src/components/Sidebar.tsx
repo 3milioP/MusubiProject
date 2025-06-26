@@ -17,7 +17,6 @@ import {
   Schedule as ScheduleIcon,
   Store as StoreIcon,
   Settings as SettingsIcon,
-  BugReport as BugReportIcon,
   CloudUpload as CloudUploadIcon
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -36,7 +35,6 @@ const menuItems = [
   { text: 'Registro de Tiempo', icon: <ScheduleIcon />, component: 'timeregistry' },
   { text: 'Marketplace', icon: <StoreIcon />, component: 'marketplace' },
   { text: 'Configuración', icon: <SettingsIcon />, component: 'settings' },
-  { text: 'Debug Blockchain', icon: <BugReportIcon />, component: 'debug' },
 ];
 
 const Sidebar: React.FC<SidebarProps> = ({ isOpen, currentPage, onPageChange, onClose }) => {

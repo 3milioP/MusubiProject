@@ -1,7 +1,7 @@
 import pytest
 import requests
 
-API_URL = "http://localhost:5001/api/skills"
+API_URL = "http://localhost:5003/api/skills"
 
 def test_get_skill_categories():
     r = requests.get(f"{API_URL}/categories")

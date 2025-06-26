@@ -10,16 +10,33 @@ export const formatAddress = (address: string): string => {
 // Formatear cantidades de tokens
 export const formatTokenAmount = (amount: string | number, decimals: number = 18): string => {
   try {
-    const formatted = ethers.formatUnits(amount.toString(), decimals);
+    // Si el amount ya es un string que parece estar formateado (contiene punto decimal)
+    // y no es un número muy grande (no es wei), usarlo directamente
+    const amountStr = amount.toString();
+    
+    // Verificar si ya está formateado (contiene punto decimal y no es un número muy grande)
+    if (amountStr.includes('.') && amountStr.length < 20) {
+      const num = parseFloat(amountStr);
+      if (num === 0) return '0';
+      if (num < 0.001) return '< 0.001';
+      if (num < 1) return num.toFixed(3);
+      if (num <= 1000) return num.toFixed(2);
+      if (num < 1000000) return `${(num / 1000).toFixed(1)}K`;
+      return `${(num / 1000000).toFixed(1)}M`;
+    }
+    
+    // Si es wei (número muy grande), usar formatUnits
+    const formatted = ethers.formatUnits(amountStr, decimals);
     const num = parseFloat(formatted);
     
     if (num === 0) return '0';
     if (num < 0.001) return '< 0.001';
     if (num < 1) return num.toFixed(3);
-    if (num < 1000) return num.toFixed(2);
+    if (num <= 1000) return num.toFixed(2);
     if (num < 1000000) return `${(num / 1000).toFixed(1)}K`;
     return `${(num / 1000000).toFixed(1)}M`;
   } catch (error) {
+    console.error('❌ Error en formatTokenAmount:', error, 'amount:', amount);
     return '0';
   }
 };

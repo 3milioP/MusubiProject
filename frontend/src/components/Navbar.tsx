@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   AppBar, 
   Toolbar, 
@@ -11,7 +11,10 @@ import {
   Chip,
   Alert,
   Snackbar,
-  Avatar
+  Avatar,
+  useTheme,
+  useMediaQuery,
+  Tooltip
 } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
@@ -21,7 +24,8 @@ import BusinessIcon from '@mui/icons-material/Business';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import { useWeb3 } from '../contexts/Web3Context';
 import { useOnboarding } from '../contexts/OnboardingContext';
-import { useKRMToken, useProfile } from '../hooks/useContracts';
+import { useKRM } from '../contexts/KRMContext';
+import { useProfile } from '../hooks/useContracts';
 import { formatAddress, getNetworkName } from '../utils/blockchain';
 
 interface NavbarProps {
@@ -29,6 +33,9 @@ interface NavbarProps {
 }
 
 const Navbar: React.FC<NavbarProps> = ({ onMenuClick }) => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  
   const { 
     isConnected, 
     account, 
@@ -43,9 +50,34 @@ const Navbar: React.FC<NavbarProps> = ({ onMenuClick }) => {
   } = useWeb3();
   
   const { hasRegisteredProfile } = useOnboarding();
-  const { balance } = useKRMToken();
-  const { profile } = useProfile();
+  const { balance, loadBalance } = useKRM();
+  const { profile, loadProfile } = useProfile();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+
+  // Debug logs
+  console.log('🔍 Navbar Debug:', {
+    isConnected,
+    account,
+    profile,
+    hasRegisteredProfile,
+    profileName: profile?.name,
+    profileType: typeof profile?.name
+  });
+
+  // Cargar perfil automáticamente
+  useEffect(() => {
+    if (isConnected && account && loadProfile) {
+      console.log('🔍 Navbar - Cargando perfil para:', account);
+      loadProfile();
+    }
+  }, [isConnected, account, loadProfile]);
+
+  // Log específico para debuggear el balance en el Navbar
+  console.log('💰 Navbar - Balance del contexto KRM:', {
+    balance,
+    isConnected,
+    account
+  });
 
   const handleWalletMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);
@@ -88,8 +120,15 @@ const Navbar: React.FC<NavbarProps> = ({ onMenuClick }) => {
 
   return (
     <>
-      <AppBar position="fixed" sx={{ zIndex: (theme) => theme.zIndex.drawer + 1 }}>
-        <Toolbar>
+      <AppBar 
+        position="fixed" 
+        sx={{ 
+          zIndex: (theme) => theme.zIndex.drawer + 1,
+          backgroundColor: '#1976d2',
+          boxShadow: 2
+        }}
+      >
+        <Toolbar sx={{ minHeight: 64 }}>
           <IconButton
             color="inherit"
             aria-label="open drawer"
@@ -109,42 +148,64 @@ const Navbar: React.FC<NavbarProps> = ({ onMenuClick }) => {
                 height: '32px', 
                 width: '32px', 
                 marginRight: '12px',
-                filter: 'invert(1)' // Hacer el logo blanco en la navbar oscura
+                filter: 'invert(1)', // Hacer el logo blanco en la navbar oscura
+                objectFit: 'contain'
               }} 
+              onError={(e) => {
+                console.log('❌ Error cargando logo:', e);
+                // Fallback a texto si el logo no carga
+                e.currentTarget.style.display = 'none';
+              }}
             />
-            <Typography variant="h6" component="div">
+            <Typography variant="h6" component="div" sx={{ fontWeight: 600 }}>
               Musubi
             </Typography>
           </Box>
 
-          {/* Información de red */}
-          {isConnected && chainId && (
+          {/* Información de red - Solo en desktop */}
+          {isConnected && chainId && !isMobile && (
             <Chip
               label={getNetworkName(chainId)}
-              color={getChainColor(chainId)}
+              color="success"
               size="small"
-              sx={{ mr: 2 }}
+              sx={{ 
+                mr: 2,
+                backgroundColor: '#4caf50',
+                color: 'white',
+                '& .MuiChip-label': {
+                  color: 'white'
+                }
+              }}
             />
           )}
 
-          {/* Balance de KRM */}
-          {isConnected && (
+          {/* Balance de KRM - Solo en desktop */}
+          {isConnected && !isMobile && (
             <Box sx={{ mr: 2, display: 'flex', alignItems: 'center' }}>
-              <Typography variant="body2" sx={{ mr: 1 }}>
-                {parseFloat(balance).toFixed(2)} KRM
+              <Typography variant="body2" sx={{ mr: 1, fontWeight: 500 }}>
+                {balance && parseFloat(balance) >= 0 ? `${parseFloat(balance).toFixed(2)} KRM` : '0.00 KRM'}
               </Typography>
             </Box>
           )}
 
-          {/* Indicador de perfil */}
-          {isConnected && (hasRegisteredProfile || profile) && (
+          {/* Indicador de perfil - Solo en desktop */}
+          {isConnected && (hasRegisteredProfile || profile) && !isMobile && (
             <Box sx={{ mr: 2, display: 'flex', alignItems: 'center' }}>
               <Chip
                 icon={profile?.isCompany ? <BusinessIcon /> : <PersonIcon />}
-                label={profile?.name || 'Perfil Registrado'}
+                label={profile?.name || (hasRegisteredProfile ? `Perfil ${account?.slice(0, 6)}...` : 'Sin Perfil')}
                 color="success"
                 size="small"
-                variant="outlined"
+                sx={{
+                  backgroundColor: '#4caf50',
+                  color: 'white',
+                  '& .MuiChip-label': {
+                    color: 'white'
+                  },
+                  '& .MuiChip-icon': {
+                    color: 'white'
+                  }
+                }}
               />
             </Box>
           )}
@@ -157,18 +218,38 @@ const Navbar: React.FC<NavbarProps> = ({ onMenuClick }) => {
               onClick={handleConnectWallet}
               disabled={connecting}
               variant="outlined"
+              sx={{ 
+                ml: 2,
+                borderColor: 'rgba(255,255,255,0.5)',
+                color: 'white',
+                '&:hover': {
+                  borderColor: 'white',
+                  backgroundColor: 'rgba(255,255,255,0.1)'
+                }
+              }}
             >
               {connecting ? 'Conectando...' : 'Conectar Wallet'}
             </Button>
           ) : (
-            <Button
-              color="inherit"
-              startIcon={<AccountBalanceWalletIcon />}
-              onClick={handleWalletMenuOpen}
-              variant="outlined"
-            >
-              {formatAddress(account || '')}
-            </Button>
+            <Tooltip title="Información de la wallet">
+              <Button
+                color="inherit"
+                startIcon={<AccountBalanceWalletIcon />}
+                onClick={handleWalletMenuOpen}
+                variant="outlined"
+                sx={{ 
+                  ml: 2,
+                  borderColor: 'rgba(255,255,255,0.5)',
+                  color: 'white',
+                  '&:hover': {
+                    borderColor: 'white',
+                    backgroundColor: 'rgba(255,255,255,0.1)'
+                  }
+                }}
+              >
+                {isMobile ? formatAddress(account || '').slice(0, 8) + '...' : formatAddress(account || '')}
+              </Button>
+            </Tooltip>
           )}
 
           {/* Menú de wallet */}
@@ -184,13 +265,20 @@ const Navbar: React.FC<NavbarProps> = ({ onMenuClick }) => {
               vertical: 'top',
               horizontal: 'right',
             }}
+            PaperProps={{
+              sx: {
+                minWidth: 280,
+                mt: 1,
+                boxShadow: 3
+              }
+            }}
           >
             <MenuItem disabled>
               <Box>
                 <Typography variant="body2" color="textSecondary">
                   Dirección
                 </Typography>
-                <Typography variant="body2">
+                <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>
                   {account}
                 </Typography>
               </Box>
@@ -201,7 +289,7 @@ const Navbar: React.FC<NavbarProps> = ({ onMenuClick }) => {
                 <Typography variant="body2" color="textSecondary">
                   Balance KRM
                 </Typography>
-                <Typography variant="body2">
+                <Typography variant="body2" sx={{ fontWeight: 600 }}>
                   {parseFloat(balance).toFixed(4)} KRM
                 </Typography>
               </Box>
@@ -241,24 +329,6 @@ const Navbar: React.FC<NavbarProps> = ({ onMenuClick }) => {
               Desconectar
             </MenuItem>
           </Menu>
-
-          {/* Estado de conexión */}
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Chip
-              label={getConnectionStatus()}
-              color={getConnectionColor()}
-              size="small"
-              variant="outlined"
-            />
-            {isConnected && account && (
-              <Chip
-                label={formatAddress(account)}
-                color="primary"
-                size="small"
-                variant="outlined"
-              />
-            )}
-          </Box>
         </Toolbar>
       </AppBar>
 

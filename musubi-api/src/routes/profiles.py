@@ -22,7 +22,7 @@ def get_profile(address):
         contract = get_contract_instance('ProfileRegistry', network)
         
         # Verificar si el perfil existe
-        has_profile = contract.functions.hasProfile(address).call()
+        has_profile = contract.functions.hasRegisteredProfile(address).call()
         
         if not has_profile:
             return jsonify({
@@ -30,32 +30,34 @@ def get_profile(address):
                 'error': 'Perfil no encontrado'
             }), 404
         
-        # Obtener datos del perfil
+        # Obtener datos del perfil usando la función correcta
         profile_data = contract.functions.getProfile(address).call()
         
+        # Mapear los datos según la estructura del contrato ProfileRegistry
         return jsonify({
             'success': True,
             'data': {
                 'address': address,
-                'name': profile_data[0],
-                'email': profile_data[1],
-                'bio': profile_data[2],
-                'avatar_url': profile_data[3],
-                'is_company': profile_data[4],
-                'created_at': profile_data[5],
-                'updated_at': profile_data[6],
+                'profileDataHash': profile_data[1],
+                'profileType': profile_data[2],  # 0: Individual, 1: Professional, 2: Company
+                'status': profile_data[3],  # 0: Pending, 1: Active, 2: Suspended, 3: Deleted
+                'karmaScore': profile_data[4],
+                'createdAt': profile_data[5],
+                'updatedAt': profile_data[6],
+                'verifiedAt': profile_data[7],
+                'verifiedBy': profile_data[8],
                 'network': network
             }
         }), 200
     except Exception as e:
         return jsonify({
             'success': False,
-            'error': str(e)
+            'error': f'Error al obtener perfil: {str(e)}'
         }), 500
 
 @profiles_bp.route('/profiles/exists/<address>', methods=['GET'])
 def check_profile_exists(address):
-    """Verifica si un perfil existe"""
+    """Verifica si existe un perfil para una dirección"""
     try:
         network = request.args.get('network', 'local')
         
@@ -66,20 +68,23 @@ def check_profile_exists(address):
             }), 400
         
         contract = get_contract_instance('ProfileRegistry', network)
-        has_profile = contract.functions.hasProfile(address).call()
+        
+        # Verificar si el perfil existe usando la función correcta del contrato
+        exists = contract.functions.hasRegisteredProfile(address).call()
         
         return jsonify({
             'success': True,
             'data': {
                 'address': address,
-                'exists': has_profile,
+                'exists': exists,
                 'network': network
             }
         }), 200
+        
     except Exception as e:
         return jsonify({
             'success': False,
-            'error': str(e)
+            'error': f'Error al verificar perfil: {str(e)}'
         }), 500
 
 @profiles_bp.route('/profiles/count', methods=['GET'])

@@ -708,38 +708,19 @@ export const CONTRACT_ABIS = {
   ],
   "ProfileRegistry": [
     {
-      "inputs": [],
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_ipfsRegistry",
+          "type": "address"
+        }
+      ],
       "stateMutability": "nonpayable",
       "type": "constructor"
     },
     {
       "anonymous": false,
       "inputs": [
-        {
-          "indexed": true,
-          "internalType": "uint256",
-          "name": "profileId",
-          "type": "uint256"
-        },
-        {
-          "indexed": true,
-          "internalType": "address",
-          "name": "wallet",
-          "type": "address"
-        }
-      ],
-      "name": "DisclaimerAccepted",
-      "type": "event"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": true,
-          "internalType": "uint256",
-          "name": "profileId",
-          "type": "uint256"
-        },
         {
           "indexed": true,
           "internalType": "address",
@@ -749,11 +730,11 @@ export const CONTRACT_ABIS = {
         {
           "indexed": false,
           "internalType": "uint256",
-          "name": "newKarma",
+          "name": "newKarmaScore",
           "type": "uint256"
         }
       ],
-      "name": "KarmaUpdated",
+      "name": "KarmaScoreUpdated",
       "type": "event"
     },
     {
@@ -774,15 +755,15 @@ export const CONTRACT_ABIS = {
       "inputs": [
         {
           "indexed": true,
-          "internalType": "uint256",
-          "name": "profileId",
-          "type": "uint256"
-        },
-        {
-          "indexed": true,
           "internalType": "address",
           "name": "wallet",
           "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "string",
+          "name": "profileDataHash",
+          "type": "string"
         },
         {
           "indexed": false,
@@ -799,15 +780,34 @@ export const CONTRACT_ABIS = {
       "inputs": [
         {
           "indexed": true,
-          "internalType": "uint256",
-          "name": "profileId",
-          "type": "uint256"
+          "internalType": "address",
+          "name": "wallet",
+          "type": "address"
         },
+        {
+          "indexed": false,
+          "internalType": "enum ProfileRegistry.ProfileStatus",
+          "name": "newStatus",
+          "type": "uint8"
+        }
+      ],
+      "name": "ProfileStatusChanged",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
         {
           "indexed": true,
           "internalType": "address",
           "name": "wallet",
           "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "string",
+          "name": "newProfileDataHash",
+          "type": "string"
         }
       ],
       "name": "ProfileUpdated",
@@ -816,12 +816,6 @@ export const CONTRACT_ABIS = {
     {
       "anonymous": false,
       "inputs": [
-        {
-          "indexed": true,
-          "internalType": "uint256",
-          "name": "profileId",
-          "type": "uint256"
-        },
         {
           "indexed": true,
           "internalType": "address",
@@ -833,6 +827,12 @@ export const CONTRACT_ABIS = {
           "internalType": "address",
           "name": "verifier",
           "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "karmaScore",
+          "type": "uint256"
         }
       ],
       "name": "ProfileVerified",
@@ -928,19 +928,6 @@ export const CONTRACT_ABIS = {
     },
     {
       "inputs": [],
-      "name": "COMPANY_ROLE",
-      "outputs": [
-        {
-          "internalType": "bytes32",
-          "name": "",
-          "type": "bytes32"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [],
       "name": "DEFAULT_ADMIN_ROLE",
       "outputs": [
         {
@@ -979,13 +966,37 @@ export const CONTRACT_ABIS = {
       "type": "function"
     },
     {
-      "inputs": [],
-      "name": "getAllProfiles",
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "user",
+          "type": "address"
+        },
+        {
+          "internalType": "enum ProfileRegistry.ProfileStatus",
+          "name": "newStatus",
+          "type": "uint8"
+        }
+      ],
+      "name": "changeProfileStatus",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "user",
+          "type": "address"
+        }
+      ],
+      "name": "getKarmaScore",
       "outputs": [
         {
-          "internalType": "address[]",
+          "internalType": "uint256",
           "name": "",
-          "type": "address[]"
+          "type": "uint256"
         }
       ],
       "stateMutability": "view",
@@ -995,7 +1006,7 @@ export const CONTRACT_ABIS = {
       "inputs": [
         {
           "internalType": "address",
-          "name": "wallet",
+          "name": "user",
           "type": "address"
         }
       ],
@@ -1004,28 +1015,13 @@ export const CONTRACT_ABIS = {
         {
           "components": [
             {
-              "internalType": "uint256",
-              "name": "id",
-              "type": "uint256"
-            },
-            {
               "internalType": "address",
-              "name": "wallet_addr",
+              "name": "wallet",
               "type": "address"
             },
             {
               "internalType": "string",
-              "name": "name",
-              "type": "string"
-            },
-            {
-              "internalType": "string",
-              "name": "description",
-              "type": "string"
-            },
-            {
-              "internalType": "string",
-              "name": "metadataURI",
+              "name": "profileDataHash",
               "type": "string"
             },
             {
@@ -1034,18 +1030,13 @@ export const CONTRACT_ABIS = {
               "type": "uint8"
             },
             {
-              "internalType": "bool",
-              "name": "isVerified",
-              "type": "bool"
-            },
-            {
-              "internalType": "bool",
-              "name": "disclaimerAccepted",
-              "type": "bool"
+              "internalType": "enum ProfileRegistry.ProfileStatus",
+              "name": "status",
+              "type": "uint8"
             },
             {
               "internalType": "uint256",
-              "name": "karma",
+              "name": "karmaScore",
               "type": "uint256"
             },
             {
@@ -1080,97 +1071,17 @@ export const CONTRACT_ABIS = {
     {
       "inputs": [
         {
-          "internalType": "uint256",
-          "name": "profileId",
-          "type": "uint256"
+          "internalType": "address",
+          "name": "user",
+          "type": "address"
         }
       ],
-      "name": "getProfileById",
+      "name": "getProfileDataHash",
       "outputs": [
         {
-          "components": [
-            {
-              "internalType": "uint256",
-              "name": "id",
-              "type": "uint256"
-            },
-            {
-              "internalType": "address",
-              "name": "wallet_addr",
-              "type": "address"
-            },
-            {
-              "internalType": "string",
-              "name": "name",
-              "type": "string"
-            },
-            {
-              "internalType": "string",
-              "name": "description",
-              "type": "string"
-            },
-            {
-              "internalType": "string",
-              "name": "metadataURI",
-              "type": "string"
-            },
-            {
-              "internalType": "enum ProfileRegistry.ProfileType",
-              "name": "profileType",
-              "type": "uint8"
-            },
-            {
-              "internalType": "bool",
-              "name": "isVerified",
-              "type": "bool"
-            },
-            {
-              "internalType": "bool",
-              "name": "disclaimerAccepted",
-              "type": "bool"
-            },
-            {
-              "internalType": "uint256",
-              "name": "karma",
-              "type": "uint256"
-            },
-            {
-              "internalType": "uint256",
-              "name": "createdAt",
-              "type": "uint256"
-            },
-            {
-              "internalType": "uint256",
-              "name": "updatedAt",
-              "type": "uint256"
-            },
-            {
-              "internalType": "uint256",
-              "name": "verifiedAt",
-              "type": "uint256"
-            },
-            {
-              "internalType": "address",
-              "name": "verifiedBy",
-              "type": "address"
-            }
-          ],
-          "internalType": "struct ProfileRegistry.Profile",
+          "internalType": "string",
           "name": "",
-          "type": "tuple"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "getProfileCount",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
+          "type": "string"
         }
       ],
       "stateMutability": "view",
@@ -1179,17 +1090,36 @@ export const CONTRACT_ABIS = {
     {
       "inputs": [
         {
-          "internalType": "enum ProfileRegistry.ProfileType",
-          "name": "profileType",
+          "internalType": "address",
+          "name": "user",
+          "type": "address"
+        }
+      ],
+      "name": "getProfileStatus",
+      "outputs": [
+        {
+          "internalType": "enum ProfileRegistry.ProfileStatus",
+          "name": "",
           "type": "uint8"
         }
       ],
-      "name": "getProfilesByType",
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "user",
+          "type": "address"
+        }
+      ],
+      "name": "getProfileType",
       "outputs": [
         {
-          "internalType": "address[]",
+          "internalType": "enum ProfileRegistry.ProfileType",
           "name": "",
-          "type": "address[]"
+          "type": "uint8"
         }
       ],
       "stateMutability": "view",
@@ -1236,26 +1166,7 @@ export const CONTRACT_ABIS = {
       "inputs": [
         {
           "internalType": "address",
-          "name": "wallet",
-          "type": "address"
-        }
-      ],
-      "name": "hasProfile",
-      "outputs": [
-        {
-          "internalType": "bool",
           "name": "",
-          "type": "bool"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "wallet",
           "type": "address"
         }
       ],
@@ -1298,7 +1209,7 @@ export const CONTRACT_ABIS = {
       "inputs": [
         {
           "internalType": "address",
-          "name": "wallet",
+          "name": "",
           "type": "address"
         }
       ],
@@ -1308,6 +1219,19 @@ export const CONTRACT_ABIS = {
           "internalType": "bool",
           "name": "",
           "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "ipfsRegistry",
+      "outputs": [
+        {
+          "internalType": "contract IPFSRegistry",
+          "name": "",
+          "type": "address"
         }
       ],
       "stateMutability": "view",
@@ -1336,44 +1260,6 @@ export const CONTRACT_ABIS = {
     {
       "inputs": [
         {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "name": "profileAddresses",
-      "outputs": [
-        {
-          "internalType": "address",
-          "name": "",
-          "type": "address"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "name": "profileById",
-      "outputs": [
-        {
-          "internalType": "address",
-          "name": "",
-          "type": "address"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
           "internalType": "address",
           "name": "",
           "type": "address"
@@ -1382,28 +1268,13 @@ export const CONTRACT_ABIS = {
       "name": "profiles",
       "outputs": [
         {
-          "internalType": "uint256",
-          "name": "id",
-          "type": "uint256"
-        },
-        {
           "internalType": "address",
-          "name": "wallet_addr",
+          "name": "wallet",
           "type": "address"
         },
         {
           "internalType": "string",
-          "name": "name",
-          "type": "string"
-        },
-        {
-          "internalType": "string",
-          "name": "description",
-          "type": "string"
-        },
-        {
-          "internalType": "string",
-          "name": "metadataURI",
+          "name": "profileDataHash",
           "type": "string"
         },
         {
@@ -1412,18 +1283,13 @@ export const CONTRACT_ABIS = {
           "type": "uint8"
         },
         {
-          "internalType": "bool",
-          "name": "isVerified",
-          "type": "bool"
-        },
-        {
-          "internalType": "bool",
-          "name": "disclaimerAccepted",
-          "type": "bool"
+          "internalType": "enum ProfileRegistry.ProfileStatus",
+          "name": "status",
+          "type": "uint8"
         },
         {
           "internalType": "uint256",
-          "name": "karma",
+          "name": "karmaScore",
           "type": "uint256"
         },
         {
@@ -1454,28 +1320,13 @@ export const CONTRACT_ABIS = {
       "inputs": [
         {
           "internalType": "string",
-          "name": "name",
-          "type": "string"
-        },
-        {
-          "internalType": "string",
-          "name": "description",
-          "type": "string"
-        },
-        {
-          "internalType": "string",
-          "name": "metadataURI",
+          "name": "profileDataHash",
           "type": "string"
         },
         {
           "internalType": "enum ProfileRegistry.ProfileType",
           "name": "profileType",
           "type": "uint8"
-        },
-        {
-          "internalType": "bool",
-          "name": "acceptDisclaimer",
-          "type": "bool"
         }
       ],
       "name": "registerProfile",
@@ -1540,6 +1391,32 @@ export const CONTRACT_ABIS = {
     },
     {
       "inputs": [],
+      "name": "totalProfiles",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "totalVerifiedProfiles",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
       "name": "unpause",
       "outputs": [],
       "stateMutability": "nonpayable",
@@ -1549,16 +1426,16 @@ export const CONTRACT_ABIS = {
       "inputs": [
         {
           "internalType": "address",
-          "name": "wallet",
+          "name": "user",
           "type": "address"
         },
         {
           "internalType": "uint256",
-          "name": "newKarma",
+          "name": "newKarmaScore",
           "type": "uint256"
         }
       ],
-      "name": "updateKarma",
+      "name": "updateKarmaScore",
       "outputs": [],
       "stateMutability": "nonpayable",
       "type": "function"
@@ -1567,17 +1444,7 @@ export const CONTRACT_ABIS = {
       "inputs": [
         {
           "internalType": "string",
-          "name": "name",
-          "type": "string"
-        },
-        {
-          "internalType": "string",
-          "name": "description",
-          "type": "string"
-        },
-        {
-          "internalType": "string",
-          "name": "metadataURI",
+          "name": "newProfileDataHash",
           "type": "string"
         }
       ],
@@ -1590,8 +1457,13 @@ export const CONTRACT_ABIS = {
       "inputs": [
         {
           "internalType": "address",
-          "name": "wallet",
+          "name": "user",
           "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "karmaScore",
+          "type": "uint256"
         }
       ],
       "name": "verifyProfile",
@@ -1605,31 +1477,12 @@ export const CONTRACT_ABIS = {
       "inputs": [
         {
           "internalType": "address",
-          "name": "_profileRegistry",
+          "name": "_ipfsRegistry",
           "type": "address"
         }
       ],
       "stateMutability": "nonpayable",
       "type": "constructor"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": true,
-          "internalType": "address",
-          "name": "professional",
-          "type": "address"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "newKarma",
-          "type": "uint256"
-        }
-      ],
-      "name": "KarmaUpdated",
-      "type": "event"
     },
     {
       "anonymous": false,
@@ -1731,17 +1584,30 @@ export const CONTRACT_ABIS = {
         {
           "indexed": false,
           "internalType": "string",
-          "name": "name",
+          "name": "skillDataHash",
           "type": "string"
         },
         {
-          "indexed": false,
-          "internalType": "string",
-          "name": "category",
-          "type": "string"
+          "indexed": true,
+          "internalType": "address",
+          "name": "creator",
+          "type": "address"
         }
       ],
       "name": "SkillCreated",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "uint256",
+          "name": "skillId",
+          "type": "uint256"
+        }
+      ],
+      "name": "SkillDeactivated",
       "type": "event"
     },
     {
@@ -1761,9 +1627,15 @@ export const CONTRACT_ABIS = {
         },
         {
           "indexed": false,
-          "internalType": "uint8",
+          "internalType": "string",
+          "name": "declarationDataHash",
+          "type": "string"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
           "name": "level",
-          "type": "uint8"
+          "type": "uint256"
         }
       ],
       "name": "SkillDeclared",
@@ -1786,9 +1658,28 @@ export const CONTRACT_ABIS = {
         },
         {
           "indexed": false,
-          "internalType": "uint8",
+          "internalType": "uint256",
           "name": "newLevel",
-          "type": "uint8"
+          "type": "uint256"
+        }
+      ],
+      "name": "SkillLevelUpdated",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "uint256",
+          "name": "skillId",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "string",
+          "name": "newSkillDataHash",
+          "type": "string"
         }
       ],
       "name": "SkillUpdated",
@@ -1814,6 +1705,12 @@ export const CONTRACT_ABIS = {
           "internalType": "address",
           "name": "validator",
           "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "level",
+          "type": "uint256"
         }
       ],
       "name": "SkillValidated",
@@ -1830,31 +1727,6 @@ export const CONTRACT_ABIS = {
         }
       ],
       "name": "Unpaused",
-      "type": "event"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": true,
-          "internalType": "uint256",
-          "name": "skillId",
-          "type": "uint256"
-        },
-        {
-          "indexed": true,
-          "internalType": "address",
-          "name": "professional",
-          "type": "address"
-        },
-        {
-          "indexed": true,
-          "internalType": "address",
-          "name": "validator",
-          "type": "address"
-        }
-      ],
-      "name": "ValidationRequested",
       "type": "event"
     },
     {
@@ -1884,15 +1756,23 @@ export const CONTRACT_ABIS = {
       "type": "function"
     },
     {
+      "inputs": [],
+      "name": "VALIDATOR_ROLE",
+      "outputs": [
+        {
+          "internalType": "bytes32",
+          "name": "",
+          "type": "bytes32"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
       "inputs": [
         {
           "internalType": "string",
-          "name": "name",
-          "type": "string"
-        },
-        {
-          "internalType": "string",
-          "name": "category",
+          "name": "skillDataHash",
           "type": "string"
         }
       ],
@@ -1907,11 +1787,29 @@ export const CONTRACT_ABIS = {
           "internalType": "uint256",
           "name": "skillId",
           "type": "uint256"
+        }
+      ],
+      "name": "deactivateSkill",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "skillId",
+          "type": "uint256"
         },
         {
-          "internalType": "uint8",
+          "internalType": "string",
+          "name": "declarationDataHash",
+          "type": "string"
+        },
+        {
+          "internalType": "uint256",
           "name": "level",
-          "type": "uint8"
+          "type": "uint256"
         }
       ],
       "name": "declareSkill",
@@ -1945,9 +1843,14 @@ export const CONTRACT_ABIS = {
           "type": "address"
         },
         {
-          "internalType": "uint8",
+          "internalType": "string",
+          "name": "declarationDataHash",
+          "type": "string"
+        },
+        {
+          "internalType": "uint256",
           "name": "level",
-          "type": "uint8"
+          "type": "uint256"
         },
         {
           "internalType": "bool",
@@ -1966,7 +1869,7 @@ export const CONTRACT_ABIS = {
         },
         {
           "internalType": "uint256",
-          "name": "validationDate",
+          "name": "validatedAt",
           "type": "uint256"
         },
         {
@@ -2011,9 +1914,14 @@ export const CONTRACT_ABIS = {
               "type": "address"
             },
             {
-              "internalType": "uint8",
+              "internalType": "string",
+              "name": "declarationDataHash",
+              "type": "string"
+            },
+            {
+              "internalType": "uint256",
               "name": "level",
-              "type": "uint8"
+              "type": "uint256"
             },
             {
               "internalType": "bool",
@@ -2032,7 +1940,7 @@ export const CONTRACT_ABIS = {
             },
             {
               "internalType": "uint256",
-              "name": "validationDate",
+              "name": "validatedAt",
               "type": "uint256"
             },
             {
@@ -2062,83 +1970,17 @@ export const CONTRACT_ABIS = {
           "type": "address"
         },
         {
-          "internalType": "uint256[]",
-          "name": "skillIds",
-          "type": "uint256[]"
-        }
-      ],
-      "name": "getMultipleDeclaredSkills",
-      "outputs": [
-        {
-          "components": [
-            {
-              "internalType": "uint256",
-              "name": "skillId",
-              "type": "uint256"
-            },
-            {
-              "internalType": "address",
-              "name": "professional",
-              "type": "address"
-            },
-            {
-              "internalType": "uint8",
-              "name": "level",
-              "type": "uint8"
-            },
-            {
-              "internalType": "bool",
-              "name": "isActive",
-              "type": "bool"
-            },
-            {
-              "internalType": "bool",
-              "name": "isValidated",
-              "type": "bool"
-            },
-            {
-              "internalType": "address",
-              "name": "validatedBy",
-              "type": "address"
-            },
-            {
-              "internalType": "uint256",
-              "name": "validationDate",
-              "type": "uint256"
-            },
-            {
-              "internalType": "uint256",
-              "name": "declaredAt",
-              "type": "uint256"
-            },
-            {
-              "internalType": "uint256",
-              "name": "updatedAt",
-              "type": "uint256"
-            }
-          ],
-          "internalType": "struct SkillSystem.DeclaredSkill[]",
-          "name": "",
-          "type": "tuple[]"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "professional",
-          "type": "address"
-        }
-      ],
-      "name": "getProfessionalSkillCount",
-      "outputs": [
-        {
           "internalType": "uint256",
-          "name": "",
+          "name": "skillId",
           "type": "uint256"
+        }
+      ],
+      "name": "getDeclaredSkillDataHash",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
         }
       ],
       "stateMutability": "view",
@@ -2183,8 +2025,99 @@ export const CONTRACT_ABIS = {
       "type": "function"
     },
     {
-      "inputs": [],
-      "name": "getSkillCount",
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "skillId",
+          "type": "uint256"
+        }
+      ],
+      "name": "getSkill",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "uint256",
+              "name": "id",
+              "type": "uint256"
+            },
+            {
+              "internalType": "string",
+              "name": "skillDataHash",
+              "type": "string"
+            },
+            {
+              "internalType": "address",
+              "name": "creator",
+              "type": "address"
+            },
+            {
+              "internalType": "bool",
+              "name": "isActive",
+              "type": "bool"
+            },
+            {
+              "internalType": "uint256",
+              "name": "totalDeclarations",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "totalValidations",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "createdAt",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "updatedAt",
+              "type": "uint256"
+            }
+          ],
+          "internalType": "struct SkillSystem.Skill",
+          "name": "",
+          "type": "tuple"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "skillId",
+          "type": "uint256"
+        }
+      ],
+      "name": "getSkillDataHash",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "professional",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "skillId",
+          "type": "uint256"
+        }
+      ],
+      "name": "getSkillLevel",
       "outputs": [
         {
           "internalType": "uint256",
@@ -2235,6 +2168,30 @@ export const CONTRACT_ABIS = {
     {
       "inputs": [
         {
+          "internalType": "address",
+          "name": "professional",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "skillId",
+          "type": "uint256"
+        }
+      ],
+      "name": "hasDeclaredSkill",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
           "internalType": "bytes32",
           "name": "role",
           "type": "bytes32"
@@ -2251,6 +2208,43 @@ export const CONTRACT_ABIS = {
           "internalType": "bool",
           "name": "",
           "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "professional",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "skillId",
+          "type": "uint256"
+        }
+      ],
+      "name": "hasValidatedSkill",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "ipfsRegistry",
+      "outputs": [
+        {
+          "internalType": "contract IPFSRegistry",
+          "name": "",
+          "type": "address"
         }
       ],
       "stateMutability": "view",
@@ -2301,19 +2295,6 @@ export const CONTRACT_ABIS = {
       "type": "function"
     },
     {
-      "inputs": [],
-      "name": "profileRegistry",
-      "outputs": [
-        {
-          "internalType": "contract ProfileRegistry",
-          "name": "",
-          "type": "address"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
       "inputs": [
         {
           "internalType": "bytes32",
@@ -2327,24 +2308,6 @@ export const CONTRACT_ABIS = {
         }
       ],
       "name": "renounceRole",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "skillId",
-          "type": "uint256"
-        },
-        {
-          "internalType": "address",
-          "name": "validator",
-          "type": "address"
-        }
-      ],
-      "name": "requestValidation",
       "outputs": [],
       "stateMutability": "nonpayable",
       "type": "function"
@@ -2408,13 +2371,13 @@ export const CONTRACT_ABIS = {
         },
         {
           "internalType": "string",
-          "name": "name",
+          "name": "skillDataHash",
           "type": "string"
         },
         {
-          "internalType": "string",
-          "name": "category",
-          "type": "string"
+          "internalType": "address",
+          "name": "creator",
+          "type": "address"
         },
         {
           "internalType": "bool",
@@ -2423,7 +2386,22 @@ export const CONTRACT_ABIS = {
         },
         {
           "internalType": "uint256",
+          "name": "totalDeclarations",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "totalValidations",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
           "name": "createdAt",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "updatedAt",
           "type": "uint256"
         }
       ],
@@ -2451,6 +2429,45 @@ export const CONTRACT_ABIS = {
     },
     {
       "inputs": [],
+      "name": "totalDeclarations",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "totalSkills",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "totalValidations",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
       "name": "unpause",
       "outputs": [],
       "stateMutability": "nonpayable",
@@ -2464,9 +2481,32 @@ export const CONTRACT_ABIS = {
           "type": "uint256"
         },
         {
-          "internalType": "uint8",
+          "internalType": "string",
+          "name": "newSkillDataHash",
+          "type": "string"
+        }
+      ],
+      "name": "updateSkill",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "professional",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "skillId",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
           "name": "newLevel",
-          "type": "uint8"
+          "type": "uint256"
         }
       ],
       "name": "updateSkillLevel",
@@ -2487,58 +2527,14 @@ export const CONTRACT_ABIS = {
           "type": "uint256"
         },
         {
-          "internalType": "bool",
-          "name": "isValid",
-          "type": "bool"
+          "internalType": "uint256",
+          "name": "level",
+          "type": "uint256"
         }
       ],
       "name": "validateSkill",
       "outputs": [],
       "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "name": "validationRequests",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "skillId",
-          "type": "uint256"
-        },
-        {
-          "internalType": "address",
-          "name": "professional",
-          "type": "address"
-        },
-        {
-          "internalType": "address",
-          "name": "validator",
-          "type": "address"
-        },
-        {
-          "internalType": "uint256",
-          "name": "requestedAt",
-          "type": "uint256"
-        },
-        {
-          "internalType": "bool",
-          "name": "isPending",
-          "type": "bool"
-        }
-      ],
-      "stateMutability": "view",
       "type": "function"
     }
   ],
@@ -2547,7 +2543,7 @@ export const CONTRACT_ABIS = {
       "inputs": [
         {
           "internalType": "address",
-          "name": "_profileRegistry",
+          "name": "_ipfsRegistry",
           "type": "address"
         },
         {
@@ -2558,25 +2554,6 @@ export const CONTRACT_ABIS = {
       ],
       "stateMutability": "nonpayable",
       "type": "constructor"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": true,
-          "internalType": "address",
-          "name": "professional",
-          "type": "address"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "newKarma",
-          "type": "uint256"
-        }
-      ],
-      "name": "KarmaUpdated",
-      "type": "event"
     },
     {
       "anonymous": false,
@@ -2672,26 +2649,7 @@ export const CONTRACT_ABIS = {
         {
           "indexed": true,
           "internalType": "uint256",
-          "name": "recordId",
-          "type": "uint256"
-        },
-        {
-          "indexed": true,
-          "internalType": "address",
-          "name": "disputer",
-          "type": "address"
-        }
-      ],
-      "name": "TimeDisputed",
-      "type": "event"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": true,
-          "internalType": "uint256",
-          "name": "recordId",
+          "name": "entryId",
           "type": "uint256"
         },
         {
@@ -2701,19 +2659,25 @@ export const CONTRACT_ABIS = {
           "type": "address"
         },
         {
-          "indexed": true,
-          "internalType": "address",
-          "name": "company",
-          "type": "address"
-        },
-        {
           "indexed": false,
           "internalType": "uint256",
           "name": "skillId",
           "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "string",
+          "name": "timeDataHash",
+          "type": "string"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "hoursWorked",
+          "type": "uint256"
         }
       ],
-      "name": "TimeRecorded",
+      "name": "TimeEntryCreated",
       "type": "event"
     },
     {
@@ -2722,7 +2686,39 @@ export const CONTRACT_ABIS = {
         {
           "indexed": true,
           "internalType": "uint256",
-          "name": "recordId",
+          "name": "entryId",
+          "type": "uint256"
+        }
+      ],
+      "name": "TimeEntryDeleted",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "uint256",
+          "name": "entryId",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "string",
+          "name": "newTimeDataHash",
+          "type": "string"
+        }
+      ],
+      "name": "TimeEntryUpdated",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "uint256",
+          "name": "entryId",
           "type": "uint256"
         },
         {
@@ -2730,9 +2726,15 @@ export const CONTRACT_ABIS = {
           "internalType": "address",
           "name": "validator",
           "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "totalAmount",
+          "type": "uint256"
         }
       ],
-      "name": "TimeValidated",
+      "name": "TimeEntryValidated",
       "type": "event"
     },
     {
@@ -2775,24 +2777,13 @@ export const CONTRACT_ABIS = {
       "type": "function"
     },
     {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "",
-          "type": "address"
-        },
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "name": "companyRecords",
+      "inputs": [],
+      "name": "VALIDATOR_ROLE",
       "outputs": [
         {
-          "internalType": "uint256",
+          "internalType": "bytes32",
           "name": "",
-          "type": "uint256"
+          "type": "bytes32"
         }
       ],
       "stateMutability": "view",
@@ -2802,11 +2793,11 @@ export const CONTRACT_ABIS = {
       "inputs": [
         {
           "internalType": "uint256",
-          "name": "recordId",
+          "name": "entryId",
           "type": "uint256"
         }
       ],
-      "name": "disputeTimeRecord",
+      "name": "deleteTimeEntry",
       "outputs": [],
       "stateMutability": "nonpayable",
       "type": "function"
@@ -2815,131 +2806,16 @@ export const CONTRACT_ABIS = {
       "inputs": [
         {
           "internalType": "address",
-          "name": "company",
+          "name": "professional",
           "type": "address"
         }
       ],
-      "name": "getCompanyRecordCount",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "company",
-          "type": "address"
-        }
-      ],
-      "name": "getCompanyRecords",
+      "name": "getProfessionalEntries",
       "outputs": [
         {
           "internalType": "uint256[]",
           "name": "",
           "type": "uint256[]"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256[]",
-          "name": "recordIds",
-          "type": "uint256[]"
-        }
-      ],
-      "name": "getMultipleTimeRecords",
-      "outputs": [
-        {
-          "components": [
-            {
-              "internalType": "uint256",
-              "name": "id",
-              "type": "uint256"
-            },
-            {
-              "internalType": "address",
-              "name": "professional",
-              "type": "address"
-            },
-            {
-              "internalType": "address",
-              "name": "company",
-              "type": "address"
-            },
-            {
-              "internalType": "uint256",
-              "name": "skillId",
-              "type": "uint256"
-            },
-            {
-              "internalType": "uint256",
-              "name": "startTime",
-              "type": "uint256"
-            },
-            {
-              "internalType": "uint256",
-              "name": "endTime",
-              "type": "uint256"
-            },
-            {
-              "internalType": "uint256",
-              "name": "totalHours",
-              "type": "uint256"
-            },
-            {
-              "internalType": "string",
-              "name": "description",
-              "type": "string"
-            },
-            {
-              "internalType": "enum TimeRegistry.RecordStatus",
-              "name": "status",
-              "type": "uint8"
-            },
-            {
-              "internalType": "address",
-              "name": "validatedBy",
-              "type": "address"
-            },
-            {
-              "internalType": "uint256",
-              "name": "validatedAt",
-              "type": "uint256"
-            },
-            {
-              "internalType": "uint256",
-              "name": "disputedAt",
-              "type": "uint256"
-            },
-            {
-              "internalType": "address",
-              "name": "disputedBy",
-              "type": "address"
-            },
-            {
-              "internalType": "uint256",
-              "name": "createdAt",
-              "type": "uint256"
-            },
-            {
-              "internalType": "uint256",
-              "name": "updatedAt",
-              "type": "uint256"
-            }
-          ],
-          "internalType": "struct TimeRegistry.TimeRecord[]",
-          "name": "",
-          "type": "tuple[]"
         }
       ],
       "stateMutability": "view",
@@ -2953,39 +2829,7 @@ export const CONTRACT_ABIS = {
           "type": "address"
         }
       ],
-      "name": "getProfessionalRecordCount",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "professional",
-          "type": "address"
-        }
-      ],
-      "name": "getProfessionalRecords",
-      "outputs": [
-        {
-          "internalType": "uint256[]",
-          "name": "",
-          "type": "uint256[]"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "getRecordCount",
+      "name": "getProfessionalTotalHours",
       "outputs": [
         {
           "internalType": "uint256",
@@ -3023,7 +2867,7 @@ export const CONTRACT_ABIS = {
           "type": "uint256"
         }
       ],
-      "name": "getSkillRecords",
+      "name": "getSkillEntries",
       "outputs": [
         {
           "internalType": "uint256[]",
@@ -3038,11 +2882,30 @@ export const CONTRACT_ABIS = {
       "inputs": [
         {
           "internalType": "uint256",
-          "name": "recordId",
+          "name": "skillId",
           "type": "uint256"
         }
       ],
-      "name": "getTimeRecord",
+      "name": "getSkillTotalHours",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "entryId",
+          "type": "uint256"
+        }
+      ],
+      "name": "getTimeEntry",
       "outputs": [
         {
           "components": [
@@ -3057,39 +2920,34 @@ export const CONTRACT_ABIS = {
               "type": "address"
             },
             {
-              "internalType": "address",
-              "name": "company",
-              "type": "address"
-            },
-            {
               "internalType": "uint256",
               "name": "skillId",
               "type": "uint256"
             },
             {
-              "internalType": "uint256",
-              "name": "startTime",
-              "type": "uint256"
-            },
-            {
-              "internalType": "uint256",
-              "name": "endTime",
-              "type": "uint256"
-            },
-            {
-              "internalType": "uint256",
-              "name": "totalHours",
-              "type": "uint256"
-            },
-            {
               "internalType": "string",
-              "name": "description",
+              "name": "timeDataHash",
               "type": "string"
             },
             {
-              "internalType": "enum TimeRegistry.RecordStatus",
-              "name": "status",
-              "type": "uint8"
+              "internalType": "uint256",
+              "name": "hoursWorked",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "hourlyRate",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "totalAmount",
+              "type": "uint256"
+            },
+            {
+              "internalType": "bool",
+              "name": "isValidated",
+              "type": "bool"
             },
             {
               "internalType": "address",
@@ -3103,16 +2961,6 @@ export const CONTRACT_ABIS = {
             },
             {
               "internalType": "uint256",
-              "name": "disputedAt",
-              "type": "uint256"
-            },
-            {
-              "internalType": "address",
-              "name": "disputedBy",
-              "type": "address"
-            },
-            {
-              "internalType": "uint256",
               "name": "createdAt",
               "type": "uint256"
             },
@@ -3122,9 +2970,67 @@ export const CONTRACT_ABIS = {
               "type": "uint256"
             }
           ],
-          "internalType": "struct TimeRegistry.TimeRecord",
+          "internalType": "struct TimeRegistry.TimeEntry",
           "name": "",
           "type": "tuple"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "entryId",
+          "type": "uint256"
+        }
+      ],
+      "name": "getTimeEntryDataHash",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getTotalEntries",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getTotalHoursWorked",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getTotalValidatedEntries",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
         }
       ],
       "stateMutability": "view",
@@ -3174,6 +3080,38 @@ export const CONTRACT_ABIS = {
     },
     {
       "inputs": [],
+      "name": "ipfsRegistry",
+      "outputs": [
+        {
+          "internalType": "contract IPFSRegistry",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "entryId",
+          "type": "uint256"
+        }
+      ],
+      "name": "isTimeEntryValidated",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
       "name": "pause",
       "outputs": [],
       "stateMutability": "nonpayable",
@@ -3205,25 +3143,12 @@ export const CONTRACT_ABIS = {
           "type": "uint256"
         }
       ],
-      "name": "professionalRecords",
+      "name": "professionalEntries",
       "outputs": [
         {
           "internalType": "uint256",
           "name": "",
           "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "profileRegistry",
-      "outputs": [
-        {
-          "internalType": "contract ProfileRegistry",
-          "name": "",
-          "type": "address"
         }
       ],
       "stateMutability": "view",
@@ -3232,32 +3157,27 @@ export const CONTRACT_ABIS = {
     {
       "inputs": [
         {
-          "internalType": "address",
-          "name": "company",
-          "type": "address"
-        },
-        {
           "internalType": "uint256",
           "name": "skillId",
           "type": "uint256"
         },
         {
-          "internalType": "uint256",
-          "name": "startTime",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "endTime",
-          "type": "uint256"
-        },
-        {
           "internalType": "string",
-          "name": "description",
+          "name": "timeDataHash",
           "type": "string"
+        },
+        {
+          "internalType": "uint256",
+          "name": "hoursWorked",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "hourlyRate",
+          "type": "uint256"
         }
       ],
-      "name": "recordTime",
+      "name": "registerTime",
       "outputs": [],
       "stateMutability": "nonpayable",
       "type": "function"
@@ -3311,7 +3231,7 @@ export const CONTRACT_ABIS = {
           "type": "uint256"
         }
       ],
-      "name": "skillRecords",
+      "name": "skillEntries",
       "outputs": [
         {
           "internalType": "uint256",
@@ -3362,7 +3282,7 @@ export const CONTRACT_ABIS = {
           "type": "uint256"
         }
       ],
-      "name": "timeRecords",
+      "name": "timeEntries",
       "outputs": [
         {
           "internalType": "uint256",
@@ -3375,39 +3295,34 @@ export const CONTRACT_ABIS = {
           "type": "address"
         },
         {
-          "internalType": "address",
-          "name": "company",
-          "type": "address"
-        },
-        {
           "internalType": "uint256",
           "name": "skillId",
           "type": "uint256"
         },
         {
-          "internalType": "uint256",
-          "name": "startTime",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "endTime",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "totalHours",
-          "type": "uint256"
-        },
-        {
           "internalType": "string",
-          "name": "description",
+          "name": "timeDataHash",
           "type": "string"
         },
         {
-          "internalType": "enum TimeRegistry.RecordStatus",
-          "name": "status",
-          "type": "uint8"
+          "internalType": "uint256",
+          "name": "hoursWorked",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "hourlyRate",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "totalAmount",
+          "type": "uint256"
+        },
+        {
+          "internalType": "bool",
+          "name": "isValidated",
+          "type": "bool"
         },
         {
           "internalType": "address",
@@ -3418,16 +3333,6 @@ export const CONTRACT_ABIS = {
           "internalType": "uint256",
           "name": "validatedAt",
           "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "disputedAt",
-          "type": "uint256"
-        },
-        {
-          "internalType": "address",
-          "name": "disputedBy",
-          "type": "address"
         },
         {
           "internalType": "uint256",
@@ -3445,6 +3350,45 @@ export const CONTRACT_ABIS = {
     },
     {
       "inputs": [],
+      "name": "totalEntries",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "totalHoursWorked",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "totalValidatedEntries",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
       "name": "unpause",
       "outputs": [],
       "stateMutability": "nonpayable",
@@ -3454,11 +3398,39 @@ export const CONTRACT_ABIS = {
       "inputs": [
         {
           "internalType": "uint256",
-          "name": "recordId",
+          "name": "entryId",
+          "type": "uint256"
+        },
+        {
+          "internalType": "string",
+          "name": "newTimeDataHash",
+          "type": "string"
+        },
+        {
+          "internalType": "uint256",
+          "name": "newHoursWorked",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "newHourlyRate",
           "type": "uint256"
         }
       ],
-      "name": "validateTimeRecord",
+      "name": "updateTimeEntry",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "entryId",
+          "type": "uint256"
+        }
+      ],
+      "name": "validateTimeEntry",
       "outputs": [],
       "stateMutability": "nonpayable",
       "type": "function"
@@ -3565,6 +3537,12 @@ export const CONTRACT_ABIS = {
           "internalType": "address",
           "name": "client",
           "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "string",
+          "name": "orderDataHash",
+          "type": "string"
         }
       ],
       "name": "OrderCreated",
@@ -3685,6 +3663,12 @@ export const CONTRACT_ABIS = {
           "internalType": "address",
           "name": "provider",
           "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "string",
+          "name": "serviceDataHash",
+          "type": "string"
         }
       ],
       "name": "ServiceCreated",
@@ -3717,6 +3701,12 @@ export const CONTRACT_ABIS = {
           "internalType": "uint256",
           "name": "serviceId",
           "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "string",
+          "name": "newServiceDataHash",
+          "type": "string"
         }
       ],
       "name": "ServiceUpdated",
@@ -3856,7 +3846,7 @@ export const CONTRACT_ABIS = {
         },
         {
           "internalType": "string",
-          "name": "details",
+          "name": "orderDataHash",
           "type": "string"
         }
       ],
@@ -3869,12 +3859,7 @@ export const CONTRACT_ABIS = {
       "inputs": [
         {
           "internalType": "string",
-          "name": "title",
-          "type": "string"
-        },
-        {
-          "internalType": "string",
-          "name": "description",
+          "name": "serviceDataHash",
           "type": "string"
         },
         {
@@ -3941,6 +3926,96 @@ export const CONTRACT_ABIS = {
     {
       "inputs": [
         {
+          "internalType": "uint256",
+          "name": "orderId",
+          "type": "uint256"
+        }
+      ],
+      "name": "getOrder",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "uint256",
+              "name": "id",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "serviceId",
+              "type": "uint256"
+            },
+            {
+              "internalType": "address",
+              "name": "client",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "provider",
+              "type": "address"
+            },
+            {
+              "internalType": "uint256",
+              "name": "totalPrice",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "numHours",
+              "type": "uint256"
+            },
+            {
+              "internalType": "string",
+              "name": "orderDataHash",
+              "type": "string"
+            },
+            {
+              "internalType": "enum P2PMarketplace.OrderStatus",
+              "name": "status",
+              "type": "uint8"
+            },
+            {
+              "internalType": "uint256",
+              "name": "createdAt",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "completedAt",
+              "type": "uint256"
+            }
+          ],
+          "internalType": "struct P2PMarketplace.Order",
+          "name": "",
+          "type": "tuple"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "orderId",
+          "type": "uint256"
+        }
+      ],
+      "name": "getOrderDataHash",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
           "internalType": "address",
           "name": "provider",
           "type": "address"
@@ -3998,6 +4073,105 @@ export const CONTRACT_ABIS = {
     {
       "inputs": [
         {
+          "internalType": "uint256",
+          "name": "serviceId",
+          "type": "uint256"
+        }
+      ],
+      "name": "getService",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "uint256",
+              "name": "id",
+              "type": "uint256"
+            },
+            {
+              "internalType": "address",
+              "name": "provider",
+              "type": "address"
+            },
+            {
+              "internalType": "string",
+              "name": "serviceDataHash",
+              "type": "string"
+            },
+            {
+              "internalType": "uint256",
+              "name": "pricePerHour",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256[]",
+              "name": "skillIds",
+              "type": "uint256[]"
+            },
+            {
+              "internalType": "enum P2PMarketplace.ServiceStatus",
+              "name": "status",
+              "type": "uint8"
+            },
+            {
+              "internalType": "uint256",
+              "name": "createdAt",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "updatedAt",
+              "type": "uint256"
+            }
+          ],
+          "internalType": "struct P2PMarketplace.Service",
+          "name": "",
+          "type": "tuple"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "serviceId",
+          "type": "uint256"
+        }
+      ],
+      "name": "getServiceDataHash",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "user",
+          "type": "address"
+        }
+      ],
+      "name": "getUserOrders",
+      "outputs": [
+        {
+          "internalType": "uint256[]",
+          "name": "",
+          "type": "uint256[]"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
           "internalType": "bytes32",
           "name": "role",
           "type": "bytes32"
@@ -4032,6 +4206,19 @@ export const CONTRACT_ABIS = {
           "internalType": "bool",
           "name": "",
           "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "ipfsRegistry",
+      "outputs": [
+        {
+          "internalType": "contract IPFSRegistry",
+          "name": "",
+          "type": "address"
         }
       ],
       "stateMutability": "view",
@@ -4105,7 +4292,7 @@ export const CONTRACT_ABIS = {
         },
         {
           "internalType": "string",
-          "name": "details",
+          "name": "orderDataHash",
           "type": "string"
         },
         {
@@ -4279,12 +4466,7 @@ export const CONTRACT_ABIS = {
         },
         {
           "internalType": "string",
-          "name": "title",
-          "type": "string"
-        },
-        {
-          "internalType": "string",
-          "name": "description",
+          "name": "serviceDataHash",
           "type": "string"
         },
         {
@@ -4321,6 +4503,11 @@ export const CONTRACT_ABIS = {
         {
           "internalType": "address",
           "name": "_skillSystem",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "_ipfsRegistry",
           "type": "address"
         }
       ],
@@ -4403,12 +4590,7 @@ export const CONTRACT_ABIS = {
         },
         {
           "internalType": "string",
-          "name": "title",
-          "type": "string"
-        },
-        {
-          "internalType": "string",
-          "name": "description",
+          "name": "newServiceDataHash",
           "type": "string"
         },
         {

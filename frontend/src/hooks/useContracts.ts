@@ -15,6 +15,7 @@ import {
   Profile,
   Skill,
   DeclaredSkill,
+  ProfessionalSkill,
   TimeRecord,
   Service,
   Order,
@@ -36,6 +37,11 @@ export const useKRMToken = () => {
   const loadBalance = useCallback(async () => {
     // Solo cargar si hay conexión completa
     if (!isConnected || !provider || !account) {
+      console.log('🔍 useKRMToken.loadBalance - No hay conexión completa:', {
+        isConnected,
+        hasProvider: !!provider,
+        account
+      });
       setBalance('0');
       setLoading(false);
       return;
@@ -43,12 +49,15 @@ export const useKRMToken = () => {
     
     try {
       setLoading(true);
-      console.log('🔍 Cargando balance KRM...');
+      console.log('🔍 useKRMToken.loadBalance - Cargando balance para cuenta:', account);
       
       // Crear una promesa con timeout
       const balancePromise = (async () => {
         const service = new KRMTokenService(provider, signer);
-        return await service.getBalance(account);
+        console.log('🔍 useKRMToken.loadBalance - Servicio creado, llamando getBalance...');
+        const balanceValue = await service.getBalance(account);
+        console.log('🔍 useKRMToken.loadBalance - Balance obtenido:', balanceValue);
+        return balanceValue;
       })();
       
       const timeoutPromise = new Promise((_, reject) => 
@@ -56,6 +65,7 @@ export const useKRMToken = () => {
       );
       
       const balanceValue = await Promise.race([balancePromise, timeoutPromise]) as string;
+      console.log('🔍 useKRMToken.loadBalance - Balance final:', balanceValue);
       setBalance(balanceValue);
       console.log('✅ Balance KRM cargado:', balanceValue);
     } catch (error) {
@@ -86,7 +96,15 @@ export const useKRMToken = () => {
 
   // Cargar balance cuando cambie la conexión
   useEffect(() => {
+    console.log('🔍 useKRMToken.useEffect - Estado de conexión:', {
+      isConnected,
+      hasProvider: !!provider,
+      account,
+      currentBalance: balance
+    });
+    
     if (isConnected && provider && account) {
+      console.log('🔍 useKRMToken.useEffect - Ejecutando loadBalance...');
       loadBalance();
       
       // Escuchar eventos de transferencia para actualizar el balance automáticamente
@@ -109,6 +127,7 @@ export const useKRMToken = () => {
         krmToken.off('Transfer', handleTransfer);
       };
     } else {
+      console.log('🔍 useKRMToken.useEffect - No hay conexión completa, reseteando balance');
       setBalance('0');
       setLoading(false);
     }
@@ -138,6 +157,10 @@ export const useProfile = () => {
   const loadProfile = useCallback(async (address?: string) => {
     // Solo cargar si hay conexión completa
     if (!isConnected || !provider) {
+      console.log('🔍 useProfile.loadProfile - No hay conexión completa:', {
+        isConnected,
+        hasProvider: !!provider
+      });
       setProfile(null);
       setLoading(false);
       return;
@@ -145,6 +168,7 @@ export const useProfile = () => {
     
     const targetAddress = address || account;
     if (!targetAddress) {
+      console.log('🔍 useProfile.loadProfile - No hay dirección de cuenta');
       setProfile(null);
       setLoading(false);
       return;
@@ -152,13 +176,65 @@ export const useProfile = () => {
     
     try {
       setLoading(true);
-      console.log('🔍 Cargando perfil...');
+      console.log('🔍 useProfile.loadProfile - Cargando perfil para:', targetAddress);
+      console.log('🔍 useProfile.loadProfile - Provider:', !!provider);
+      console.log('🔍 useProfile.loadProfile - Signer:', !!signer);
+      
+      // PRIMERO: Intentar cargar desde la API
+      console.log('🔍 useProfile.loadProfile - Intentando cargar desde API...');
+      try {
+        const apiResponse = await fetch(`http://localhost:5004/api/users/wallet/${targetAddress}`);
+        if (apiResponse.ok) {
+          const apiData = await apiResponse.json();
+          console.log('🔍 useProfile.loadProfile - Datos de API:', apiData);
+          
+          if (apiData.success && apiData.user) {
+            // Convertir datos de API a formato de perfil
+            const profileFromAPI: Profile = {
+              address: apiData.user.wallet_address,
+              name: apiData.user.name,
+              bio: apiData.user.description,
+              isCompany: apiData.user.profile_type === 'company',
+              isActive: true,
+              metadataURI: `api_${apiData.user.id}`, // hash temporal
+              karma: 0,
+              isVerified: false,
+              disclaimerAccepted: true,
+              skills: apiData.user.skills || []
+            };
+            
+            console.log('✅ Perfil cargado desde API:', profileFromAPI);
+            setProfile(profileFromAPI);
+            setLoading(false);
+            return;
+          }
+        }
+      } catch (apiError) {
+        console.log('⚠️ Error cargando desde API:', apiError);
+      }
+      
+      // SEGUNDO: Intentar cargar desde blockchain
+      console.log('🔍 useProfile.loadProfile - Intentando cargar desde blockchain...');
       const service = new ProfileRegistryService(provider, signer);
+      console.log('🔍 useProfile.loadProfile - Service creado');
+      
       const userProfile = await service.getProfile(targetAddress);
-      setProfile(userProfile);
-      console.log('✅ Perfil cargado:', userProfile);
-    } catch (error) {
+      console.log('🔍 useProfile.loadProfile - Perfil obtenido de blockchain:', userProfile);
+      
+      if (userProfile) {
+        console.log('✅ Perfil cargado exitosamente desde blockchain:', userProfile);
+        setProfile(userProfile);
+      } else {
+        console.log('⚠️ No se encontró perfil en blockchain para:', targetAddress);
+        setProfile(null);
+      }
+    } catch (error: any) {
       console.error('❌ Error loading profile:', error);
+      console.error('❌ Error details:', {
+        message: error?.message || 'Unknown error',
+        stack: error?.stack || 'No stack trace',
+        code: error?.code || 'No code'
+      });
       setProfile(null);
     } finally {
       setLoading(false);
@@ -166,11 +242,8 @@ export const useProfile = () => {
   }, [isConnected, provider, signer, account]);
 
   const registerProfile = async (
-    name: string,
-    description: string, 
     metadataURI: string, 
-    profileType: number, 
-    acceptDisclaimer: boolean
+    profileType: number
   ) => {
     console.log('🔍 useProfile.registerProfile - Verificando conexión:', {
       isConnected,
@@ -190,15 +263,12 @@ export const useProfile = () => {
     
     try {
       console.log('🔍 useProfile.registerProfile - Llamando al servicio con:', {
-        name,
-        description,
         metadataURI,
-        profileType,
-        acceptDisclaimer
+        profileType
       });
       
       const service = new ProfileRegistryService(provider, signer);
-      const tx = await service.registerProfile(name, description, metadataURI, profileType, acceptDisclaimer);
+      const tx = await service.registerProfile(metadataURI, profileType);
       console.log('🔍 useProfile.registerProfile - Transacción enviada:', tx);
       
       await tx.wait();
@@ -239,13 +309,22 @@ export const useProfile = () => {
 
   // Cargar perfil cuando cambie la conexión
   useEffect(() => {
+    console.log('🔍 useProfile.useEffect - Estado de conexión:', {
+      isConnected,
+      hasProvider: !!provider,
+      account,
+      currentProfile: profile?.name
+    });
+    
     if (isConnected && provider && account) {
+      console.log('🔍 useProfile.useEffect - Ejecutando loadProfile...');
       loadProfile();
     } else {
+      console.log('🔍 useProfile.useEffect - No hay conexión completa, reseteando perfil');
       setProfile(null);
       setLoading(false);
     }
-  }, [isConnected, provider, account]);
+  }, [isConnected, provider, account, loadProfile]);
 
   return {
     profile,
@@ -262,7 +341,7 @@ export const useProfile = () => {
 export const useSkills = () => {
   const { provider, signer, account, isConnected } = useWeb3();
   const [skills, setSkills] = useState<Skill[]>([]);
-  const [userSkills, setUserSkills] = useState<DeclaredSkill[]>([]);
+  const [userSkills, setUserSkills] = useState<ProfessionalSkill[]>([]);
   const [loading, setLoading] = useState(false);
   const [txState, setTxState] = useState<TransactionState>({
     loading: false,
@@ -297,6 +376,7 @@ export const useSkills = () => {
     // Solo cargar si hay conexión completa
     if (!isConnected || !provider) {
       setUserSkills([]);
+      setLoading(false);
       return;
     }
     
@@ -304,9 +384,10 @@ export const useSkills = () => {
     if (!targetAddress) return;
     
     try {
+      setLoading(true);
       console.log('🔍 Cargando skills del usuario...');
       const service = new SkillSystemService(provider, signer);
-      const declaredSkills = await service.getUserDeclaredSkills(targetAddress);
+      const declaredSkills = await service.getProfessionalSkills(targetAddress);
       setUserSkills(declaredSkills);
       console.log('✅ Skills del usuario cargados:', declaredSkills.length);
     } catch (error) {
@@ -417,10 +498,10 @@ export const useTimeRegistry = () => {
 
   const registerTime = async (
     company: string,
+    skillId: number,
     startTime: number,
     endTime: number,
-    description: string,
-    skillIds: number[]
+    description: string
   ) => {
     if (!isConnected || !provider || !signer) throw new Error('Wallet not connected');
     
@@ -428,7 +509,7 @@ export const useTimeRegistry = () => {
     
     try {
       const service = new TimeRegistryService(provider, signer);
-      const tx = await service.registerTime(company, startTime, endTime, description, skillIds);
+      const tx = await service.registerTime(company, skillId, startTime, endTime, description);
       await tx.wait();
       setTxState({ loading: false, error: null, success: true });
       await loadTimeRecords(); // Recargar registros

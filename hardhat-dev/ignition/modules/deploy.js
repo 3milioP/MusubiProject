@@ -1,17 +1,20 @@
 const { buildModule } = require("@nomicfoundation/hardhat-ignition/modules");
 
 module.exports = buildModule("MusubiDeployment", (m) => {
-  // Desplegar KRMToken primero
+  // Desplegar IPFSRegistry primero (base para todos los demás contratos)
+  const ipfsRegistry = m.contract("IPFSRegistry");
+
+  // Desplegar KRMToken
   const krmToken = m.contract("KRMToken", [m.getAccount(0)]);
 
-  // Desplegar ProfileRegistry
-  const profileRegistry = m.contract("ProfileRegistry");
+  // Desplegar ProfileRegistry con dependencia de IPFSRegistry
+  const profileRegistry = m.contract("ProfileRegistry", [ipfsRegistry]);
 
-  // Desplegar SkillSystem con dependencia de ProfileRegistry
-  const skillSystem = m.contract("SkillSystem", [profileRegistry]);
+  // Desplegar SkillSystem con dependencia de IPFSRegistry
+  const skillSystem = m.contract("SkillSystem", [ipfsRegistry]);
 
   // Desplegar TimeRegistry con dependencias
-  const timeRegistry = m.contract("TimeRegistry", [profileRegistry, skillSystem]);
+  const timeRegistry = m.contract("TimeRegistry", [ipfsRegistry, skillSystem]);
 
   // Desplegar ProfileNFT con dependencias (NFT evolutivo)
   const profileNFT = m.contract("ProfileNFT", [profileRegistry, skillSystem]);
@@ -19,22 +22,20 @@ module.exports = buildModule("MusubiDeployment", (m) => {
   // Desplegar P2PMarketplace con dependencias
   const p2pMarketplace = m.contract("P2PMarketplace", [m.getAccount(0), krmToken]);
 
-  // Desplegar IPFSRegistry
-  const ipfsRegistry = m.contract("IPFSRegistry");
-
-  // Configurar direcciones en P2PMarketplace (solo profileRegistry y skillSystem)
+  // Configurar direcciones en P2PMarketplace
   m.call(p2pMarketplace, "setContractAddresses", [
     profileRegistry,
-    skillSystem
+    skillSystem,
+    ipfsRegistry
   ]);
 
   return {
+    ipfsRegistry,
     krmToken,
     profileRegistry,
     skillSystem,
     timeRegistry,
     profileNFT,
-    p2pMarketplace,
-    ipfsRegistry
+    p2pMarketplace
   };
 });

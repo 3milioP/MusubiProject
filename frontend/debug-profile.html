@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Perfil - Musubi</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .button { padding: 10px 20px; margin: 10px; background: #1976d2; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        .button:hover { background: #1565c0; }
+        .log { background: #f5f5f5; padding: 10px; margin: 10px 0; border-radius: 4px; font-family: monospace; }
+    </style>
+</head>
+<body>
+    <h1>🔧 Debug Perfil - Musubi</h1>
+    
+    <div>
+        <button class="button" onclick="clearOnboarding()">🧹 Limpiar Estado Onboarding</button>
+        <button class="button" onclick="clearAllStorage()">🗑️ Limpiar Todo el Storage</button>
+        <button class="button" onclick="checkProfile()">🔍 Verificar Perfil en Blockchain</button>
+        <button class="button" onclick="reloadPage()">🔄 Recargar Página</button>
+    </div>
+    
+    <div id="logs" class="log"></div>
+    
+    <script>
+        function log(message) {
+            const logs = document.getElementById('logs');
+            logs.innerHTML += new Date().toLocaleTimeString() + ': ' + message + '<br>';
+        }
+        
+        function clearOnboarding() {
+            localStorage.removeItem('musubi_onboarding_state');
+            log('✅ Estado de onboarding limpiado');
+        }
+        
+        function clearAllStorage() {
+            localStorage.clear();
+            sessionStorage.clear();
+            log('✅ Todo el storage limpiado');
+        }
+        
+        function checkProfile() {
+            log('🔍 Verificando perfil en blockchain...');
+            // Aquí podrías hacer una llamada a la API para verificar el perfil
+            log('📋 Cuenta actual: ' + (window.ethereum?.selectedAddress || 'No conectada'));
+        }
+        
+        function reloadPage() {
+            log('🔄 Recargando página...');
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
+        }
+        
+        // Mostrar información actual
+        log('📱 Página de debug cargada');
+        log('🔗 URL: ' + window.location.href);
+        log('💰 Wallet conectada: ' + (window.ethereum?.selectedAddress || 'No'));
+        log('📦 Estado onboarding: ' + (localStorage.getItem('musubi_onboarding_state') || 'No encontrado'));
+    </script>
+</body>
+</html> 

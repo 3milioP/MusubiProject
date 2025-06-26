@@ -325,21 +325,94 @@ const Marketplace = () => {
   const showBasicInterface = !isConnected;
 
   return (
-    <Box>
-      <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Typography variant="h4" component="h1" gutterBottom>
+    <Box sx={{ maxWidth: '100%' }}>
+      <Box sx={{ 
+        mb: { xs: 3, md: 4 }, 
+        display: 'flex', 
+        flexDirection: { xs: 'column', sm: 'row' },
+        justifyContent: 'space-between', 
+        alignItems: { xs: 'flex-start', sm: 'center' },
+        gap: 2
+      }}>
+        <Typography variant="h4" component="h1" gutterBottom sx={{ mb: 0 }}>
           Marketplace
         </Typography>
-        <Button 
-          variant="contained" 
-          color="primary" 
+        <Button
+          variant="contained"
           startIcon={<AddIcon />}
           onClick={() => setOpenServiceDialog(true)}
-          disabled={transactionLoading || !isConnected}
+          disabled={!isConnected}
+          sx={{ 
+            minWidth: { xs: '100%', sm: 'auto' },
+            borderRadius: 2
+          }}
         >
-          Publicar Servicio
+          Crear Servicio
         </Button>
       </Box>
+
+      {/* Estado de carga */}
+      {loading && (
+        <Box sx={{ mb: 3 }}>
+          <LinearProgress />
+          <Typography variant="body2" color="textSecondary" sx={{ mt: 1 }}>
+            Cargando marketplace...
+          </Typography>
+        </Box>
+      )}
+
+      {/* Estado de transacción */}
+      {txState.loading && (
+        <Alert severity="info" sx={{ mb: 3 }}>
+          <Typography variant="body2">
+            <strong>Transacción en progreso:</strong> Procesando en la blockchain...
+          </Typography>
+        </Alert>
+      )}
+
+      {/* Tabs */}
+      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
+        <Tabs 
+          value={tabValue} 
+          onChange={handleTabChange}
+          variant="fullWidth"
+          sx={{
+            '& .MuiTab-root': {
+              textTransform: 'none',
+              fontWeight: 500,
+              fontSize: '1rem'
+            }
+          }}
+        >
+          <Tab label="Servicios Disponibles" />
+          <Tab label="Mis Servicios" />
+          <Tab label="Mis Pedidos" />
+        </Tabs>
+      </Box>
+
+      {/* Barra de búsqueda - Solo en la primera tab */}
+      {tabValue === 0 && (
+        <Box sx={{ mb: 3 }}>
+          <TextField
+            fullWidth
+            placeholder="Buscar servicios..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon />
+                </InputAdornment>
+              ),
+            }}
+            sx={{ 
+              '& .MuiOutlinedInput-root': {
+                borderRadius: 2
+              }
+            }}
+          />
+        </Box>
+      )}
 
       {showBasicInterface && (
         <Alert severity="info" sx={{ mb: 3 }}>
@@ -352,29 +425,6 @@ const Marketplace = () => {
           {txState.error}
         </Alert>
       )}
-
-      <Box sx={{ mb: 3 }}>
-        <TextField
-          fullWidth
-          placeholder="Buscar servicios, categorías o proveedores..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <SearchIcon />
-              </InputAdornment>
-            ),
-          }}
-          sx={{ mb: 2 }}
-        />
-
-        <Tabs value={tabValue} onChange={handleTabChange} aria-label="marketplace tabs">
-          <Tab label={`Todos los Servicios (${filteredServices.length})`} />
-          <Tab label={`Mis Servicios (${myServices.length})`} />
-          <Tab label={`Mis Órdenes (${myOrders.length})`} />
-        </Tabs>
-      </Box>
 
       {loading ? (
         <Box sx={{ width: '100%', mt: 4 }}>

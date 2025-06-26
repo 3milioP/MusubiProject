@@ -1,0 +1,15 @@
+{
+  "name": "musubi-test-scripts",
+  "version": "1.0.0",
+  "description": "Scripts de verificación para Musubi",
+  "main": "index.js",
+  "scripts": {
+    "test-interoperability": "node test-frontend-interoperability.js",
+    "test-data-flows": "node test-data-flows.js"
+  },
+  "dependencies": {
+    "ethers": "^6.8.1",
+    "node-fetch": "^3.3.2"
+  },
+  "type": "module"
+} 

@@ -29,6 +29,7 @@ import SaveIcon from '@mui/icons-material/Save';
 import PersonIcon from '@mui/icons-material/Person';
 import BusinessIcon from '@mui/icons-material/Business';
 import WarningIcon from '@mui/icons-material/Warning';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import { useWeb3 } from '../contexts/Web3Context';
 import { useProfile } from '../hooks/useContracts';
 import { formatAddress } from '../utils/blockchain';
@@ -60,15 +61,14 @@ const Profile = () => {
 
   // Cargar datos del perfil existente
   useEffect(() => {
-    if (profile && profile.metadataURI) {
-      // En una implementación real, aquí cargarías los datos desde IPFS o un servidor
-      // Por ahora, usamos datos de ejemplo
+    if (profile) {
+      // Usar los datos enriquecidos desde IPFS que ya vienen en el objeto profile
       setFormData({
-        name: profile.isCompany ? 'Mi Empresa' : 'Mi Nombre',
-        bio: 'Descripción del perfil...',
-        location: 'Ciudad, País',
-        website: 'https://mi-sitio.com',
-        skills: ['JavaScript', 'React', 'Blockchain']
+        name: profile.name || '',
+        bio: profile.bio || '',
+        location: profile.location || '',
+        website: profile.website || '',
+        skills: profile.skills || []
       });
       setProfileType(profile.isCompany ? 'company' : 'individual');
     } else {
@@ -132,6 +132,13 @@ const Profile = () => {
         return;
       }
 
+      // Mostrar mensaje de inicio de proceso
+      setSnackbar({
+        open: true,
+        message: 'Iniciando proceso de registro...',
+        severity: 'info'
+      });
+
       // Preparar datos del perfil para IPFS
       const profileData = {
         name: formData.name.trim(),
@@ -145,7 +152,18 @@ const Profile = () => {
         updated_at: new Date().toISOString()
       };
 
-      // Almacenar en IPFS a través de la API
+      console.log('🔍 Iniciando registro de perfil:', {
+        profileData,
+        isUpdate: !!profile
+      });
+
+      // Paso 1: Almacenar en IPFS a través de la API
+      setSnackbar({
+        open: true,
+        message: 'Almacenando datos en IPFS...',
+        severity: 'info'
+      });
+
       const response = await fetch('http://localhost:5003/api/users', {
         method: 'POST',
         headers: {
@@ -154,7 +172,8 @@ const Profile = () => {
         body: JSON.stringify({
           name: profileData.name,
           email: `${account}@musubi.local`, // Email temporal basado en wallet
-          profile_type: profileType,
+          wallet_address: account, // Agregar dirección de wallet
+          profile_type: profileType === 'company' ? 'company' : 'professional',
           skills: profileData.skills,
           description: profileData.bio
         }),
@@ -166,45 +185,97 @@ const Profile = () => {
         throw new Error(result.error || 'Error almacenando datos en IPFS');
       }
 
-      // Usar el hash IPFS como metadataURI
-      const metadataURI = `ipfs://${result.ipfs_hash}`;
-      
-      if (profile) {
-        await updateProfile(formData.name.trim(), formData.bio.trim(), metadataURI);
-      } else {
-        const profileTypeNumber = profileType === 'company' ? 1 : 0;
-        await registerProfile(
-          formData.name.trim(),
-          formData.bio.trim(),
-          metadataURI,
-          profileTypeNumber,
-          acceptDisclaimer
-        );
-      }
-      
-      // Recargar el perfil después de guardar
-      await loadProfile();
-      setEditMode(false);
-      
-      // Mostrar mensaje de éxito con información de IPFS
-      setSnackbar({
-        open: true,
-        message: `${profile ? 'Perfil actualizado' : 'Perfil registrado'} exitosamente. Datos almacenados en IPFS: ${result.ipfs_hash}`,
-        severity: 'success'
-      });
-
-      // Log para debugging
-      console.log('Perfil guardado:', {
-        profileData,
+      console.log('✅ Datos almacenados en IPFS:', {
         ipfsHash: result.ipfs_hash,
         blockchainTx: result.blockchain_tx
       });
 
-    } catch (error) {
-      console.error('Error saving profile:', error);
+      // Usar el hash IPFS como metadataURI (sin prefijo ipfs://)
+      const metadataURI = result.ipfs_hash;
+      
+      // Paso 2: Registrar en blockchain
       setSnackbar({
         open: true,
-        message: error instanceof Error ? error.message : 'Error al guardar el perfil',
+        message: 'Registrando perfil en blockchain...',
+        severity: 'info'
+      });
+
+      let blockchainTx;
+      if (profile) {
+        blockchainTx = await updateProfile(formData.name.trim(), formData.bio.trim(), metadataURI);
+      } else {
+        const profileTypeNumber = profileType === 'company' ? 1 : 0;
+        blockchainTx = await registerProfile(
+          metadataURI,
+          profileTypeNumber
+        );
+      }
+
+      console.log('✅ Perfil registrado en blockchain:', {
+        txHash: blockchainTx?.hash,
+        metadataURI
+      });
+
+      // Paso 3: Esperar confirmación de la transacción
+      if (blockchainTx && blockchainTx.hash) {
+        setSnackbar({
+          open: true,
+          message: 'Esperando confirmación de la transacción...',
+          severity: 'info'
+        });
+
+        try {
+          await blockchainTx.wait();
+          console.log('✅ Transacción confirmada');
+        } catch (txError) {
+          console.warn('⚠️ Error esperando confirmación:', txError);
+          // Continuar aunque no se pueda esperar la confirmación
+        }
+      }
+      
+      // Paso 4: Recargar el perfil después de guardar
+      setSnackbar({
+        open: true,
+        message: 'Actualizando datos del perfil...',
+        severity: 'info'
+      });
+
+      await loadProfile();
+      setEditMode(false);
+      
+      // Paso 5: Mostrar mensaje de éxito final
+      setSnackbar({
+        open: true,
+        message: `${profile ? 'Perfil actualizado' : 'Perfil registrado'} exitosamente! 🎉`,
+        severity: 'success'
+      });
+
+      // Log final para debugging
+      console.log('✅ Proceso de registro completado:', {
+        profileData,
+        ipfsHash: result.ipfs_hash,
+        blockchainTx: blockchainTx?.hash || result.blockchain_tx,
+        isUpdate: !!profile
+      });
+
+    } catch (error) {
+      console.error('❌ Error en el proceso de registro:', error);
+      
+      let errorMessage = 'Error al guardar el perfil';
+      
+      if (error instanceof Error) {
+        if (error.message.includes('IPFS')) {
+          errorMessage = 'Error al almacenar datos en IPFS. Verifica que la API esté funcionando.';
+        } else if (error.message.includes('blockchain') || error.message.includes('contract')) {
+          errorMessage = 'Error en la transacción de blockchain. Verifica tu conexión y fondos.';
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
+      setSnackbar({
+        open: true,
+        message: errorMessage,
         severity: 'error'
       });
     }
@@ -247,42 +318,90 @@ const Profile = () => {
   }
 
   return (
-    <Box>
-      <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Typography variant="h4" component="h1" gutterBottom>
+    <Box sx={{ maxWidth: '100%' }}>
+      <Box sx={{ 
+        mb: { xs: 3, md: 4 }, 
+        display: 'flex', 
+        flexDirection: { xs: 'column', sm: 'row' },
+        justifyContent: 'space-between', 
+        alignItems: { xs: 'flex-start', sm: 'center' },
+        gap: 2
+      }}>
+        <Typography variant="h4" component="h1" gutterBottom sx={{ mb: 0 }}>
           Mi Perfil
         </Typography>
-        {profile ? (
-          <Button 
-            variant="contained" 
+        {profile && (
+          <Button
+            variant={editMode ? "contained" : "outlined"}
             startIcon={editMode ? <SaveIcon /> : <EditIcon />}
             onClick={editMode ? handleSave : toggleEditMode}
             disabled={txState.loading}
+            sx={{ 
+              minWidth: { xs: '100%', sm: 'auto' },
+              borderRadius: 2
+            }}
           >
-            {txState.loading ? <CircularProgress size={20} /> : (editMode ? 'Guardar' : 'Editar')}
-          </Button>
-        ) : (
-          <Button 
-            variant="contained" 
-            onClick={handleSave}
-            disabled={txState.loading || !acceptDisclaimer || !formData.name.trim() || !formData.bio.trim()}
-            startIcon={<SaveIcon />}
-          >
-            {txState.loading ? <CircularProgress size={20} /> : 'Registrar Perfil'}
+            {editMode ? 'Guardar Cambios' : 'Editar Perfil'}
           </Button>
         )}
       </Box>
 
-      {loading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
+      {/* Estado de carga */}
+      {loading && (
+        <Box sx={{ textAlign: 'center', py: 4 }}>
           <CircularProgress />
+          <Typography variant="body2" color="textSecondary" sx={{ mt: 2 }}>
+            Cargando perfil...
+          </Typography>
         </Box>
-      ) : !profile ? (
+      )}
+
+      {/* Estado de transacción */}
+      {txState.loading && (
         <Alert severity="info" sx={{ mb: 3 }}>
-          No tienes un perfil registrado. Completa la información a continuación para crear tu primer perfil.
+          <Typography variant="body2">
+            <strong>Transacción en progreso:</strong> Procesando en la blockchain...
+          </Typography>
         </Alert>
-      ) : null}
-      
+      )}
+
+      {/* Error de transacción */}
+      {txState.error && (
+        <Alert severity="error" sx={{ mb: 3 }}>
+          <Typography variant="body2">
+            <strong>Error:</strong> {txState.error}
+          </Typography>
+        </Alert>
+      )}
+
+      {/* Información de la wallet */}
+      <Card sx={{ mb: 3 }}>
+        <CardContent>
+          <Typography variant="h6" gutterBottom>
+            Información de Wallet
+          </Typography>
+          <Grid container spacing={2}>
+            <Grid item xs={12} sm={6}>
+              <Typography variant="body2" color="textSecondary">
+                Dirección
+              </Typography>
+              <Typography variant="body1" sx={{ fontFamily: 'monospace', fontSize: '0.9rem' }}>
+                {formatAddress(account || '')}
+              </Typography>
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <Typography variant="body2" color="textSecondary">
+                Estado de Conexión
+              </Typography>
+              <Typography variant="body1">
+                {isConnected ? 'Conectado' : 'No conectado'}
+              </Typography>
+            </Grid>
+          </Grid>
+        </CardContent>
+      </Card>
+
+      {/* Información básica */}
       <Grid container spacing={3}>
         {/* Información básica */}
         <Grid item xs={12} md={8}>
@@ -477,14 +596,220 @@ const Profile = () => {
                     {profile.isCompany ? 'Empresa' : 'Individual'}
                   </Typography>
                 </Box>
-                <Box>
+                <Box sx={{ mb: 1 }}>
                   <Typography variant="body2" color="textSecondary">
                     Estado
                   </Typography>
-                  <Typography variant="body2" color={profile.isActive ? 'success.main' : 'error.main'}>
+                  <Typography variant="body2">
                     {profile.isActive ? 'Activo' : 'Inactivo'}
                   </Typography>
                 </Box>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Estado de IPFS y Blockchain */}
+          {profile && (
+            <Card sx={{ mt: 2 }}>
+              <CardContent>
+                <Typography variant="h6" gutterBottom>
+                  Estado de Almacenamiento
+                </Typography>
+                
+                {/* Estado de IPFS */}
+                <Box sx={{ mb: 2 }}>
+                  <Typography variant="body2" color="textSecondary" gutterBottom>
+                    IPFS (Datos del Perfil)
+                  </Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                    <CheckCircleIcon color="success" sx={{ mr: 1, fontSize: 16 }} />
+                    <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }}>
+                      {profile.metadataURI || 'No disponible'}
+                    </Typography>
+                  </Box>
+                  <Typography variant="caption" color="textSecondary">
+                    Datos almacenados de forma descentralizada
+                  </Typography>
+                </Box>
+
+                <Divider sx={{ my: 2 }} />
+
+                {/* Estado de Blockchain */}
+                <Box sx={{ mb: 2 }}>
+                  <Typography variant="body2" color="textSecondary" gutterBottom>
+                    Blockchain (Registro)
+                  </Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                    <CheckCircleIcon color="success" sx={{ mr: 1, fontSize: 16 }} />
+                    <Typography variant="body2">
+                      Perfil registrado
+                    </Typography>
+                  </Box>
+                  <Typography variant="caption" color="textSecondary">
+                    Hash IPFS verificado en contrato
+                  </Typography>
+                </Box>
+
+                <Divider sx={{ my: 2 }} />
+
+                {/* Información técnica */}
+                <Box>
+                  <Typography variant="body2" color="textSecondary" gutterBottom>
+                    Información Técnica
+                  </Typography>
+                  <Typography variant="caption" sx={{ display: 'block', mb: 0.5 }}>
+                    <strong>Contrato:</strong> ProfileRegistry
+                  </Typography>
+                  <Typography variant="caption" sx={{ display: 'block', mb: 0.5 }}>
+                    <strong>Red:</strong> Local (Hardhat)
+                  </Typography>
+                  <Typography variant="caption" sx={{ display: 'block' }}>
+                    <strong>Verificación:</strong> Hash SHA256 en IPFSRegistry
+                  </Typography>
+                </Box>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Datos adicionales de IPFS */}
+          {profile && (profile.github || profile.linkedin || profile.hourlyRate || profile.languages?.length || profile.industry || profile.services?.length) && (
+            <Card sx={{ mt: 2 }}>
+              <CardContent>
+                <Typography variant="h6" gutterBottom>
+                  Datos Adicionales (IPFS)
+                </Typography>
+                
+                {profile.github && (
+                  <Box sx={{ mb: 1 }}>
+                    <Typography variant="body2" color="textSecondary">
+                      GitHub
+                    </Typography>
+                    <Typography variant="body2">
+                      {profile.github}
+                    </Typography>
+                  </Box>
+                )}
+                
+                {profile.linkedin && (
+                  <Box sx={{ mb: 1 }}>
+                    <Typography variant="body2" color="textSecondary">
+                      LinkedIn
+                    </Typography>
+                    <Typography variant="body2">
+                      {profile.linkedin}
+                    </Typography>
+                  </Box>
+                )}
+                
+                {profile.hourlyRate && (
+                  <Box sx={{ mb: 1 }}>
+                    <Typography variant="body2" color="textSecondary">
+                      Tarifa por Hora
+                    </Typography>
+                    <Typography variant="body2">
+                      {profile.hourlyRate} EUR/h
+                    </Typography>
+                  </Box>
+                )}
+                
+                {profile.languages && profile.languages.length > 0 && (
+                  <Box sx={{ mb: 1 }}>
+                    <Typography variant="body2" color="textSecondary">
+                      Idiomas
+                    </Typography>
+                    <Typography variant="body2">
+                      {profile.languages.join(', ')}
+                    </Typography>
+                  </Box>
+                )}
+                
+                {profile.industry && (
+                  <Box sx={{ mb: 1 }}>
+                    <Typography variant="body2" color="textSecondary">
+                      Industria
+                    </Typography>
+                    <Typography variant="body2">
+                      {profile.industry}
+                    </Typography>
+                  </Box>
+                )}
+                
+                {profile.size && (
+                  <Box sx={{ mb: 1 }}>
+                    <Typography variant="body2" color="textSecondary">
+                      Tamaño
+                    </Typography>
+                    <Typography variant="body2">
+                      {profile.size}
+                    </Typography>
+                  </Box>
+                )}
+                
+                {profile.founded && (
+                  <Box sx={{ mb: 1 }}>
+                    <Typography variant="body2" color="textSecondary">
+                      Fundada
+                    </Typography>
+                    <Typography variant="body2">
+                      {profile.founded}
+                    </Typography>
+                  </Box>
+                )}
+                
+                {profile.services && profile.services.length > 0 && (
+                  <Box sx={{ mb: 1 }}>
+                    <Typography variant="body2" color="textSecondary">
+                      Servicios
+                    </Typography>
+                    <Typography variant="body2">
+                      {profile.services.join(', ')}
+                    </Typography>
+                  </Box>
+                )}
+                
+                {profile.availability && (
+                  <Box sx={{ mb: 1 }}>
+                    <Typography variant="body2" color="textSecondary">
+                      Disponibilidad
+                    </Typography>
+                    <Typography variant="body2">
+                      {profile.availability}
+                    </Typography>
+                  </Box>
+                )}
+                
+                {profile.project && (
+                  <Box sx={{ mb: 1 }}>
+                    <Typography variant="body2" color="textSecondary">
+                      Proyecto
+                    </Typography>
+                    <Typography variant="body2">
+                      {profile.project}
+                    </Typography>
+                  </Box>
+                )}
+                
+                {profile.budget && (
+                  <Box sx={{ mb: 1 }}>
+                    <Typography variant="body2" color="textSecondary">
+                      Presupuesto
+                    </Typography>
+                    <Typography variant="body2">
+                      {profile.budget}
+                    </Typography>
+                  </Box>
+                )}
+                
+                {profile.timeline && (
+                  <Box>
+                    <Typography variant="body2" color="textSecondary">
+                      Timeline
+                    </Typography>
+                    <Typography variant="body2">
+                      {profile.timeline}
+                    </Typography>
+                  </Box>
+                )}
               </CardContent>
             </Card>
           )}

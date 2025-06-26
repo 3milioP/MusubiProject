@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import './App.css';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
-import { Box, Drawer, List, ListItem, ListItemIcon, ListItemText, Toolbar, Fab, Button, Typography } from '@mui/material';
+import { Box, Drawer, List, ListItem, ListItemIcon, ListItemText, Toolbar, Fab, Button, Typography, useTheme, useMediaQuery } from '@mui/material';
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import PersonIcon from '@mui/icons-material/Person';
 import WorkIcon from '@mui/icons-material/Work';
@@ -10,21 +10,24 @@ import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import StoreIcon from '@mui/icons-material/Store';
 import SettingsIcon from '@mui/icons-material/Settings';
 import HelpIcon from '@mui/icons-material/Help';
-import BugReportIcon from '@mui/icons-material/BugReport';
+import BuildIcon from '@mui/icons-material/Build';
 
 // Importar contextos y componentes
 import { Web3Provider } from './contexts/Web3Context';
 import { OnboardingProvider, useOnboarding } from './contexts/OnboardingContext';
+import { NotificationProvider, useNotification } from './contexts/NotificationContext';
+import { KRMProvider } from './contexts/KRMContext';
 import { useWeb3 } from './contexts/Web3Context';
 import OnboardingFlow from './components/onboarding/OnboardingFlow';
 import Navbar from './components/Navbar';
+import NotificationContainer from './components/NotificationContainer';
 import Dashboard from './pages/Dashboard';
 import Profile from './pages/Profile';
 import Skills from './pages/Skills';
 import TimeRegistry from './pages/TimeRegistry';
 import Marketplace from './pages/Marketplace';
 import Settings from './pages/Settings';
-import Debug from './pages/Debug';
+import DeveloperTools from './pages/DeveloperTools';
 import './App.css';
 
 const theme = createTheme({
@@ -36,9 +39,19 @@ const theme = createTheme({
       main: '#dc004e',
     },
   },
+  components: {
+    MuiDrawer: {
+      styleOverrides: {
+        paper: {
+          backgroundColor: '#f8f9fa',
+          borderRight: '1px solid #e0e0e0',
+        },
+      },
+    },
+  },
 });
 
-const drawerWidth = 240;
+const drawerWidth = 280;
 
 const menuItems = [
   { text: 'Dashboard', icon: <DashboardIcon />, component: 'dashboard' },
@@ -47,47 +60,109 @@ const menuItems = [
   { text: 'Registro de Tiempo', icon: <AccessTimeIcon />, component: 'timeregistry' },
   { text: 'Marketplace', icon: <StoreIcon />, component: 'marketplace' },
   { text: 'Configuración', icon: <SettingsIcon />, component: 'settings' },
-  { text: 'Debug Blockchain', icon: <BugReportIcon />, component: 'debug' },
+  { text: 'Herramientas Dev', icon: <BuildIcon />, component: 'developertools' },
 ];
 
 // Componente principal de la aplicación
 const AppContent = () => {
-  const [mobileOpen, setMobileOpen] = useState(true); // Abierto por defecto
-  const [activeComponent, setActiveComponent] = useState('dashboard');
-  
-  const { isConnected } = useWeb3();
+  const { isConnected, account, connectWallet, error, connecting } = useWeb3();
   const { 
-    showOnboarding, 
     hasCompletedOnboarding, 
-    hasRegisteredProfile,
-    completeOnboarding, 
-    showOnboardingFlow,
+    showOnboarding, 
+    hasRegisteredProfile, 
+    isCheckingProfile,
+    checkProfileInBlockchain, 
+    markProfileRegistered, 
+    setCurrentWallet,
     goToProfileRegistration,
-    initialStep,
-    setInitialStep
+    completeOnboarding,
+    showOnboardingFlow
   } = useOnboarding();
+  const { showNotification } = useNotification();
 
-  // Debug: Monitorear estado de conexión
-  React.useEffect(() => {
-    console.log('🔍 AppContent - Estado de conexión actualizado:', {
-      isConnected,
-      showOnboarding,
-      hasCompletedOnboarding,
-      hasRegisteredProfile
-    });
-  }, [isConnected, showOnboarding, hasCompletedOnboarding, hasRegisteredProfile]);
-
+  const [activeComponent, setActiveComponent] = useState('dashboard');
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [initialStep, setInitialStep] = useState<string | null>(null);
+  
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const [notificationShown, setNotificationShown] = useState(false);
+  
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
   };
 
+  // Escuchar eventos personalizados para notificaciones
+  React.useEffect(() => {
+    const handleShowNotification = (event: CustomEvent) => {
+      const { message, type, duration } = event.detail;
+      showNotification(message, type, duration);
+    };
+
+    window.addEventListener('showNotification', handleShowNotification as EventListener);
+
+    return () => {
+      window.removeEventListener('showNotification', handleShowNotification as EventListener);
+    };
+  }, [showNotification]);
+
+  // Actualizar wallet actual en el contexto de onboarding
+  React.useEffect(() => {
+    if (account) {
+      setCurrentWallet(account);
+      // Resetear el estado de notificación cuando cambie la cuenta
+      setNotificationShown(false);
+    } else {
+      setCurrentWallet(null);
+      setNotificationShown(false);
+    }
+  }, [account, setCurrentWallet]);
+
+  // Verificar automáticamente si la wallet ya tiene perfil registrado
+  const [hasCheckedProfile, setHasCheckedProfile] = React.useState(false);
+  
+  React.useEffect(() => {
+    if (isConnected && account && !hasRegisteredProfile && !isCheckingProfile && !hasCheckedProfile) {
+      console.log('🔍 Verificando automáticamente si la wallet tiene perfil registrado:', account);
+      setHasCheckedProfile(true);
+      
+      const checkExistingProfile = async () => {
+        try {
+          const profileExists = await checkProfileInBlockchain(account);
+          if (profileExists) {
+            console.log('✅ Perfil encontrado para wallet:', account);
+            markProfileRegistered();
+            showNotification('Perfil encontrado. ¡Bienvenido de vuelta!', 'success', 3000);
+          } else {
+            console.log('❌ No se encontró perfil para wallet:', account);
+          }
+        } catch (error) {
+          console.error('❌ Error verificando perfil automáticamente:', error);
+        }
+      };
+      
+      checkExistingProfile();
+    }
+  }, [isConnected, account, hasRegisteredProfile, isCheckingProfile, hasCheckedProfile]);
+
+  // Reset hasCheckedProfile when account changes
+  React.useEffect(() => {
+    setHasCheckedProfile(false);
+  }, [account]);
+
   const handleMenuItemClick = (component: string) => {
     setActiveComponent(component);
-    // No cerrar el sidebar automáticamente al hacer click en un item
-    // El sidebar solo debe cerrarse con el botón toggle
+    // Cerrar el sidebar en móvil al hacer click en un item
+    if (isMobile) {
+      setMobileOpen(false);
+    }
   };
 
   const handleOnboardingComplete = () => {
+    completeOnboarding();
+  };
+
+  const handleOnboardingExit = () => {
     completeOnboarding();
   };
 
@@ -109,8 +184,8 @@ const AppContent = () => {
         return <Marketplace />;
       case 'settings':
         return <Settings />;
-      case 'debug':
-        return <Debug />;
+      case 'developertools':
+        return <DeveloperTools />;
       default:
         return <Dashboard />;
     }
@@ -118,11 +193,11 @@ const AppContent = () => {
 
   // Mostrar onboarding si es necesario
   if (showOnboarding || (!isConnected && !hasCompletedOnboarding)) {
-    return <OnboardingFlow onComplete={handleOnboardingComplete} initialStep={initialStep as any} />;
+    return <OnboardingFlow onComplete={handleOnboardingComplete} onExit={handleOnboardingExit} initialStep={initialStep as any} />;
   }
 
   // Si está conectado pero no ha registrado perfil, sugerir ir a perfil
-  if (isConnected && !hasRegisteredProfile) {
+  if (isConnected && !hasRegisteredProfile && !isCheckingProfile) {
     return (
       <Box sx={{ 
         minHeight: '100vh', 
@@ -166,124 +241,151 @@ const AppContent = () => {
     );
   }
 
-  const drawer = (
-    <div>
-      <Toolbar />
-      <List>
-        {menuItems.map((item) => (
-          <ListItem 
-            key={item.text}
-            onClick={() => handleMenuItemClick(item.component)}
-            sx={{ 
-              cursor: 'pointer',
-              backgroundColor: activeComponent === item.component ? 'rgba(25, 118, 210, 0.08)' : 'transparent',
-              '&:hover': {
-                backgroundColor: 'rgba(25, 118, 210, 0.04)',
-              }
-            }}
-          >
-            <ListItemIcon sx={{ color: activeComponent === item.component ? 'primary.main' : 'inherit' }}>
-              {item.icon}
-            </ListItemIcon>
-            <ListItemText 
-              primary={item.text} 
-              sx={{ color: activeComponent === item.component ? 'primary.main' : 'inherit' }}
-            />
-          </ListItem>
-        ))}
-      </List>
-    </div>
-  );
+  // Mostrar loading mientras se verifica el perfil
+  if (isConnected && isCheckingProfile) {
+    return (
+      <Box sx={{ 
+        minHeight: '100vh', 
+        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center'
+      }}>
+        <Box sx={{ textAlign: 'center', color: 'white' }}>
+          <Typography variant="h5" gutterBottom>
+            Verificando perfil...
+          </Typography>
+          <Typography variant="body1">
+            Por favor espera mientras verificamos tu perfil en la blockchain.
+          </Typography>
+        </Box>
+      </Box>
+    );
+  }
 
   return (
-    <Box sx={{ display: 'flex' }}>
+    <Box sx={{ display: 'flex', minHeight: '100vh' }}>
+      {/* Navbar */}
       <Navbar onMenuClick={handleDrawerToggle} />
       
-      <Box
-        component="nav"
-        sx={{ width: { sm: mobileOpen ? drawerWidth : 0 }, flexShrink: { sm: 0 } }}
-      >
-        <Drawer
-          variant="temporary"
-          open={mobileOpen}
-          onClose={handleDrawerToggle}
-          ModalProps={{
-            keepMounted: true,
-          }}
-          sx={{
-            display: { xs: 'block', sm: 'none' },
-            '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth },
-          }}
-        >
-          {drawer}
-        </Drawer>
-        <Drawer
-          variant="persistent"
-          open={mobileOpen}
-          sx={{
-            display: { xs: 'none', sm: 'block' },
-            '& .MuiDrawer-paper': { 
-              boxSizing: 'border-box', 
-              width: drawerWidth,
-              transition: 'width 0.3s ease-in-out'
-            },
-          }}
-        >
-          {drawer}
-        </Drawer>
-      </Box>
-      
-      <Box
-        component="main"
+      {/* Sidebar */}
+      <Drawer
+        variant="temporary"
+        open={mobileOpen}
+        onClose={handleDrawerToggle}
         sx={{
-          flexGrow: 1,
-          p: 3,
-          width: { 
-            xs: '100%',
-            sm: mobileOpen ? `calc(100% - ${drawerWidth}px)` : '100%'
+          width: drawerWidth,
+          flexShrink: 0,
+          '& .MuiDrawer-paper': {
+            width: drawerWidth,
+            boxSizing: 'border-box',
+            backgroundColor: '#f8f9fa',
+            borderRight: '1px solid #e0e0e0',
+            boxShadow: 3,
           },
-          height: '100vh',
-          overflow: 'auto',
-          backgroundColor: '#f5f5f5',
-          transition: 'width 0.3s ease-in-out'
+        }}
+        ModalProps={{
+          keepMounted: true, // Better open performance on mobile.
         }}
       >
         <Toolbar />
-        <Box sx={{ pb: 4 }}>
+        <Box sx={{ overflow: 'auto', mt: 2, px: 1 }}>
+          <List>
+            {menuItems.map((item) => (
+              <ListItem
+                button
+                key={item.text}
+                onClick={() => handleMenuItemClick(item.component)}
+                sx={{
+                  backgroundColor: activeComponent === item.component ? 'rgba(25, 118, 210, 0.08)' : 'transparent',
+                  '&:hover': {
+                    backgroundColor: 'rgba(25, 118, 210, 0.04)',
+                  },
+                  mb: 0.5,
+                  mx: 1,
+                  borderRadius: 2,
+                  minHeight: 48,
+                }}
+              >
+                <ListItemIcon sx={{ 
+                  color: activeComponent === item.component ? 'primary.main' : 'text.secondary',
+                  minWidth: 40
+                }}>
+                  {item.icon}
+                </ListItemIcon>
+                <ListItemText 
+                  primary={item.text} 
+                  sx={{ 
+                    color: activeComponent === item.component ? 'primary.main' : 'text.primary',
+                    fontWeight: activeComponent === item.component ? 600 : 400,
+                    '& .MuiListItemText-primary': {
+                      fontSize: '0.95rem',
+                    }
+                  }}
+                />
+              </ListItem>
+            ))}
+          </List>
+        </Box>
+      </Drawer>
+
+      {/* Contenido principal */}
+      <Box 
+        component="main" 
+        sx={{ 
+          flexGrow: 1, 
+          p: { xs: 2, md: 3 },
+          width: '100%',
+          minHeight: '100vh',
+          backgroundColor: '#fafafa'
+        }}
+      >
+        <Toolbar />
+        <Box sx={{ 
+          maxWidth: '100%',
+          mx: 'auto',
+          minHeight: 'calc(100vh - 64px)'
+        }}>
           {renderComponent()}
         </Box>
       </Box>
 
-      {/* Botón flotante para mostrar tutorial */}
-      {hasCompletedOnboarding && (
-        <Fab
-          color="primary"
-          aria-label="tutorial"
-          onClick={handleShowTutorial}
-          sx={{
-            position: 'fixed',
-            bottom: 16,
-            right: 16,
-            zIndex: 1000
-          }}
-        >
-          <HelpIcon />
-        </Fab>
-      )}
+      {/* Botón flotante para tutorial */}
+      <Fab
+        color="secondary"
+        aria-label="tutorial"
+        onClick={handleShowTutorial}
+        sx={{
+          position: 'fixed',
+          bottom: 16,
+          right: 16,
+          zIndex: 1000,
+        }}
+      >
+        <HelpIcon />
+      </Fab>
     </Box>
   );
 };
 
+// Componente principal con providers
 function App() {
   return (
-    <OnboardingProvider>
-      <Web3Provider>
-        <ThemeProvider theme={theme}>
-          <CssBaseline />
-          <AppContent />
-        </ThemeProvider>
-      </Web3Provider>
-    </OnboardingProvider>
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
+      <NotificationProvider>
+        <Web3Provider>
+          <OnboardingProvider>
+            <KRMProvider>
+              <div className="App">
+                <AppContent />
+                <NotificationContainer />
+              </div>
+            </KRMProvider>
+          </OnboardingProvider>
+        </Web3Provider>
+      </NotificationProvider>
+    </ThemeProvider>
   );
 }
 

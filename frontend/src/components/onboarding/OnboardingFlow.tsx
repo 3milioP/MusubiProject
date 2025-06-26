@@ -10,10 +10,11 @@ export type OnboardingStep = 'welcome' | 'intro' | 'metamask' | 'musubi' | 'prof
 
 interface OnboardingFlowProps {
   onComplete: () => void;
+  onExit?: () => void;
   initialStep?: OnboardingStep;
 }
 
-const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete, initialStep }) => {
+const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete, onExit, initialStep }) => {
   const [currentStep, setCurrentStep] = useState<OnboardingStep>(initialStep || 'welcome');
   const { isConnected, account } = useWeb3();
 
@@ -32,6 +33,10 @@ const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete, initialStep
 
   const handleWelcomeSkip = () => {
     setCurrentStep('profile');
+  };
+
+  const handleWelcomeExit = () => {
+    onExit?.();
   };
 
   const handleIntroComplete = () => {
@@ -67,6 +72,7 @@ const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete, initialStep
           <WelcomeScreen
             onGetStarted={handleWelcomeGetStarted}
             onSkipTutorial={handleWelcomeSkip}
+            onExit={handleWelcomeExit}
           />
         );
       case 'intro':

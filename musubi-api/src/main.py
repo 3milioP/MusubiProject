@@ -1,9 +1,23 @@
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 from flask_cors import CORS
 from flasgger import Swagger
 import json
 import os
+import logging
 from web3 import Web3
+import requests
+from datetime import datetime
+
+# Configurar logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('api.log'),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
 
 # Importar routers
 from routes.contracts import contracts_bp
@@ -16,11 +30,50 @@ from routes.user import user_bp
 from routes.ipfs_registry import ipfs_registry_bp
 
 # Importar configuración
-from config.contracts import get_api_status, get_contract_abi, get_available_contracts
+from config.contracts import get_api_status, get_contract_abi, get_available_contracts, get_contract_addresses
 from config.decentralized_db import decentralized_db
 
 app = Flask(__name__)
 CORS(app)
+
+# Middleware para logging de requests
+@app.before_request
+def log_request():
+    """Log de cada request"""
+    logger.info(f"Request: {request.method} {request.path} - {request.remote_addr}")
+
+@app.after_request
+def log_response(response):
+    """Log de cada response"""
+    logger.info(f"Response: {response.status_code} - {request.method} {request.path}")
+    return response
+
+def validate_network(f):
+    """Decorator para validar que la red esté activa"""
+    from functools import wraps
+    
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        network = request.args.get('network', 'local')
+        
+        # Verificar si la red está disponible
+        try:
+            from config.contracts import get_web3_instance
+            w3 = get_web3_instance(network)
+            if not w3.is_connected():
+                return jsonify({
+                    'success': False,
+                    'error': f'Red {network} no disponible'
+                }), 503
+        except Exception as e:
+            logger.warning(f"Error validando red {network}: {e}")
+            return jsonify({
+                'success': False,
+                'error': f'Error conectando a red {network}'
+            }), 503
+        
+        return f(*args, **kwargs)
+    return decorated_function
 
 # Configurar Web3 para la base de datos descentralizada
 def setup_web3():
@@ -170,7 +223,81 @@ def health():
         }
     })
 
+@app.route('/health/detailed')
+def detailed_health():
+    """Health check detallado con estado de todos los servicios"""
+    try:
+        # Verificar blockchain
+        blockchain_status = "disconnected"
+        blockchain_info = {}
+        if decentralized_db.web3:
+            try:
+                if decentralized_db.web3.is_connected():
+                    blockchain_status = "connected"
+                    blockchain_info = {
+                        'chain_id': decentralized_db.web3.eth.chain_id,
+                        'latest_block': decentralized_db.web3.eth.block_number,
+                        'gas_price': str(decentralized_db.web3.eth.gas_price)
+                    }
+            except Exception as e:
+                blockchain_info = {'error': str(e)}
+        
+        # Verificar IPFS
+        ipfs_status = "disconnected"
+        ipfs_info = {}
+        if decentralized_db.http_url:
+            try:
+                response = requests.get(f"{decentralized_db.http_url}/api/v0/version", timeout=5)
+                if response.status_code == 200:
+                    ipfs_status = "connected"
+                    ipfs_info = response.json()
+            except Exception as e:
+                ipfs_info = {'error': str(e)}
+        
+        # Verificar contratos
+        contracts_status = "unknown"
+        contracts_info = {}
+        try:
+            available_contracts = get_available_contracts()
+            contract_addresses = get_contract_addresses()
+            contracts_status = "available" if available_contracts else "unavailable"
+            contracts_info = {
+                'available_contracts': available_contracts,
+                'total_addresses': len(contract_addresses)
+            }
+        except Exception as e:
+            contracts_info = {'error': str(e)}
+        
+        return jsonify({
+            'status': 'healthy',
+            'timestamp': str(datetime.now()),
+            'services': {
+                'blockchain': {
+                    'status': blockchain_status,
+                    'info': blockchain_info
+                },
+                'ipfs': {
+                    'status': ipfs_status,
+                    'info': ipfs_info
+                },
+                'contracts': {
+                    'status': contracts_status,
+                    'info': contracts_info
+                },
+                'api': {
+                    'status': 'running',
+                    'version': '1.0.0'
+                }
+            }
+        })
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'error': str(e),
+            'timestamp': str(datetime.now())
+        }), 500
+
 if __name__ == '__main__':
     setup_app()
-    app.run(debug=True, host='0.0.0.0', port=5001)
+    app.run(debug=True, host='0.0.0.0', port=5003)
 

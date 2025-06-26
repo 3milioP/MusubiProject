@@ -1,7 +1,7 @@
 import pytest
 import requests
 
-API_URL = "http://localhost:5001/api/krm"
+API_URL = "http://localhost:5003/api/krm"
 TEST_ADDRESS = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
 
 OWNER = TEST_ADDRESS

@@ -12,14 +12,12 @@ async function main() {
   console.log("👤 Owner:", owner.address);
   console.log("👤 Usuario frontend:", userAccount);
 
-  // Obtener las direcciones de los contratos desplegados
-  const deployedAddresses = require("../ignition/deployments/chain-31337/deployed_addresses.json");
-  
-  const KRMToken = deployedAddresses["MusubiDeployment#KRMToken"];
-  const ProfileRegistry = deployedAddresses["MusubiDeployment#ProfileRegistry"];
-  const SkillSystem = deployedAddresses["MusubiDeployment#SkillSystem"];
-  const TimeRegistry = deployedAddresses["MusubiDeployment#TimeRegistry"];
-  const P2PMarketplace = deployedAddresses["MusubiDeployment#P2PMarketplace"];
+  // Usar las direcciones correctas de los contratos recién desplegados
+  const KRMToken = "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512";
+  const ProfileRegistry = "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0";
+  const SkillSystem = "0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9";
+  const TimeRegistry = "0xa513E6E4b8f2a923D98304ec87F64353C4D5C853";
+  const P2PMarketplace = "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9";
 
   console.log("📋 Direcciones de contratos:");
   console.log("  KRMToken:", KRMToken);
@@ -35,81 +33,34 @@ async function main() {
   const timeRegistry = await ethers.getContractAt("TimeRegistry", TimeRegistry);
   const p2pMarketplace = await ethers.getContractAt("P2PMarketplace", P2PMarketplace);
 
-  // 1. Otorgar roles ADMIN_ROLE a la cuenta del usuario
-  console.log("\n🔑 Otorgando roles ADMIN_ROLE...");
-  
-  try {
-    const adminRole = await skillSystem.ADMIN_ROLE();
-    const hasRole = await skillSystem.hasRole(adminRole, userAccount);
-    
-    if (!hasRole) {
-      const tx = await skillSystem.grantRole(adminRole, userAccount);
-      await tx.wait();
-      console.log("✅ ADMIN_ROLE otorgado a", userAccount);
-    } else {
-      console.log("ℹ️  ADMIN_ROLE ya otorgado a", userAccount);
-    }
-  } catch (error) {
-    console.log("❌ Error otorgando ADMIN_ROLE:", error.message);
-  }
-
-  // 2. Otorgar roles KARMA_ROLE a la cuenta del usuario
+  // 1. Otorgar roles correctos
   console.log("\n🔑 Otorgando roles KARMA_ROLE...");
-  
+  const KARMA_ROLE = ethers.keccak256(ethers.toUtf8Bytes("KARMA_ROLE"));
+  const DEFAULT_ADMIN_ROLE = "0x" + "0".repeat(64);
   try {
-    const karmaRole = await skillSystem.KARMA_ROLE();
-    const hasRole = await skillSystem.hasRole(karmaRole, userAccount);
-    
-    if (!hasRole) {
-      const tx = await skillSystem.grantRole(karmaRole, userAccount);
-      await tx.wait();
-      console.log("✅ KARMA_ROLE otorgado a", userAccount);
-    } else {
-      console.log("ℹ️  KARMA_ROLE ya otorgado a", userAccount);
-    }
+    // KARMA_ROLE en SkillSystem
+    await skillSystem.grantRole(KARMA_ROLE, userAccount);
+    console.log("✅ KARMA_ROLE otorgado en SkillSystem a", userAccount);
   } catch (error) {
-    console.log("❌ Error otorgando KARMA_ROLE:", error.message);
+    console.log("❌ Error otorgando KARMA_ROLE en SkillSystem:", error.message);
+  }
+  try {
+    // KARMA_ROLE en TimeRegistry
+    await timeRegistry.grantRole(KARMA_ROLE, userAccount);
+    console.log("✅ KARMA_ROLE otorgado en TimeRegistry a", userAccount);
+  } catch (error) {
+    console.log("❌ Error otorgando KARMA_ROLE en TimeRegistry:", error.message);
+  }
+  try {
+    // DEFAULT_ADMIN_ROLE en P2PMarketplace
+    await p2pMarketplace.grantRole(DEFAULT_ADMIN_ROLE, userAccount);
+    console.log("✅ DEFAULT_ADMIN_ROLE otorgado en P2PMarketplace a", userAccount);
+  } catch (error) {
+    console.log("❌ Error otorgando DEFAULT_ADMIN_ROLE en P2PMarketplace:", error.message);
   }
 
-  // 3. Otorgar roles en TimeRegistry
-  console.log("\n🔑 Otorgando roles en TimeRegistry...");
-  
-  try {
-    const adminRole = await timeRegistry.DEFAULT_ADMIN_ROLE();
-    const hasRole = await timeRegistry.hasRole(adminRole, userAccount);
-    
-    if (!hasRole) {
-      const tx = await timeRegistry.grantRole(adminRole, userAccount);
-      await tx.wait();
-      console.log("✅ DEFAULT_ADMIN_ROLE otorgado en TimeRegistry a", userAccount);
-    } else {
-      console.log("ℹ️  DEFAULT_ADMIN_ROLE ya otorgado en TimeRegistry a", userAccount);
-    }
-  } catch (error) {
-    console.log("❌ Error otorgando roles en TimeRegistry:", error.message);
-  }
-
-  // 4. Otorgar roles en P2PMarketplace
-  console.log("\n🔑 Otorgando roles en P2PMarketplace...");
-  
-  try {
-    const adminRole = await p2pMarketplace.DEFAULT_ADMIN_ROLE();
-    const hasRole = await p2pMarketplace.hasRole(adminRole, userAccount);
-    
-    if (!hasRole) {
-      const tx = await p2pMarketplace.grantRole(adminRole, userAccount);
-      await tx.wait();
-      console.log("✅ DEFAULT_ADMIN_ROLE otorgado en P2PMarketplace a", userAccount);
-    } else {
-      console.log("ℹ️  DEFAULT_ADMIN_ROLE ya otorgado en P2PMarketplace a", userAccount);
-    }
-  } catch (error) {
-    console.log("❌ Error otorgando roles en P2PMarketplace:", error.message);
-  }
-
-  // 5. Crear habilidades iniciales
+  // 2. Crear habilidades iniciales
   console.log("\n🎯 Creando habilidades iniciales...");
-  
   const initialSkills = [
     { name: "JavaScript", category: "Programming" },
     { name: "React", category: "Frontend" },
@@ -120,7 +71,6 @@ async function main() {
     { name: "Diseño UX/UI", category: "Design" },
     { name: "Análisis de Datos", category: "Analytics" }
   ];
-
   for (const skill of initialSkills) {
     try {
       const tx = await skillSystem.createSkill(skill.name, skill.category);
@@ -131,38 +81,37 @@ async function main() {
     }
   }
 
-  // 6. Registrar perfiles de prueba
+  // 3. Registrar perfiles de prueba
   console.log("\n👤 Registrando perfiles de prueba...");
-  
   const testProfiles = [
-    { address: user1.address, isCompany: false, metadata: "ipfs://QmProfile1" },
-    { address: user2.address, isCompany: true, metadata: "ipfs://QmCompany1" },
-    { address: user3.address, isCompany: false, metadata: "ipfs://QmProfile2" }
+    { signer: user1, name: "Juan Profesional", description: "Desarrollador", metadata: "ipfs://QmProfile1", profileType: 0 },
+    { signer: user2, name: "Empresa S.A.", description: "Empresa de tecnología", metadata: "ipfs://QmCompany1", profileType: 1 },
+    { signer: user3, name: "Ana Experta", description: "Especialista en datos", metadata: "ipfs://QmProfile2", profileType: 0 }
   ];
-
   for (const profile of testProfiles) {
     try {
-      // Usar el signer correspondiente
-      const signer = await ethers.getSigner(profile.address);
-      const profileContract = profileRegistry.connect(signer);
-      
-      const tx = await profileContract.registerProfile(profile.isCompany, profile.metadata);
+      const profileContract = profileRegistry.connect(profile.signer);
+      const tx = await profileContract.registerProfile(
+        profile.name,
+        profile.description,
+        profile.metadata,
+        profile.profileType,
+        true // acceptDisclaimer
+      );
       await tx.wait();
-      console.log(`✅ Perfil registrado: ${profile.address} (${profile.isCompany ? 'Empresa' : 'Profesional'})`);
+      console.log(`✅ Perfil registrado: ${profile.name} (${profile.profileType === 0 ? 'Profesional' : 'Empresa'})`);
     } catch (error) {
-      console.log(`❌ Error registrando perfil ${profile.address}:`, error.message);
+      console.log(`❌ Error registrando perfil ${profile.name}:`, error.message);
     }
   }
 
-  // 7. Crear servicios de prueba
+  // 4. Crear servicios de prueba
   console.log("\n🛒 Creando servicios de prueba...");
-  
   const testServices = [
     { title: "Desarrollo Web Full Stack", description: "Desarrollo completo de aplicaciones web", pricePerHour: ethers.parseEther("50"), skillIds: [0, 1, 3] },
     { title: "Consultoría Blockchain", description: "Asesoramiento en proyectos blockchain", pricePerHour: ethers.parseEther("100"), skillIds: [2] },
     { title: "Marketing Digital", description: "Estrategias de marketing digital", pricePerHour: ethers.parseEther("75"), skillIds: [5] }
   ];
-
   for (const service of testServices) {
     try {
       const tx = await p2pMarketplace.createService(
@@ -178,23 +127,22 @@ async function main() {
     }
   }
 
-  // 8. Crear registros de tiempo de prueba
+  // 5. Crear registros de tiempo de prueba
   console.log("\n⏰ Creando registros de tiempo de prueba...");
-  
   const now = Math.floor(Date.now() / 1000);
   const testTimeRecords = [
-    { company: user2.address, startTime: now - 3600, endTime: now, description: "Desarrollo de frontend", skillIds: [0, 1] },
-    { company: user2.address, startTime: now - 7200, endTime: now - 3600, description: "Reunión de planificación", skillIds: [] }
+    { signer: user1, company: user2.address, skillId: 0, startTime: now - 3600, endTime: now, description: "Desarrollo de frontend" },
+    { signer: user3, company: user2.address, skillId: 4, startTime: now - 7200, endTime: now - 3600, description: "Reunión de planificación" }
   ];
-
   for (const record of testTimeRecords) {
     try {
-      const tx = await timeRegistry.registerTime(
+      const timeContract = timeRegistry.connect(record.signer);
+      const tx = await timeContract.recordTime(
         record.company,
+        record.skillId,
         record.startTime,
         record.endTime,
-        record.description,
-        record.skillIds
+        record.description
       );
       await tx.wait();
       console.log(`✅ Registro de tiempo creado: ${record.description}`);
@@ -203,21 +151,35 @@ async function main() {
     }
   }
 
+  // 6. Distribuir tokens KRM
+  console.log("\n💰 Distribuyendo tokens KRM...");
+  const recipients = [user1.address, user2.address, user3.address, user4.address, user5.address];
+  for (const recipient of recipients) {
+    try {
+      // Mint 1000 KRM a cada cuenta (si tienes el rol)
+      const tx = await krmToken.mint(recipient, ethers.parseEther("1000"));
+      await tx.wait();
+      console.log(`✅ KRM minteados a ${recipient}`);
+    } catch (error) {
+      console.log(`❌ Error minteando KRM a ${recipient}:`, error.message);
+    }
+  }
+
+  // 7. Verificar balances finales
+  console.log("\n📊 Verificando balances finales...");
+  for (const recipient of recipients) {
+    try {
+      const balance = await krmToken.balanceOf(recipient);
+      console.log(`💰 Balance de ${recipient}:`, ethers.formatEther(balance));
+    } catch (error) {
+      console.log(`❌ Error verificando balance de ${recipient}:`, error.message);
+    }
+  }
+
   console.log("\n🎉 Configuración completada!");
-  console.log("\n📋 Resumen:");
-  console.log("  ✅ Roles otorgados a la cuenta del frontend");
-  console.log("  ✅ Habilidades iniciales creadas");
-  console.log("  ✅ Perfiles de prueba registrados");
-  console.log("  ✅ Servicios de prueba creados");
-  console.log("  ✅ Registros de tiempo de prueba creados");
-  
-  console.log("\n🌐 Ahora puedes probar el frontend en  http://localhost:5174/");
-  console.log("👤 Usa la cuenta:", userAccount);
 }
 
-main()
-  .then(() => process.exit(0))
-  .catch((error) => {
-    console.error("❌ Error:", error);
-    process.exit(1);
-  }); 
+main().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+}); 

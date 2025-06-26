@@ -18,356 +18,335 @@ async function ensureSkillDeclared(skillSystem, professional, validator, skillId
   }
 }
 
-describe("TimeRegistry Contract", function () {
-  let ProfileRegistry;
-  let SkillSystem;
-  let TimeRegistry;
-  let profileRegistry;
-  let skillSystem;
-  let timeRegistry;
-  let owner;
-  let professional;
-  let company;
-  let validator;
+describe("TimeRegistry", function () {
+  let TimeRegistry, timeRegistry;
+  let IPFSRegistry, ipfsRegistry;
+  let SkillSystem, skillSystem;
+  let owner, professional, validator, user1;
   let addrs;
 
   beforeEach(async function () {
-    [owner, professional, validator, company, ...addrs] = await ethers.getSigners();
+    [owner, professional, validator, user1, ...addrs] = await ethers.getSigners();
 
-    const ProfileRegistry = await ethers.getContractFactory("ProfileRegistry");
-    profileRegistry = await ProfileRegistry.deploy();
-    await profileRegistry.waitForDeployment();
-    
-    const SkillSystem = await ethers.getContractFactory("SkillSystem");
-    skillSystem = await SkillSystem.deploy(profileRegistry.target);
+    // Desplegar IPFSRegistry primero
+    IPFSRegistry = await ethers.getContractFactory("IPFSRegistry");
+    ipfsRegistry = await IPFSRegistry.deploy();
+    await ipfsRegistry.waitForDeployment();
+
+    // Desplegar SkillSystem
+    SkillSystem = await ethers.getContractFactory("SkillSystem");
+    skillSystem = await SkillSystem.deploy(await ipfsRegistry.getAddress());
     await skillSystem.waitForDeployment();
-    
-    const TimeRegistry = await ethers.getContractFactory("TimeRegistry");
-    timeRegistry = await TimeRegistry.deploy(profileRegistry.target, skillSystem.target);
+
+    // Desplegar TimeRegistry
+    TimeRegistry = await ethers.getContractFactory("TimeRegistry");
+    timeRegistry = await TimeRegistry.deploy(await ipfsRegistry.getAddress(), await skillSystem.getAddress());
     await timeRegistry.waitForDeployment();
-    
-    // Registrar perfiles - IMPORTANTE: Cada uno con su propio perfil
-    const metadataURI = "ipfs://QmXnnyufdzAWL5CqZ2RnSNgPbvCc1ALT73s6epPrRnZ1Xy";
-    await profileRegistry.connect(professional).registerProfile("Juan Pérez", "Desarrollador", metadataURI, 0, true); // Professional
-    await profileRegistry.connect(company).registerProfile("TechCorp", "Empresa de software", metadataURI, 1, true); // Company
-    await profileRegistry.connect(owner).registerProfile("Admin", "Administrador", metadataURI, 0, true); // Owner como profesional
-    await profileRegistry.connect(validator).registerProfile("Validator", "Validador", metadataURI, 1, true); // Validator
-    
-    // Crear habilidad
-    await skillSystem.connect(owner).createSkill("JavaScript", "Programming");
-    
-    // Declarar habilidad - SOLO el professional declara, NO el validator
-    await skillSystem.connect(professional).declareSkill(0, 3); // skillId 0, level 3
 
-    // Verificar perfiles - IMPORTANTE: Cada uno verifica a otros, no a sí mismo
-    await profileRegistry.connect(owner).verifyProfile(professional.address);
-    await profileRegistry.connect(owner).verifyProfile(company.address);
-    await profileRegistry.connect(owner).verifyProfile(validator.address); // Verificar al validator
-    // NO verificar al owner a sí mismo - eso no está permitido
-
-    // Otorgar rol de karma a todos los perfiles relevantes para que puedan validar
-    const karmaRole = await profileRegistry.KARMA_ROLE();
-    await profileRegistry.connect(owner).grantRole(karmaRole, company.address);
-    await profileRegistry.connect(owner).grantRole(karmaRole, validator.address);
-    await profileRegistry.connect(owner).grantRole(karmaRole, professional.address);
+    // Registrar algunos hashes de IPFS para las pruebas
+    const timeHash = "ipfs://QmTimeHash123456789";
+    const skillHash = "ipfs://QmSkillHash123456789";
+    const declarationHash = "ipfs://QmDeclarationHash123456789";
+    const updatedTimeHash = "ipfs://QmUpdatedTimeHash123456789";
     
-    // Otorgar rol de karma al contrato SkillSystem en ProfileRegistry para que pueda actualizar karma
-    await profileRegistry.connect(owner).grantRole(karmaRole, await skillSystem.getAddress());
+    await ipfsRegistry.connect(owner).storeRecord(timeHash, "sha256hash1", "time", "time");
+    await ipfsRegistry.connect(owner).storeRecord(skillHash, "sha256hash2", "skills", "skill");
+    await ipfsRegistry.connect(owner).storeRecord(declarationHash, "sha256hash3", "declarations", "declaration");
+    await ipfsRegistry.connect(owner).storeRecord(updatedTimeHash, "sha256hash4", "time", "time");
+
+    // Crear habilidad y declararla para el profesional
+    await skillSystem.connect(owner).createSkill(skillHash);
+    await skillSystem.connect(professional).declareSkill(0, declarationHash, 5);
     
-    // Otorgar rol de karma al contrato TimeRegistry en ProfileRegistry para que pueda actualizar karma
-    await profileRegistry.connect(owner).grantRole(karmaRole, await timeRegistry.getAddress());
-
-    // Otorgar rol de karma al validator en SkillSystem también
-    const skillSystemKarmaRole = await skillSystem.KARMA_ROLE();
-    await skillSystem.connect(owner).grantRole(skillSystemKarmaRole, validator.address);
-    await skillSystem.connect(owner).grantRole(skillSystemKarmaRole, company.address);
-    await skillSystem.connect(owner).grantRole(skillSystemKarmaRole, professional.address);
-
-    // Verificar habilidad del profesional - IMPORTANTE: Validator valida al professional
-    await skillSystem.connect(validator).validateSkill(professional.address, 0, true);
-
-    // Los perfiles y habilidades ya están creados y validados aquí, no repetir en los tests individuales
+    // Otorgar rol VALIDATOR_ROLE al validator en SkillSystem
+    const skillValidatorRole = await skillSystem.VALIDATOR_ROLE();
+    await skillSystem.connect(owner).grantRole(skillValidatorRole, validator.address);
+    
+    // Validar la habilidad
+    await skillSystem.connect(validator).validateSkill(professional.address, 0, 4);
+    
+    // Otorgar rol VALIDATOR_ROLE al validator en TimeRegistry
+    const timeValidatorRole = await timeRegistry.VALIDATOR_ROLE();
+    await timeRegistry.connect(owner).grantRole(timeValidatorRole, validator.address);
   });
 
-  describe("Registro de tiempo", function () {
-    it("Debería permitir a un profesional registrar tiempo", async function () {
-      // La habilidad ya está declarada y validada en el beforeEach
-      
-      const startTime = Math.floor(Date.now() / 1000) - 3600; // 1 hora atrás
-      const endTime = Math.floor(Date.now() / 1000); // ahora
-      
-      await timeRegistry.connect(professional).recordTime(
-        company.address,
-        0, // skillId
-        startTime,
-        endTime,
-        "Desarrollo de funcionalidad"
-      );
-      
-      const record = await timeRegistry.timeRecords(0);
-      expect(record.professional).to.equal(professional.address);
-      expect(record.company).to.equal(company.address);
-      expect(record.skillId).to.equal(0);
-      expect(record.totalHours).to.equal(1);
-      expect(record.description).to.equal("Desarrollo de funcionalidad");
+  describe("Constructor", function () {
+    it("Debería establecer correctamente las direcciones de IPFSRegistry y SkillSystem", async function () {
+      expect(await timeRegistry.ipfsRegistry()).to.equal(await ipfsRegistry.getAddress());
+      expect(await timeRegistry.skillSystem()).to.equal(await skillSystem.getAddress());
     });
 
-    it("No debería permitir registrar tiempo con fechas inválidas", async function () {
-      const startTime = Math.floor(Date.now() / 1000);
-      const endTime = startTime - 3600; // endTime antes que startTime
-      
-      await expect(
-        timeRegistry.connect(professional).recordTime(
-          company.address,
-          0,
-          startTime,
-          endTime,
-          "Desarrollo de funcionalidad"
-        )
-      ).to.be.revertedWith("End time must be after start time");
-    });
+    it("Debería otorgar roles correctamente al deployer", async function () {
+      const DEFAULT_ADMIN_ROLE = await timeRegistry.DEFAULT_ADMIN_ROLE();
+      const KARMA_ROLE = await timeRegistry.KARMA_ROLE();
+      const VALIDATOR_ROLE = await timeRegistry.VALIDATOR_ROLE();
 
-    it("No debería permitir registrar tiempo con startTime cero", async function () {
-      const endTime = Math.floor(Date.now() / 1000);
-      
-      await expect(
-        timeRegistry.connect(professional).recordTime(
-          company.address,
-          0,
-          0, // startTime cero
-          endTime,
-          "Desarrollo de funcionalidad"
-        )
-      ).to.be.revertedWith("Start time cannot be zero");
-    });
-
-    it("Debería emitir un evento al registrar tiempo", async function () {
-      // La habilidad ya está declarada y validada en el beforeEach
-      const startTime = Math.floor(Date.now() / 1000) - 3600;
-      const endTime = Math.floor(Date.now() / 1000);
-      
-      await expect(
-        timeRegistry.connect(professional).recordTime(
-          company.address,
-          0,
-          startTime,
-          endTime,
-          "Desarrollo de funcionalidad"
-        )
-      )
-        .to.emit(timeRegistry, "TimeRecorded")
-        .withArgs(0, professional.address, company.address, 0);
+      expect(await timeRegistry.hasRole(DEFAULT_ADMIN_ROLE, owner.address)).to.be.true;
+      expect(await timeRegistry.hasRole(KARMA_ROLE, owner.address)).to.be.true;
+      expect(await timeRegistry.hasRole(VALIDATOR_ROLE, owner.address)).to.be.true;
     });
   });
 
-  describe("Validación de tiempo", function () {
+  describe("Time Registration", function () {
+    it("Debería permitir registrar tiempo trabajado", async function () {
+      const timeHash = "ipfs://QmTimeHash123456789";
+      const skillId = 0;
+      const hoursWorked = 8;
+      const hourlyRate = 100;
+      
+      await timeRegistry.connect(professional).registerTime(skillId, timeHash, hoursWorked, hourlyRate);
+      
+      const entry = await timeRegistry.timeEntries(0);
+      expect(entry.id).to.equal(0);
+      expect(entry.professional).to.equal(professional.address);
+      expect(entry.skillId).to.equal(skillId);
+      expect(entry.timeDataHash).to.equal(timeHash);
+      expect(entry.hoursWorked).to.equal(hoursWorked);
+      expect(entry.hourlyRate).to.equal(hourlyRate);
+      expect(entry.totalAmount).to.equal(hoursWorked * hourlyRate);
+      expect(entry.isValidated).to.be.false;
+    });
+
+    it("Debería rechazar registro con hash que no existe en IPFS", async function () {
+      const invalidHash = "ipfs://QmInvalidHash";
+      
+      await expect(
+        timeRegistry.connect(professional).registerTime(0, invalidHash, 8, 100)
+      ).to.be.revertedWith("Time data not found in IPFS");
+    });
+
+    it("Debería rechazar registro con horas inválidas", async function () {
+      const timeHash = "ipfs://QmTimeHash123456789";
+      
+      await expect(
+        timeRegistry.connect(professional).registerTime(0, timeHash, 0, 100)
+      ).to.be.revertedWith("Hours worked must be greater than zero");
+    });
+
+    it("Debería rechazar registro con tarifa inválida", async function () {
+      const timeHash = "ipfs://QmTimeHash123456789";
+      
+      await expect(
+        timeRegistry.connect(professional).registerTime(0, timeHash, 8, 0)
+      ).to.be.revertedWith("Hourly rate must be greater than zero");
+    });
+
+    it("Debería rechazar registro con habilidad no declarada", async function () {
+      const timeHash = "ipfs://QmTimeHash123456789";
+      
+      await expect(
+        timeRegistry.connect(user1).registerTime(0, timeHash, 8, 100)
+      ).to.be.revertedWith("Skill not declared by professional");
+    });
+
+    it("Debería rechazar registro con habilidad no validada", async function () {
+      // Crear nueva habilidad y declararla sin validar
+      const newSkillHash = "ipfs://QmNewSkillHash";
+      const newDeclarationHash = "ipfs://QmNewDeclarationHash";
+      
+      await ipfsRegistry.connect(owner).storeRecord(newSkillHash, "sha256hash5", "skills", "skill");
+      await ipfsRegistry.connect(owner).storeRecord(newDeclarationHash, "sha256hash6", "declarations", "declaration");
+      
+      await skillSystem.connect(owner).createSkill(newSkillHash);
+      await skillSystem.connect(professional).declareSkill(1, newDeclarationHash, 5);
+      
+      const timeHash = "ipfs://QmTimeHash123456789";
+      
+      await expect(
+        timeRegistry.connect(professional).registerTime(1, timeHash, 8, 100)
+      ).to.be.revertedWith("Skill not validated");
+    });
+
+    it("Debería incrementar contadores correctamente", async function () {
+      const timeHash = "ipfs://QmTimeHash123456789";
+      
+      expect(await timeRegistry.totalEntries()).to.equal(0);
+      expect(await timeRegistry.totalHoursWorked()).to.equal(0);
+      
+      await timeRegistry.connect(professional).registerTime(0, timeHash, 8, 100);
+      
+      expect(await timeRegistry.totalEntries()).to.equal(1);
+      expect(await timeRegistry.totalHoursWorked()).to.equal(8);
+    });
+  });
+
+  describe("Time Entry Updates", function () {
     beforeEach(async function () {
-      // La habilidad ya está declarada y validada en el beforeEach global
-      const startTime = Math.floor(Date.now() / 1000) - 3600;
-      const endTime = Math.floor(Date.now() / 1000);
+      const timeHash = "ipfs://QmTimeHash123456789";
+      await timeRegistry.connect(professional).registerTime(0, timeHash, 8, 100);
+    });
+
+    it("Debería permitir actualizar entrada de tiempo", async function () {
+      const newTimeHash = "ipfs://QmUpdatedTimeHash123456789";
+      const newHoursWorked = 10;
+      const newHourlyRate = 120;
       
-      await timeRegistry.connect(professional).recordTime(
-        company.address,
-        0,
-        startTime,
-        endTime,
-        "Desarrollo de funcionalidad"
-      );
-    });
-
-    it("Debería permitir a una empresa validar un registro de tiempo", async function () {
-      await timeRegistry.connect(company).validateTimeRecord(0);
+      await timeRegistry.connect(professional).updateTimeEntry(0, newTimeHash, newHoursWorked, newHourlyRate);
       
-      const record = await timeRegistry.timeRecords(0);
-      expect(record.status).to.equal(1); // Validated
-      expect(record.validatedBy).to.equal(company.address);
+      const entry = await timeRegistry.timeEntries(0);
+      expect(entry.timeDataHash).to.equal(newTimeHash);
+      expect(entry.hoursWorked).to.equal(newHoursWorked);
+      expect(entry.hourlyRate).to.equal(newHourlyRate);
+      expect(entry.totalAmount).to.equal(newHoursWorked * newHourlyRate);
     });
 
-    it("No debería permitir a usuarios no autorizados validar registros", async function () {
-      await expect(
-        timeRegistry.connect(professional).validateTimeRecord(0)
-      ).to.be.revertedWith("Not record company");
-    });
-
-    it("Debería emitir un evento al validar un registro", async function () {
-      await expect(timeRegistry.connect(company).validateTimeRecord(0))
-        .to.emit(timeRegistry, "TimeValidated")
-        .withArgs(0, company.address);
-    });
-
-    it("No debería permitir validar un registro ya validado", async function () {
-      await timeRegistry.connect(company).validateTimeRecord(0);
+    it("Debería rechazar actualización de entrada inexistente", async function () {
+      const newTimeHash = "ipfs://QmUpdatedTimeHash123456789";
       
       await expect(
-        timeRegistry.connect(company).validateTimeRecord(0)
-      ).to.be.revertedWith("Record not in pending status");
-    });
-  });
-
-  describe("Disputa de registros", function () {
-    beforeEach(async function () {
-      // La habilidad ya está declarada y validada en el beforeEach global
-      const startTime = Math.floor(Date.now() / 1000) - 3600;
-      const endTime = Math.floor(Date.now() / 1000);
-      await timeRegistry.connect(professional).recordTime(
-        company.address,
-        0,
-        startTime,
-        endTime,
-        "Desarrollo de funcionalidad"
-      );
+        timeRegistry.connect(professional).updateTimeEntry(999, newTimeHash, 10, 120)
+      ).to.be.revertedWith("Time entry does not exist");
     });
 
-    it("Debería permitir a una empresa disputar un registro", async function () {
-      await timeRegistry.connect(company).disputeTimeRecord(0);
-      
-      const record = await timeRegistry.timeRecords(0);
-      expect(record.status).to.equal(2); // Disputed
-      expect(record.disputedBy).to.equal(company.address);
-    });
-
-    it("Debería permitir a un empleado disputar un registro", async function () {
-      await timeRegistry.connect(professional).disputeTimeRecord(0);
-      
-      const record = await timeRegistry.timeRecords(0);
-      expect(record.status).to.equal(2); // Disputed
-      expect(record.disputedBy).to.equal(professional.address);
-    });
-
-    it("Debería emitir un evento al disputar un registro", async function () {
-      await expect(timeRegistry.connect(company).disputeTimeRecord(0))
-        .to.emit(timeRegistry, "TimeDisputed")
-        .withArgs(0, company.address);
-    });
-  });
-
-  describe("Consulta de registros", function () {
-    beforeEach(async function () {
-      // La habilidad ya está declarada y validada en el beforeEach global
-      const startTime = Math.floor(Date.now() / 1000) - 3600;
-      const endTime = Math.floor(Date.now() / 1000);
-      await timeRegistry.connect(professional).recordTime(
-        company.address,
-        0,
-        startTime,
-        endTime,
-        "Desarrollo de funcionalidad"
-      );
-    });
-
-    it("Debería obtener información detallada de un registro", async function () {
-      const record = await timeRegistry.timeRecords(0);
-      expect(record.professional).to.equal(professional.address);
-      expect(record.company).to.equal(company.address);
-      expect(record.skillId).to.equal(0);
-      expect(record.totalHours).to.equal(1);
-    });
-
-    it("Debería obtener información de múltiples registros", async function () {
-      const startTime = Math.floor(Date.now() / 1000) - 7200;
-      const endTime = Math.floor(Date.now() / 1000) - 3600;
-      
-      await timeRegistry.connect(professional).recordTime(
-        company.address,
-        0,
-        startTime,
-        endTime,
-        "Segundo registro"
-      );
-      
-      const professionalRecords = await timeRegistry.getProfessionalRecords(professional.address);
-      expect(professionalRecords.length).to.equal(2);
-      expect(professionalRecords[0]).to.equal(0);
-      expect(professionalRecords[1]).to.equal(1);
-    });
-  });
-
-  describe("Gestión de pausas", function () {
-    it("Debería permitir al admin pausar el contrato", async function () {
-      await timeRegistry.connect(owner).pause();
-      expect(await timeRegistry.paused()).to.be.true;
-    });
-
-    it("No debería permitir registrar tiempo cuando está pausado", async function () {
-      await timeRegistry.connect(owner).pause();
-      
-      // Asegurar que la habilidad esté declarada y validada
-      await ensureSkillDeclared(skillSystem, professional, validator, 0, 3);
-      
-      const startTime = Math.floor(Date.now() / 1000) - 3600;
-      const endTime = Math.floor(Date.now() / 1000);
+    it("Debería rechazar actualización por no propietario", async function () {
+      const newTimeHash = "ipfs://QmUpdatedTimeHash123456789";
       
       await expect(
-        timeRegistry.connect(professional).recordTime(
-          company.address,
-          0,
-          startTime,
-          endTime,
-          "Desarrollo de funcionalidad"
-        )
-      ).to.be.revertedWith("Pausable: paused");
+        timeRegistry.connect(user1).updateTimeEntry(0, newTimeHash, 10, 120)
+      ).to.be.revertedWith("Not entry owner");
     });
 
-    it("Debería permitir al admin despausar el contrato", async function () {
-      await timeRegistry.connect(owner).pause();
-      await timeRegistry.connect(owner).unpause();
-      expect(await timeRegistry.paused()).to.be.false;
-    });
-  });
-
-  describe("Control de acceso", function () {
-    it("Debería verificar que el owner tiene el rol DEFAULT_ADMIN_ROLE", async function () {
-      const adminRole = await timeRegistry.DEFAULT_ADMIN_ROLE();
-      expect(await timeRegistry.hasRole(adminRole, owner.address)).to.be.true;
-    });
-
-    it("Debería verificar que el owner tiene el rol KARMA_ROLE", async function () {
-      const karmaRole = await timeRegistry.KARMA_ROLE();
-      expect(await timeRegistry.hasRole(karmaRole, owner.address)).to.be.true;
-    });
-
-    it("Debería permitir otorgar roles a otros usuarios", async function () {
-      const karmaRole = await timeRegistry.KARMA_ROLE();
-      await timeRegistry.connect(owner).grantRole(karmaRole, professional.address);
-      expect(await timeRegistry.hasRole(karmaRole, professional.address)).to.be.true;
+    it("Debería rechazar actualización de entrada validada", async function () {
+      // Validar la entrada primero
+      await timeRegistry.connect(validator).validateTimeEntry(0);
+      
+      const newTimeHash = "ipfs://QmUpdatedTimeHash123456789";
+      
+      await expect(
+        timeRegistry.connect(professional).updateTimeEntry(0, newTimeHash, 10, 120)
+      ).to.be.revertedWith("Entry already validated");
     });
   });
 
-  describe("Estados de registros", function () {
+  describe("Time Entry Validation", function () {
     beforeEach(async function () {
-      // Asegurar que la habilidad esté declarada y validada
-      await skillSystem.connect(professional).declareSkill(0, 3);
-      await skillSystem.connect(validator).validateSkill(professional.address, 0, true);
-      
-      const startTime = Math.floor(Date.now() / 1000) - 3600;
-      const endTime = Math.floor(Date.now() / 1000);
-      
-      await timeRegistry.connect(professional).recordTime(
-        company.address,
-        0,
-        startTime,
-        endTime,
-        "Desarrollo de funcionalidad"
-      );
+      const timeHash = "ipfs://QmTimeHash123456789";
+      await timeRegistry.connect(professional).registerTime(0, timeHash, 8, 100);
     });
 
-    it("Debería crear registros en estado Pending por defecto", async function () {
-      const record = await timeRegistry.timeRecords(0);
-      expect(record.status).to.equal(0); // Pending
+    it("Debería permitir validar entrada de tiempo", async function () {
+      await timeRegistry.connect(validator).validateTimeEntry(0);
+      
+      const entry = await timeRegistry.timeEntries(0);
+      expect(entry.isValidated).to.be.true;
+      expect(entry.validatedBy).to.equal(validator.address);
     });
 
-    it("Debería cambiar estado a Validated después de validación", async function () {
-      await timeRegistry.connect(company).validateTimeRecord(0);
-      
-      const record = await timeRegistry.timeRecords(0);
-      expect(record.status).to.equal(1); // Validated
+    it("Debería rechazar validación de entrada inexistente", async function () {
+      await expect(
+        timeRegistry.connect(validator).validateTimeEntry(999)
+      ).to.be.revertedWith("Time entry does not exist");
     });
 
-    it("Debería cambiar estado a Disputed después de disputa", async function () {
-      await timeRegistry.connect(company).disputeTimeRecord(0);
+    it("Debería rechazar validación de entrada ya validada", async function () {
+      await timeRegistry.connect(validator).validateTimeEntry(0);
       
-      const record = await timeRegistry.timeRecords(0);
-      expect(record.status).to.equal(2); // Disputed
+      await expect(
+        timeRegistry.connect(validator).validateTimeEntry(0)
+      ).to.be.revertedWith("Entry already validated");
+    });
+
+    it("Debería rechazar auto-validación", async function () {
+      // Otorgar rol VALIDATOR_ROLE al professional para que pueda intentar auto-validarse
+      const validatorRole = await timeRegistry.VALIDATOR_ROLE();
+      await timeRegistry.connect(owner).grantRole(validatorRole, professional.address);
+      
+      await expect(
+        timeRegistry.connect(professional).validateTimeEntry(0)
+      ).to.be.revertedWith("Cannot validate own time entry");
+    });
+
+    it("Debería rechazar validación sin rol VALIDATOR_ROLE", async function () {
+      await expect(
+        timeRegistry.connect(user1).validateTimeEntry(0)
+      ).to.be.reverted;
+    });
+
+    it("Debería incrementar contador de entradas validadas", async function () {
+      expect(await timeRegistry.totalValidatedEntries()).to.equal(0);
+      
+      await timeRegistry.connect(validator).validateTimeEntry(0);
+      
+      expect(await timeRegistry.totalValidatedEntries()).to.equal(1);
+    });
+  });
+
+  describe("Time Entry Deletion", function () {
+    beforeEach(async function () {
+      const timeHash = "ipfs://QmTimeHash123456789";
+      await timeRegistry.connect(professional).registerTime(0, timeHash, 8, 100);
+    });
+
+    it("Debería permitir eliminar entrada no validada por propietario", async function () {
+      await timeRegistry.connect(professional).deleteTimeEntry(0);
+      
+      const entry = await timeRegistry.timeEntries(0);
+      expect(entry.professional).to.equal(ethers.ZeroAddress);
+    });
+
+    it("Debería permitir eliminar entrada validada por admin", async function () {
+      await timeRegistry.connect(validator).validateTimeEntry(0);
+      
+      await timeRegistry.connect(owner).deleteTimeEntry(0);
+      
+      const entry = await timeRegistry.timeEntries(0);
+      expect(entry.professional).to.equal(ethers.ZeroAddress);
+    });
+
+    it("Debería rechazar eliminación de entrada validada por propietario", async function () {
+      await timeRegistry.connect(validator).validateTimeEntry(0);
+      
+      await expect(
+        timeRegistry.connect(professional).deleteTimeEntry(0)
+      ).to.be.revertedWith("Cannot delete validated entry");
+    });
+
+    it("Debería rechazar eliminación por no autorizado", async function () {
+      await expect(
+        timeRegistry.connect(user1).deleteTimeEntry(0)
+      ).to.be.revertedWith("Not authorized");
+    });
+
+    it("Debería actualizar contadores al eliminar", async function () {
+      expect(await timeRegistry.totalEntries()).to.equal(1);
+      expect(await timeRegistry.totalHoursWorked()).to.equal(8);
+      
+      await timeRegistry.connect(professional).deleteTimeEntry(0);
+      
+      expect(await timeRegistry.totalEntries()).to.equal(0);
+      expect(await timeRegistry.totalHoursWorked()).to.equal(0);
+    });
+  });
+
+  describe("View Functions", function () {
+    beforeEach(async function () {
+      const timeHash = "ipfs://QmTimeHash123456789";
+      await timeRegistry.connect(professional).registerTime(0, timeHash, 8, 100);
+    });
+
+    it("Debería obtener entrada de tiempo por ID", async function () {
+      const entry = await timeRegistry.getTimeEntry(0);
+      expect(entry.id).to.equal(0);
+      expect(entry.professional).to.equal(professional.address);
+      expect(entry.skillId).to.equal(0);
+    });
+
+    it("Debería rechazar obtener entrada inexistente", async function () {
+      await expect(
+        timeRegistry.getTimeEntry(999)
+      ).to.be.revertedWith("Time entry does not exist");
+    });
+
+    it("Debería obtener entradas de un profesional", async function () {
+      const entries = await timeRegistry.getProfessionalEntries(professional.address);
+      expect(entries).to.include(0n);
+      expect(entries.length).to.equal(1);
+    });
+
+    it("Debería obtener entradas de una habilidad", async function () {
+      const entries = await timeRegistry.getSkillEntries(0);
+      expect(entries).to.include(0n);
+      expect(entries.length).to.equal(1);
     });
   });
 });

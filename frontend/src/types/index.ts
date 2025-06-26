@@ -21,16 +21,47 @@ export interface Profile {
   karma?: number;
   isVerified?: boolean;
   disclaimerAccepted?: boolean;
+  // Datos adicionales de IPFS
+  github?: string;
+  linkedin?: string;
+  hourlyRate?: number;
+  languages?: string[];
+  industry?: string;
+  size?: string;
+  founded?: number;
+  services?: string[];
+  availability?: string;
+  project?: string;
+  budget?: string;
+  timeline?: string;
 }
 
 export interface Skill {
   id: number;
   name: string;
   category: string;
+  description?: string;
+  level?: string;
+  tags?: string[];
+  metadataURI?: string;
+  isActive?: boolean;
   isValidated: boolean;
   validatedBy: string;
   validatedAt: number;
   declaredAt: number;
+}
+
+export interface ProfessionalSkill {
+  skillId: number;
+  name: string;
+  category: string;
+  description?: string;
+  level?: string;
+  tags?: string[];
+  declaredLevel: number;
+  isValidated: boolean;
+  validator: string;
+  validationDate: Date | null;
 }
 
 export interface DeclaredSkill {
@@ -50,6 +81,8 @@ export interface TimeRecord {
   id: number;
   worker: string;
   company: string;
+  skillId: number;
+  skillName: string;
   description: string;
   duration: number;
   timestamp: number;
@@ -89,6 +122,7 @@ export interface ContractAddresses {
   TimeRegistry: string;
   P2PMarketplace: string;
   ProfileNFT: string;
+  IPFSRegistry: string;
 }
 
 export interface TransactionState {

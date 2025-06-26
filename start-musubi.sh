@@ -32,15 +32,15 @@ show_banner() {
     clear
     echo -e "${CYAN}╔══════════════════════════════════════════════════════════════════════════════╗${NC}"
     echo -e "${CYAN}║                                                                              ║${NC}"
-    echo -e "${CYAN}║  ${BOLD}${BLUE}███╗   ███╗██╗   ██╗███████╗██╗   ██╗██████╗ ██╗${NC}${CYAN}                           ║${NC}"
-    echo -e "${CYAN}║  ${BOLD}${BLUE}████╗ ████║██║   ██║██╔════╝██║   ██║██╔══██╗██║${NC}${CYAN}                           ║${NC}"
-    echo -e "${CYAN}║  ${BOLD}${BLUE}██╔████╔██║██║   ██║███████╗██║   ██║██████╔╝██║${NC}${CYAN}                           ║${NC}"
-    echo -e "${CYAN}║  ${BOLD}${BLUE}██║╚██╔╝██║██║   ██║╚════██║██║   ██║██╔══██╗██║${NC}${CYAN}                           ║${NC}"
-    echo -e "${CYAN}║  ${BOLD}${BLUE}██║ ╚═╝ ██║╚██████╔╝███████║╚██████╔╝██████╔╝██║${NC}${CYAN}                           ║${NC}"
-    echo -e "${CYAN}║  ${BOLD}${BLUE}╚═╝     ╚═╝ ╚═════╝ ╚══════╝ ╚═════╝ ╚═════╝ ╚═╝${NC}${CYAN}                           ║${NC}"
+    echo -e "${CYAN}║  ${BOLD}${BLUE}███╗   ███╗██╗   ██╗███████╗██╗   ██╗██████╗ ██╗${NC}${CYAN}                            ║${NC}"
+    echo -e "${CYAN}║  ${BOLD}${BLUE}████╗ ████║██║   ██║██╔════╝██║   ██║██╔══██╗██║${NC}${CYAN}                            ║${NC}"
+    echo -e "${CYAN}║  ${BOLD}${BLUE}██╔████╔██║██║   ██║███████╗██║   ██║██████╔╝██║${NC}${CYAN}                            ║${NC}"
+    echo -e "${CYAN}║  ${BOLD}${BLUE}██║╚██╔╝██║██║   ██║╚════██║██║   ██║██╔══██╗██║${NC}${CYAN}                            ║${NC}"
+    echo -e "${CYAN}║  ${BOLD}${BLUE}██║ ╚═╝ ██║╚██████╔╝███████║╚██████╔╝██████╔╝██║${NC}${CYAN}                            ║${NC}"
+    echo -e "${CYAN}║  ${BOLD}${BLUE}╚═╝     ╚═╝ ╚═════╝ ╚══════╝ ╚═════╝ ╚═════╝ ╚═╝${NC}${CYAN}                            ║${NC}"
     echo -e "${CYAN}║                                                                              ║${NC}"
-    echo -e "${CYAN}║  ${BOLD}${YELLOW}Sistema de Despliegue Centralizado v2.0${NC}${CYAN}                                   ║${NC}"
-    echo -e "${CYAN}║  ${PURPLE}Plataforma Descentralizada de Intercambio de Tiempo y Habilidades${NC}${CYAN}        ║${NC}"
+    echo -e "${CYAN}║  ${BOLD}${YELLOW}Sistema de Despliegue Centralizado v2.0${NC}${CYAN}                                     ║${NC}"
+    echo -e "${CYAN}║  ${PURPLE}Plataforma Descentralizada de Intercambio de Tiempo y Habilidades${NC}${CYAN}           ║${NC}"
     echo -e "${CYAN}║                                                                              ║${NC}"
     echo -e "${CYAN}╚══════════════════════════════════════════════════════════════════════════════╝${NC}"
     echo ""
@@ -837,10 +837,10 @@ start_apis() {
     # Esperar a que las APIs estén listas (más tiempo para Python)
     echo -e "${BLUE}  ⏳ Esperando a que las APIs estén listas...${NC}"
     for i in {1..60}; do
-        if curl -s http://localhost:5001/health >/dev/null 2>&1; then
-            echo -e "${GREEN}  ✓ APIs listas (PID: $API_PID)${NC}"
-            echo -e "${GREEN}  🌐 APIs disponibles en http://localhost:5001${NC}"
-            echo -e "${BLUE}  📚 Documentación Swagger: http://localhost:5001/docs${NC}"
+        if curl -s http://localhost:5003/health >/dev/null 2>&1; then
+            echo -e "${GREEN}  ✅ API REST funcionando${NC}"
+            echo -e "${GREEN}  🌐 APIs disponibles en http://localhost:5003${NC}"
+            echo -e "${BLUE}  📚 Documentación Swagger: http://localhost:5003/docs${NC}"
             cd "$PROJECT_DIR"
             return 0
         fi
@@ -880,7 +880,7 @@ show_connection_info() {
     local network=$1
     
     echo -e "\n${CYAN}╔══════════════════════════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${CYAN}║                        🎉 ${BOLD}MUSUBI DESPLEGADO EXITOSAMENTE${NC}${CYAN} 🎉                        ║${NC}"
+    echo -e "${CYAN}║                        🎉 ${BOLD}MUSUBI DESPLEGADO EXITOSAMENTE${NC}${CYAN} 🎉                  ║${NC}"
     echo -e "${CYAN}╚══════════════════════════════════════════════════════════════════════════════╝${NC}"
     
     case $network in
@@ -892,7 +892,7 @@ show_connection_info() {
             fi
             echo -e "${GREEN}  Blockchain: http://localhost:8545${NC}"
             echo -e "${GREEN}  Chain ID: 31337${NC}"
-            echo -e "${GREEN}  APIs: http://localhost:5001${NC}"
+            echo -e "${GREEN}  APIs: http://localhost:5003${NC}"
             
             echo -e "\n${YELLOW}🦊 Configuración de MetaMask:${NC}"
             echo -e "  ${BLUE}Nombre:${NC} Musubi Local"
@@ -903,6 +903,35 @@ show_connection_info() {
             echo -e "\n${YELLOW}🔑 Cuentas de Prueba:${NC}"
             echo -e "  ${BLUE}Cuenta 1:${NC} 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
             echo -e "  ${BLUE}Clave:${NC} 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+            echo -e ""
+            echo -e "  ${BLUE}Cuenta 2:${NC} 0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
+            echo -e "  ${BLUE}Clave:${NC} 0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d"
+            echo -e ""
+            echo -e "  ${BLUE}Cuenta 3:${NC} 0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC"
+            echo -e "  ${BLUE}Clave:${NC} 0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a"
+            echo -e ""
+            echo -e "  ${BLUE}Cuenta 4:${NC} 0x90F79bf6EB2c4f870365E785982E1f101E93b906"
+            echo -e "  ${BLUE}Clave:${NC} 0x7c852118e8d2787a3056a6ae815bb560cca160cd40222560869844c926f1db9c"
+            echo -e ""
+            echo -e "  ${BLUE}Cuenta 5:${NC} 0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65"
+            echo -e "  ${BLUE}Clave:${NC} 0x47e179ec197488593b187f80a00eb0da91f1b9d0b13f8733639f19c30a34926a"
+            echo -e ""
+            echo -e "  ${BLUE}Cuenta 6:${NC} 0x9965507D1a55bcC2695C58ba16FB37d819B0A4dc"
+            echo -e "  ${BLUE}Clave:${NC} 0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba"
+            echo -e ""
+            echo -e "  ${BLUE}Cuenta 7:${NC} 0x976EA74026E726554dB657fA54763abd0C3a0aa9"
+            echo -e "  ${BLUE}Clave:${NC} 0x92db14e403b83dfe3df233f83dfa3a5d6dbe5c4d25b87e3b1411e1102d6e8647"
+            echo -e ""
+            echo -e "  ${BLUE}Cuenta 8:${NC} 0x14dC79964da2C08b23698B3D3cc7Ca32193d9955"
+            echo -e "  ${BLUE}Clave:${NC} 0x4bbbf85ce3377469e77fecb3f78308a33dc48f7bdb7813df6cb560653db261c2"
+            echo -e ""
+            echo -e "  ${BLUE}Cuenta 9:${NC} 0x23618e81E3f5cdF7f54C3d65f7FBc0aBf5B21E8f"
+            echo -e "  ${BLUE}Clave:${NC} 0x0aa6e36a6d94c58a281cc1d91c2a3b8717b4a0625ee4c3cc0b62bfff4cce88a0"
+            echo -e ""
+            echo -e "  ${BLUE}Cuenta 10:${NC} 0xa0Ee7A142d267C1f36714E4a8F75612F20a79720"
+            echo -e "  ${BLUE}Clave:${NC} 0x2a871d0798f97d79848a013d4936a73bf4cc922c825d33c1cf7073dff6a409b0"
+            echo -e ""
+            echo -e "  ${YELLOW}💡 Todas las cuentas tienen 10,000 ETH de balance${NC}"
             ;;
         "sepolia")
             echo -e "\n${YELLOW}🌐 Red Sepolia Testnet:${NC}"
@@ -923,7 +952,7 @@ show_connection_info() {
     
     echo -e "\n${YELLOW}📚 Documentación:${NC}"
     echo -e "  ${BLUE}README.md:${NC} ./README.md"
-    echo -e "  ${BLUE}APIs:${NC} http://localhost:5001/docs"
+    echo -e "  ${BLUE}APIs:${NC} http://localhost:5003/docs"
     
     echo -e "\n${RED}🛑 Presiona Ctrl+C para detener todos los servicios${NC}"
     echo -e "${CYAN}═══════════════════════════════════════════════════════════════════════════════${NC}\n"
@@ -991,26 +1020,65 @@ deploy_local() {
                 return 1
             fi
         }
+        # Test especial de interoperabilidad IPFS/API/Blockchain
+        echo -e "${CYAN}🌐 Test de interoperabilidad IPFS/API/Blockchain...${NC}"
+        cd "$PROJECT_DIR/hardhat-dev"
+        npx hardhat test test/Integration.test.js --grep 'Interoperabilidad IPFS/API/Blockchain' || {
+            echo -e "${RED}❌ El test de interoperabilidad IPFS/API/Blockchain ha fallado.${NC}"
+            echo -e "${YELLOW}¿Deseas continuar con el despliegue a pesar del fallo? (y/N)${NC}"
+            read -r continuar
+            if [[ ! $continuar =~ ^[Yy]$ ]]; then
+                cd "$PROJECT_DIR"
+                return 1
+            fi
+        }
+        cd "$PROJECT_DIR"
     fi
     
     # Desplegar contratos
     deploy_contracts "local" || return 1
-    
-    # Sincronizar direcciones con la API
-    sync_contract_addresses "local" || {
-        echo -e "${YELLOW}⚠️  Sincronización falló, continuando sin ella${NC}"
-    }
-    
-    # Sincronizar direcciones con el Frontend
-    sync_frontend_addresses "local" || {
-        echo -e "${YELLOW}⚠️  Sincronización falló, continuando sin ella${NC}"
-    }
+    # Ejecutar verificación y alineación dinámica
+    if [[ -f "$PROJECT_DIR/scripts/run-verification.sh" ]]; then
+        bash "$PROJECT_DIR/scripts/run-verification.sh" || {
+            echo -e "${YELLOW}⚠️  Verificación falló, usando sincronización manual${NC}"
+            
+            # Sincronizar direcciones con la API
+            sync_contract_addresses "local" || {
+                echo -e "${YELLOW}⚠️  Sincronización falló, continuando sin ella${NC}"
+            }
+            
+            # Sincronizar direcciones con el Frontend
+            sync_frontend_addresses "local" || {
+                echo -e "${YELLOW}⚠️  Sincronización falló, continuando sin ella${NC}"
+            }
+        }
+    else
+        echo -e "${YELLOW}⚠️  Script de verificación no encontrado, usando sincronización manual${NC}"
+        
+        # Sincronizar direcciones con la API
+        sync_contract_addresses "local" || {
+            echo -e "${YELLOW}⚠️  Sincronización falló, continuando sin ella${NC}"
+        }
+        
+        # Sincronizar direcciones con el Frontend
+        sync_frontend_addresses "local" || {
+            echo -e "${YELLOW}⚠️  Sincronización falló, continuando sin ella${NC}"
+        }
+    fi
     
     # Iniciar frontend
     start_frontend || return 1
     
     # Iniciar APIs
     start_apis
+    
+    # Distribuir tokens KRM a las cuentas de prueba
+    echo -e "${YELLOW}💰 Distribuyendo tokens KRM a cuentas de prueba...${NC}"
+    cd "$PROJECT_DIR/hardhat-dev"
+    npx hardhat run scripts/check-and-distribute-krm.js --network localhost || {
+        echo -e "${YELLOW}⚠️  Distribución de KRM falló, continuando sin ella${NC}"
+    }
+    cd "$PROJECT_DIR"
     
     # Mostrar información de conexión
     show_connection_info "local"
@@ -1300,6 +1368,46 @@ configure_metamask() {
     echo -e "${BLUE}Balance:${NC} 10000 ETH"
     echo ""
     
+    echo -e "${YELLOW}Cuenta 3:${NC} 0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC"
+    echo -e "${BLUE}Clave Privada:${NC} 0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a"
+    echo -e "${BLUE}Balance:${NC} 10000 ETH"
+    echo ""
+    
+    echo -e "${YELLOW}Cuenta 4:${NC} 0x90F79bf6EB2c4f870365E785982E1f101E93b906"
+    echo -e "${BLUE}Clave Privada:${NC} 0x7c852118e8d2787a3056a6ae815bb560cca160cd40222560869844c926f1db9c"
+    echo -e "${BLUE}Balance:${NC} 10000 ETH"
+    echo ""
+    
+    echo -e "${YELLOW}Cuenta 5:${NC} 0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65"
+    echo -e "${BLUE}Clave Privada:${NC} 0x47e179ec197488593b187f80a00eb0da91f1b9d0b13f8733639f19c30a34926a"
+    echo -e "${BLUE}Balance:${NC} 10000 ETH"
+    echo ""
+    
+    echo -e "${YELLOW}Cuenta 6:${NC} 0x9965507D1a55bcC2695C58ba16FB37d819B0A4dc"
+    echo -e "${BLUE}Clave Privada:${NC} 0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba"
+    echo -e "${BLUE}Balance:${NC} 10000 ETH"
+    echo ""
+    
+    echo -e "${YELLOW}Cuenta 7:${NC} 0x976EA74026E726554dB657fA54763abd0C3a0aa9"
+    echo -e "${BLUE}Clave Privada:${NC} 0x92db14e403b83dfe3df233f83dfa3a5d6dbe5c4d25b87e3b1411e1102d6e8647"
+    echo -e "${BLUE}Balance:${NC} 10000 ETH"
+    echo ""
+    
+    echo -e "${YELLOW}Cuenta 8:${NC} 0x14dC79964da2C08b23698B3D3cc7Ca32193d9955"
+    echo -e "${BLUE}Clave Privada:${NC} 0x4bbbf85ce3377469e77fecb3f78308a33dc48f7bdb7813df6cb560653db261c2"
+    echo -e "${BLUE}Balance:${NC} 10000 ETH"
+    echo ""
+    
+    echo -e "${YELLOW}Cuenta 9:${NC} 0x23618e81E3f5cdF7f54C3d65f7FBc0aBf5B21E8f"
+    echo -e "${BLUE}Clave Privada:${NC} 0x0aa6e36a6d94c58a281cc1d91c2a3b8717b4a0625ee4c3cc0b62bfff4cce88a0"
+    echo -e "${BLUE}Balance:${NC} 10000 ETH"
+    echo ""
+    
+    echo -e "${YELLOW}Cuenta 10:${NC} 0xa0Ee7A142d267C1f36714E4a8F75612F20a79720"
+    echo -e "${BLUE}Clave Privada:${NC} 0x2a871d0798f97d79848a013d4936a73bf4cc922c825d33c1cf7073dff6a409b0"
+    echo -e "${BLUE}Balance:${NC} 10000 ETH"
+    echo ""
+    
     echo -e "${GREEN}✅ Configuración de MetaMask mostrada${NC}"
     echo -e "${YELLOW}💡 Importa las cuentas usando las claves privadas para probar el sistema${NC}"
 }
@@ -1504,7 +1612,7 @@ show_project_info() {
     
     echo -e "${YELLOW}🔗 Enlaces Útiles:${NC}"
     echo -e "  ${BLUE}• Frontend:${NC} http://localhost:5173 (cuando esté ejecutándose)"
-    echo -e "  ${BLUE}• APIs:${NC} http://localhost:5001 (cuando esté ejecutándose)"
+    echo -e "  ${BLUE}• APIs:${NC} http://localhost:5003 (cuando esté ejecutándose)"
     echo -e "  ${BLUE}• Blockchain:${NC} http://localhost:8545 (cuando esté ejecutándose)"
 }
 
@@ -1671,8 +1779,8 @@ start_apis_only() {
     start_apis || return 1
     
     echo -e "${GREEN}✅ APIs iniciadas exitosamente${NC}"
-    echo -e "${YELLOW}🌐 APIs disponibles en http://localhost:5001${NC}"
-    echo -e "${YELLOW}📚 Documentación en http://localhost:5001/docs${NC}"
+    echo -e "${YELLOW}🌐 APIs disponibles en http://localhost:5003${NC}"
+    echo -e "${YELLOW}📚 Documentación en http://localhost:5003/docs${NC}"
     echo -e "${RED}🛑 Presiona Ctrl+C para detener${NC}\n"
     
     wait $API_PID

@@ -1,13 +1,13 @@
 // Configuración automáticamente generada por sync_frontend_addresses.js
-// Última sincronización: 2025-06-24T21:03:04.049Z
+// Última sincronización: 2025-06-25T22:16:48.835Z
 // Red activa: local
 
 export const CONTRACT_ADDRESSES = {
   KRMToken: "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512",
-  ProfileRegistry: "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0",
+  ProfileRegistry: "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9",
   SkillSystem: "0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9",
   TimeRegistry: "0xa513E6E4b8f2a923D98304ec87F64353C4D5C853",
-  P2PMarketplace: "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9",
+  P2PMarketplace: "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0",
   ProfileNFT: "0x0165878A594ca255338adfa4d48449f69242Eb8F",
   IPFSRegistry: "0x5FbDB2315678afecb367f032d93F642f64180aa3"
 };
@@ -46,14 +46,14 @@ export const NETWORK_CONFIG = {
     "local": {
       "IPFSRegistry": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
       "KRMToken": "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512",
-      "ProfileRegistry": "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0",
-      "P2PMarketplace": "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9",
+      "P2PMarketplace": "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0",
+      "ProfileRegistry": "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9",
       "SkillSystem": "0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9",
       "ProfileNFT": "0x0165878A594ca255338adfa4d48449f69242Eb8F",
       "TimeRegistry": "0xa513E6E4b8f2a923D98304ec87F64353C4D5C853"
     }
   },
   "active_network": "local",
-  "last_sync": "2025-06-24T21:03:04.049Z",
+  "last_sync": "2025-06-25T22:16:48.835Z",
   "artifacts_path": "/Users/emilio/MUSUBI-FRESH/MusubiProject/hardhat-dev/artifacts/contracts"
 };

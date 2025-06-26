@@ -1,310 +1,365 @@
-# 🎌 Musubi Project
+# 🎭 Musubi - Plataforma Descentralizada de Intercambio de Tiempo y Habilidades
 
-**Plataforma blockchain descentralizada** para gestión de perfiles profesionales, habilidades validadas como NFTs, registro de tiempo, marketplace P2P y token KRM con reflexión. Incluye smart contracts, frontend moderno, APIs REST con documentación Swagger y almacenamiento descentralizado en IPFS.
-
----
+Musubi es una plataforma blockchain que permite el intercambio descentralizado de tiempo y habilidades entre profesionales y empresas, utilizando tokens KRM (Karma) y contratos inteligentes en Ethereum.
 
 ## 🌟 Características Principales
 
-### 🔗 **Blockchain & Smart Contracts**
-- **7 contratos inteligentes** desplegados con Hardhat Ignition
-- **Sistema de roles** granular (Admin, Verifier, Karma, Minter, Evolver)
-- **Tokens KRM** con reflexión automática (1% fee)
-- **NFTs evolutivos** para perfiles profesionales
-- **Marketplace P2P** con validación de habilidades
-- **Registro de tiempo** con disputas y validación
+### 🔗 Integración IPFS
+- **Almacenamiento Descentralizado**: Los perfiles y metadatos se almacenan en IPFS para mayor eficiencia y descentralización
+- **Hashes en Blockchain**: Solo los hashes de IPFS se almacenan en la blockchain, reduciendo costos de gas
+- **Datos Enriquecidos**: Información completa de perfiles incluyendo ubicación, habilidades, tarifas, idiomas, etc.
+- **Fallback Automático**: Si la API local no está disponible, intenta obtener datos desde IPFS público
 
-### 🌐 **Frontend Moderno**
-- **React + TypeScript** con Vite
-- **Web3 integration** con MetaMask
-- **Onboarding flow** completo para nuevos usuarios
-- **Interfaz responsive** y moderna
-- **Tutoriales integrados** para MetaMask y Musubi
+### 👥 Sistema de Roles y Validación
+- **KARMA_ROLE Universal**: Todos los usuarios tienen el rol de validador para facilitar las pruebas
+- **Validación Cruzada**: Los usuarios pueden validar las habilidades de otros (excepto a sí mismos)
+- **Gestión de Karma**: Sistema de puntos basado en validaciones y registros de tiempo
+- **Retiro de Roles**: Los roles pueden ser revocados en caso de comportamiento fraudulento
 
-### 🔌 **APIs REST**
-- **FastAPI** con documentación Swagger automática
-- **138 tests** de contratos inteligentes
-- **Sincronización automática** de direcciones de contratos
-- **Soporte multi-red** (local, testnet, mainnet)
-- **Base de datos descentralizada** con IPFS
-
-### 📦 **Almacenamiento Descentralizado**
-- **IPFS** para datos de usuarios y perfiles
-- **Registro de hashes** en blockchain
-- **Almacenamiento local** como fallback
-- **Transparencia total** para el usuario
-
----
-
-## 🚀 Guía Rápida de Inicio
-
-### 1. **Clonar y Preparar**
-```bash
-git clone https://github.com/3milioP/MusubiProject.git
-cd MusubiProject
-chmod +x start-musubi.sh
-```
-
-### 2. **Despliegue Automático**
-```bash
-./start-musubi.sh
-# Selecciona "1. Despliegue Local" en el menú
-```
-
-### 3. **Acceso a Servicios**
-- **Frontend**: http://localhost:5173
-- **APIs**: http://localhost:5001
-- **Documentación Swagger**: http://localhost:5001/docs
-- **Blockchain**: http://localhost:8545
-
-### 4. **Configurar MetaMask**
-```
-Nombre: Musubi Local
-RPC URL: http://localhost:8545
-Chain ID: 31337
-Símbolo: KRM
-```
-
-### 5. **Cuenta de Prueba**
-```
-Dirección: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
-Clave: 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
-```
-
----
+### 💰 Token KRM (Karma)
+- **Distribución Inicial**: 1000 KRM para cada usuario de prueba
+- **Earned Through**: Validaciones, registros de tiempo, y participación en el marketplace
+- **Utility**: Pago de servicios, validaciones premium, y gobernanza futura
 
 ## 🏗️ Arquitectura del Sistema
 
-### **Contratos Inteligentes**
-```
-hardhat-dev/contracts/
-├── core/
-│   ├── ProfileRegistry.sol    # Registro de perfiles profesionales
-│   ├── SkillSystem.sol        # Sistema de habilidades y validación
-│   ├── TimeRegistry.sol       # Registro de tiempo trabajado
-│   └── IPFSRegistry.sol       # Registro de hashes IPFS en blockchain
-├── marketplace/
-│   └── P2PMarketplace.sol     # Marketplace P2P con validación
-└── tokens/
-    ├── KRMToken.sol           # Token KRM con reflexión
-    └── ProfileNFT.sol         # NFTs evolutivos de perfiles
-```
+### Contratos Inteligentes
+- **ProfileRegistry**: Gestión de perfiles con integración IPFS
+- **SkillSystem**: Sistema de habilidades con validación cruzada
+- **TimeRegistry**: Registro y validación de tiempo trabajado
+- **P2PMarketplace**: Marketplace descentralizado para servicios
+- **KRMToken**: Token ERC-20 para el sistema de karma
+- **IPFSRegistry**: Registro de hashes IPFS y metadatos
 
-### **Frontend React**
-```
-frontend/src/
-├── components/                # Componentes React
-│   ├── onboarding/           # Flujo de onboarding
-│   ├── tutorial/             # Tutoriales integrados
-│   ├── Navbar.tsx           # Navegación principal
-│   └── Sidebar.tsx          # Barra lateral
-├── pages/                    # Páginas de la aplicación
-├── contexts/                 # Contextos de React
-├── hooks/                    # Hooks personalizados
-├── services/                 # Servicios y ABIs
-└── utils/                    # Utilidades blockchain
-```
+### Frontend (React + TypeScript)
+- **Lectura IPFS**: Obtiene datos completos desde IPFS usando hashes de la blockchain
+- **UI Enriquecida**: Muestra información completa de perfiles y habilidades
+- **Gestión de Estados**: Contextos para Web3, notificaciones y onboarding
+- **Responsive Design**: Interfaz moderna y accesible
 
-### **API REST**
-```
-musubi-api/src/
-├── routes/                   # Endpoints de la API
-│   ├── contracts.py         # Endpoints de contratos
-│   ├── profiles.py          # Gestión de perfiles
-│   ├── skills.py            # Sistema de habilidades
-│   ├── marketplace.py       # Marketplace P2P
-│   ├── timeregistry.py      # Registro de tiempo
-│   ├── krm.py              # Token KRM
-│   ├── ipfs_registry.py    # Registro IPFS
-│   └── user.py             # Gestión de usuarios
-├── config/                  # Configuración
-│   ├── contracts.py        # Configuración de contratos
-│   ├── decentralized_db.py # Base de datos descentralizada
-│   └── api_config.json    # Configuración de redes
-└── models/                  # Modelos de datos
+### API (Python + FastAPI)
+- **Endpoints IPFS**: Servicio de contenido IPFS para el frontend
+- **Integración Blockchain**: Llamadas a contratos inteligentes
+- **Gestión de Usuarios**: Registro y autenticación basada en wallet
+
+## 🚀 Instalación y Configuración
+
+### Prerrequisitos
+- Node.js 18+
+- Python 3.8+
+- Hardhat
+- MetaMask o wallet compatible
+
+### 1. Clonar y Configurar
+```bash
+git clone <repository-url>
+cd MusubiProject
+npm install
+cd frontend && npm install
+cd ../musubi-api && pip install -r requirements.txt
 ```
 
----
+### 2. Configurar Variables de Entorno
+```bash
+# En hardhat-dev/
+cp .env.example .env
+# Configurar variables de red y claves privadas
+```
 
-## 🔧 Funcionalidades Principales
-
-### **👤 Gestión de Perfiles**
-- Registro de perfiles profesionales y empresas
-- Verificación de perfiles por validadores autorizados
-- Sistema de karma y reputación
-- NFTs evolutivos que crecen con las habilidades
-
-### **🎯 Sistema de Habilidades**
-- Declaración de habilidades por profesionales
-- Validación por empresas y validadores
-- Niveles de habilidad (1-10)
-- Solicitudes de validación con recompensas
-
-### **⏰ Registro de Tiempo**
-- Registro de horas trabajadas por profesionales
-- Validación por empresas
-- Sistema de disputas
-- Estados: Pending, Validated, Disputed
-
-### **🛒 Marketplace P2P**
-- Creación de servicios por profesionales
-- Búsqueda y contratación de servicios
-- Pagos con tokens KRM
-- Comisión de plataforma (1%)
-- Validación de habilidades requeridas
-
-### **💰 Token KRM**
-- Suministro máximo: 1,000,000,000 KRM
-- Reflexión automática (1% en transferencias)
-- Minting controlado por roles
-- Integración completa con marketplace
-
-### **📦 Almacenamiento IPFS**
-- Datos de usuarios almacenados en IPFS
-- Hashes registrados en blockchain
-- Transparencia y descentralización
-- Fallback a almacenamiento local
-
----
-
-## 🧪 Testing y Calidad
-
-### **Tests de Contratos (138 tests)**
+### 3. Desplegar Contratos
 ```bash
 cd hardhat-dev
-npm test
+npx hardhat compile
+npx hardhat run scripts/deploy.js --network localhost
 ```
 
-**Cobertura de tests:**
-- ✅ ProfileRegistry (25 tests)
-- ✅ SkillSystem (15 tests)
-- ✅ TimeRegistry (20 tests)
-- ✅ P2PMarketplace (25 tests)
-- ✅ KRMToken (15 tests)
-- ✅ ProfileNFT (20 tests)
-- ✅ Integration (18 tests)
-
-### **Tests de UX**
+### 4. Configurar Juego de Roles con IPFS
 ```bash
-# Tests manuales de experiencia de usuario
-./hardhat-dev/scripts/test-user-experience.sh manual
+# Ejecutar el script de configuración completo
+npx hardhat run scripts/setup-test-roles-ipfs.js --network localhost
+```
 
-# Tests automatizados
-node ./hardhat-dev/scripts/test-automated-ux.js
+Este script configura:
+- ✅ Perfiles con datos en IPFS
+- ✅ Roles KARMA_ROLE para todos los usuarios
+- ✅ Skills con metadatos en IPFS
+- ✅ Validaciones cruzadas de habilidades
+- ✅ Distribución de 1000 KRM por usuario
+- ✅ Configuración del marketplace
 
-# Tests de optimización
-./hardhat-dev/scripts/test-frontend-optimization.sh
+### 5. Levantar el Proyecto
+```bash
+# Terminal 1: Blockchain local
+cd hardhat-dev
+npx hardhat node
+
+# Terminal 2: API
+cd musubi-api
+python src/main.py
+
+# Terminal 3: Frontend
+cd frontend
+npm run dev
+```
+
+## 🎯 Flujos de Usuario
+
+### 1. Registro de Perfil con IPFS
+1. Usuario conecta wallet
+2. Completa formulario de perfil
+3. Datos se almacenan en IPFS
+4. Hash IPFS se registra en blockchain
+5. Perfil queda activo con datos enriquecidos
+
+### 2. Sistema de Habilidades
+1. Usuario declara habilidades con nivel
+2. Otros usuarios validan las declaraciones
+3. Metadatos de skills se almacenan en IPFS
+4. Sistema de karma se actualiza automáticamente
+
+### 3. Registro de Tiempo
+1. Profesional registra tiempo trabajado
+2. Empresa valida el registro
+3. Karma se distribuye según validación
+4. Historial inmutable en blockchain
+
+### 4. Marketplace P2P
+1. Proveedor crea servicio con precio en KRM
+2. Cliente compra servicio con tokens
+3. Transacción se ejecuta en smart contract
+4. Karma se transfiere automáticamente
+
+## 🔧 Gestión de Roles
+
+### KARMA_ROLE Universal
+- **Propósito**: Facilitar pruebas y validaciones
+- **Asignación**: Todos los usuarios tienen este rol
+- **Funcionalidad**: Permite validar habilidades y registros de tiempo
+- **Seguridad**: Puede ser revocado por admin en caso de abuso
+
+### Retiro de Roles
+```javascript
+// Ejemplo de retiro de rol (solo admin)
+await skillSystem.revokeRole(karmaRole, userAddress);
+```
+
+### Validación Cruzada
+- Los usuarios pueden validar a otros
+- No pueden validarse a sí mismos
+- Sistema de karma basado en validaciones recibidas
+- Historial inmutable de validaciones
+
+## 🌐 Integración IPFS
+
+### Estructura de Datos
+```json
+{
+  "name": "Juan Profesional",
+  "description": "Desarrollador Full Stack...",
+  "profileType": "professional",
+  "walletAddress": "0x...",
+  "location": "Madrid, España",
+  "website": "https://juan-professional.dev",
+  "github": "juan-professional",
+  "linkedin": "juan-professional",
+  "skills": ["React", "Node.js", "Solidity"],
+  "hourlyRate": 50,
+  "languages": ["Español", "Inglés"],
+  "timestamp": "2024-01-01T00:00:00.000Z"
+}
+```
+
+### Flujo de Lectura
+1. Frontend obtiene hash IPFS desde blockchain
+2. Intenta obtener datos desde API local
+3. Fallback a IPFS público si es necesario
+4. Combina datos de blockchain con metadatos IPFS
+5. Muestra información enriquecida al usuario
+
+## 🧪 Testing
+
+### Scripts de Prueba
+```bash
+# Pruebas de interoperabilidad
+npx hardhat run scripts/test-contract-interoperability.js
+
+# Pruebas de experiencia de usuario
+npx hardhat run scripts/test-user-experience.sh
+
+# Validación de APIs
+npx hardhat run scripts/validate-apis.sh
+```
+
+### Cuentas de Prueba
+- **Usuario Profesional**: `0x70997970C51812dc3A010C7d01b50e0d17dc79C8`
+- **Empresa**: `0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC`
+- **Proveedor Marketplace**: `0x90F79bf6EB2c4f870365E785982E1f101E93b906`
+- **Cliente Marketplace**: `0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65`
+
+## 🔒 Seguridad y Consideraciones
+
+### Medidas de Seguridad
+- **Validación de Roles**: Solo usuarios con KARMA_ROLE pueden validar
+- **Prevención de Auto-validación**: Los usuarios no pueden validarse a sí mismos
+- **Retiro de Roles**: Sistema para revocar roles en caso de abuso
+- **Validación de Datos**: Verificación de integridad de datos IPFS
+
+### Limitaciones del Prototipo
+- **Red Local**: Contratos desplegados en Hardhat Network
+- **IPFS Simulado**: Hashes IPFS simulados para desarrollo
+- **Roles Universales**: KARMA_ROLE asignado a todos para facilitar pruebas
+- **Sin Persistencia**: Datos se pierden al reiniciar Hardhat
+
+## 📈 Roadmap
+
+### Fase 1 (Actual) ✅
+- [x] Contratos básicos desplegados
+- [x] Integración IPFS implementada
+- [x] Sistema de roles configurado
+- [x] Frontend con lectura IPFS
+- [x] Scripts de configuración
+
+### Fase 2 (Próxima)
+- [ ] Despliegue en testnet (Sepolia/Goerli)
+- [ ] IPFS real con pinning service
+- [ ] Sistema de reputación avanzado
+- [ ] Marketplace con más funcionalidades
+
+### Fase 3 (Futura)
+- [ ] Despliegue en mainnet
+- [ ] Gobernanza descentralizada
+- [ ] Integración con otras blockchains
+- [ ] Mobile app
+
+## 🤝 Contribución
+
+1. Fork el proyecto
+2. Crea una rama para tu feature (`git checkout -b feature/AmazingFeature`)
+3. Commit tus cambios (`git commit -m 'Add some AmazingFeature'`)
+4. Push a la rama (`git push origin feature/AmazingFeature`)
+5. Abre un Pull Request
+
+## 📄 Licencia
+
+Este proyecto está bajo la Licencia MIT. Ver el archivo `LICENSE` para más detalles.
+
+## 🆘 Soporte
+
+Para soporte técnico o preguntas:
+- Abre un issue en GitHub
+- Consulta la documentación de contratos en `hardhat-dev/ANALISIS_CONTRATOS.md`
+- Revisa los logs de la consola para debugging
+
+## 🌐 Configuración de IPFS para Desarrollo
+
+### Verificación Rápida
+
+Para verificar rápidamente el estado de IPFS:
+
+```bash
+# Verificar estado actual de IPFS
+./check-ipfs.sh
+```
+
+Este script verifica:
+- ✅ Si IPFS está instalado
+- 🔧 Si está inicializado
+- ⚙️ Si la configuración es correcta
+- 🚀 Si el daemon está corriendo
+- 📡 Si la API y Gateway responden
+
+### Instalación y Configuración Automática
+
+Para configurar IPFS automáticamente para desarrollo local:
+
+```bash
+# Ejecutar el script de configuración
+./setup-ipfs-dev.sh
+```
+
+Este script:
+- ✅ Verifica que IPFS esté instalado
+- 🔧 Inicializa IPFS si es necesario
+- ⚙️ Configura IPFS para desarrollo local
+- 🚀 Inicia el daemon de IPFS
+- 🔓 Configura CORS para permitir acceso desde el frontend
+
+### Configuración Manual
+
+Si prefieres configurar IPFS manualmente:
+
+```bash
+# Instalar IPFS (macOS)
+brew install ipfs
+
+# Inicializar IPFS
+ipfs init
+
+# Configurar para desarrollo
+ipfs config Addresses.API /ip4/127.0.0.1/tcp/5001
+ipfs config Addresses.Gateway /ip4/127.0.0.1/tcp/8080
+ipfs config --json API.HTTPHeaders.Access-Control-Allow-Origin '["*"]'
+ipfs config --json API.HTTPHeaders.Access-Control-Allow-Methods '["PUT", "POST", "GET"]'
+ipfs config --json API.HTTPHeaders.Access-Control-Allow-Headers '["Authorization"]'
+ipfs config Routing.Type "none"
+
+# Iniciar daemon
+ipfs daemon
+```
+
+### Puertos y Endpoints
+
+- **API IPFS**: http://localhost:5001
+- **Gateway IPFS**: http://localhost:8080
+- **Directorio de datos**: ~/.ipfs
+
+### Integración con Musubi
+
+Cuando ejecutes `start-musubi.sh` con la opción 1 (despliegue local), IPFS se configurará automáticamente y estará disponible para:
+
+- 📝 Almacenamiento de perfiles de usuario
+- 🎯 Almacenamiento de habilidades y servicios
+- ⏰ Almacenamiento de registros de tiempo
+- 🏪 Almacenamiento de datos del marketplace
+
+Los datos se almacenan realmente en IPFS y se referencian en la blockchain mediante hashes.
+
+### Estado de IPFS en el Frontend
+
+El Dashboard incluye un componente que muestra el estado de IPFS en tiempo real:
+- ✅ Conectado: IPFS está funcionando correctamente
+- ⚠️ No disponible: IPFS no está configurado o no responde
+- 🔄 Verificando: Comprobando el estado de IPFS
+
+### Troubleshooting
+
+**IPFS no responde:**
+```bash
+# Verificar si está corriendo
+pgrep -x "ipfs"
+
+# Reiniciar IPFS
+pkill -f "ipfs daemon"
+ipfs daemon
+```
+
+**Error de CORS:**
+```bash
+# Reconfigurar CORS
+ipfs config --json API.HTTPHeaders.Access-Control-Allow-Origin '["*"]'
+```
+
+**Puertos ocupados:**
+```bash
+# Verificar puertos
+lsof -i :5001
+lsof -i :8080
+
+# Cambiar puertos si es necesario
+ipfs config Addresses.API /ip4/127.0.0.1/tcp/5002
+ipfs config Addresses.Gateway /ip4/127.0.0.1/tcp/8081
 ```
 
 ---
 
-## 📚 Documentación
-
-### **APIs REST**
-- **Swagger UI**: http://localhost:5001/docs
-- **Endpoints disponibles**: 40+ endpoints
-- **Documentación automática** con Flasgger
-- **Tests interactivos** incluidos
-
-### **Arquitectura de Base de Datos**
-- **DATABASE_ARCHITECTURE.md**: Documentación completa
-- **Almacenamiento descentralizado** con IPFS
-- **Registro de hashes** en blockchain
-- **Transparencia total** para usuarios
-
-### **Scripts y Herramientas**
-- **start-musubi.sh**: Script principal de despliegue
-- **setup-ipfs.sh**: Configuración de IPFS
-- **sync_contract_addresses.py**: Sincronización de direcciones
-- **test-runner.sh**: Ejecutor de tests
-
----
-
-## 🔄 Flujo de Trabajo
-
-### **Para Desarrolladores**
-1. **Desarrollo**: Trabaja en `hardhat-dev/contracts/`
-2. **Testing**: Ejecuta `npm test` en `hardhat-dev/`
-3. **Despliegue**: Usa `./start-musubi.sh`
-4. **Documentación**: Actualiza Swagger automáticamente
-
-### **Para Usuarios**
-1. **Onboarding**: Tutorial integrado en el frontend
-2. **Registro**: Crea tu perfil profesional
-3. **Habilidades**: Declara y valida tus habilidades
-4. **Trabajo**: Registra tiempo y participa en el marketplace
-5. **Evolución**: Tu NFT crece con tus logros
-
----
-
-## 🛠️ Tecnologías Utilizadas
-
-### **Blockchain**
-- **Solidity** ^0.8.20
-- **Hardhat** con Ignition
-- **OpenZeppelin** Contracts
-- **MetaMask** Integration
-
-### **Frontend**
-- **React** 18
-- **TypeScript**
-- **Vite**
-- **Ethers.js**
-- **Tailwind CSS**
-
-### **Backend**
-- **Python** 3.11+
-- **FastAPI**
-- **Flasgger** (Swagger)
-- **IPFS** HTTP Client
-
-### **Testing**
-- **Mocha** + **Chai**
-- **Hardhat Testing**
-- **Playwright** (UX tests)
-
----
-
-## 📊 Estado del Proyecto
-
-### **✅ Completado**
-- [x] 7 contratos inteligentes desplegados
-- [x] Frontend React con onboarding
-- [x] API REST con documentación Swagger
-- [x] Sistema de testing completo (138 tests)
-- [x] Integración IPFS + blockchain
-- [x] Marketplace P2P funcional
-- [x] Sistema de roles y permisos
-- [x] Scripts de despliegue automatizado
-
-### **🚧 En Desarrollo**
-- [ ] Integración con redes testnet
-- [ ] Optimizaciones de gas
-- [ ] Auditoría de seguridad
-- [ ] Dashboard de analytics
-
----
-
-## 🤝 Contribuir
-
-1. **Fork** el repositorio
-2. **Crea** una rama para tu feature
-3. **Desarrolla** siguiendo los estándares del proyecto
-4. **Ejecuta** los tests: `npm test`
-5. **Documenta** tus cambios
-6. **Pull Request** con descripción detallada
-
----
-
-## 📞 Soporte
-
-- **Issues**: GitHub Issues
-- **Documentación**: README.md y archivos .md
-- **APIs**: http://localhost:5001/docs
-- **Tests**: `./hardhat-dev/scripts/`
-
----
-
-*¡Bienvenido al futuro del trabajo descentralizado con Musubi! 🚀*
-
-**🎯 Objetivo**: Democratizar el acceso al trabajo profesional a través de blockchain, validación de habilidades y marketplace descentralizado.
+**🎭 Musubi** - Donde el tiempo y las habilidades encuentran su valor real en la blockchain.

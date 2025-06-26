@@ -36,11 +36,12 @@ _temp_users: Dict[str, Dict[str, Any]] = {}
                 'properties': {
                     'name': {'type': 'string', 'description': 'Nombre del usuario'},
                     'email': {'type': 'string', 'description': 'Email del usuario'},
+                    'wallet_address': {'type': 'string', 'description': 'Dirección de wallet del usuario'},
                     'profile_type': {'type': 'string', 'description': 'Tipo de perfil (professional/company)'},
                     'skills': {'type': 'array', 'items': {'type': 'string'}, 'description': 'Lista de habilidades'},
                     'description': {'type': 'string', 'description': 'Descripción del usuario'}
                 },
-                'required': ['name', 'email', 'profile_type']
+                'required': ['name', 'email', 'wallet_address', 'profile_type']
             }
         }
     ],
@@ -82,7 +83,7 @@ def create_user():
             }), 400
         
         # Validaciones básicas
-        required_fields = ['name', 'email', 'profile_type']
+        required_fields = ['name', 'email', 'wallet_address', 'profile_type']
         for field in required_fields:
             if field not in data or not data[field]:
                 return jsonify({
@@ -105,6 +106,7 @@ def create_user():
             'id': user_id,
             'name': data['name'],
             'email': data['email'],
+            'wallet_address': data['wallet_address'],
             'profile_type': data['profile_type'],
             'skills': data.get('skills', []),
             'description': data.get('description', ''),
@@ -113,13 +115,15 @@ def create_user():
         }
         
         # Almacenar en IPFS
-        ipfs_hash = decentralized_db.store_data(user_data)
+        ipfs_result = decentralized_db.store_data(user_data)
         
-        if not ipfs_hash:
+        if not ipfs_result or 'ipfs_hash' not in ipfs_result:
             return jsonify({
                 'success': False,
                 'error': 'Error almacenando datos en IPFS'
             }), 500
+        
+        ipfs_hash = ipfs_result['ipfs_hash']
         
         # Obtener configuración del contrato IPFSRegistry
         contract_address = get_contract_address('IPFSRegistry')
@@ -294,6 +298,179 @@ def get_user(user_id):
         
     except Exception as e:
         print(f"❌ Error obteniendo usuario: {e}")
+        return jsonify({
+            'success': False,
+            'error': f'Error interno: {str(e)}'
+        }), 500
+
+@user_bp.route('/users/wallet/<wallet_address>', methods=['GET'])
+@swag_from({
+    'tags': ['Usuarios'],
+    'summary': 'Obtener usuario por dirección de wallet',
+    'description': 'Obtiene un usuario específico por su dirección de wallet',
+    'parameters': [
+        {
+            'name': 'wallet_address',
+            'in': 'path',
+            'type': 'string',
+            'required': True,
+            'description': 'Dirección de wallet del usuario'
+        }
+    ],
+    'responses': {
+        200: {
+            'description': 'Usuario encontrado',
+            'schema': {
+                'type': 'object',
+                'properties': {
+                    'success': {'type': 'boolean'},
+                    'user': {'type': 'object'}
+                }
+            }
+        },
+        404: {
+            'description': 'Usuario no encontrado',
+            'schema': {
+                'type': 'object',
+                'properties': {
+                    'success': {'type': 'boolean'},
+                    'error': {'type': 'string'}
+                }
+            }
+        }
+    }
+})
+def get_user_by_wallet(wallet_address):
+    """Obtener un usuario específico por dirección de wallet"""
+    try:
+        # Buscar en almacenamiento temporal por dirección de wallet
+        user_found = None
+        for user_id, user_data in _temp_users.items():
+            if user_data.get('data', {}).get('wallet_address') == wallet_address:
+                user_found = user_data
+                break
+        
+        if not user_found:
+            return jsonify({
+                'success': False,
+                'error': 'Usuario no encontrado'
+            }), 404
+        
+        return jsonify({
+            'success': True,
+            'user': user_found['data']
+        }), 200
+        
+    except Exception as e:
+        print(f"❌ Error obteniendo usuario por wallet: {e}")
+        return jsonify({
+            'success': False,
+            'error': f'Error interno: {str(e)}'
+        }), 500
+
+@user_bp.route('/users/wallet/<wallet_address>', methods=['PUT'])
+@swag_from({
+    'tags': ['Usuarios'],
+    'summary': 'Actualizar usuario por dirección de wallet',
+    'description': 'Actualiza los datos de un usuario existente por su dirección de wallet',
+    'parameters': [
+        {
+            'name': 'wallet_address',
+            'in': 'path',
+            'type': 'string',
+            'required': True,
+            'description': 'Dirección de wallet del usuario'
+        },
+        {
+            'name': 'body',
+            'in': 'body',
+            'required': True,
+            'schema': {
+                'type': 'object',
+                'properties': {
+                    'name': {'type': 'string'},
+                    'description': {'type': 'string'},
+                    'skills': {'type': 'array', 'items': {'type': 'string'}},
+                    'location': {'type': 'string'},
+                    'website': {'type': 'string'},
+                    'timestamp': {'type': 'string'}
+                }
+            }
+        }
+    ],
+    'responses': {
+        200: {
+            'description': 'Usuario actualizado exitosamente',
+            'schema': {
+                'type': 'object',
+                'properties': {
+                    'success': {'type': 'boolean'},
+                    'message': {'type': 'string'},
+                    'ipfs_hash': {'type': 'string'}
+                }
+            }
+        },
+        404: {
+            'description': 'Usuario no encontrado'
+        }
+    }
+})
+def update_user_by_wallet(wallet_address):
+    """Actualizar un usuario existente por dirección de wallet"""
+    try:
+        # Buscar usuario por dirección de wallet
+        user_found = None
+        user_id = None
+        for uid, user_data in _temp_users.items():
+            if user_data.get('data', {}).get('wallet_address') == wallet_address:
+                user_found = user_data
+                user_id = uid
+                break
+        
+        if not user_found:
+            return jsonify({
+                'success': False,
+                'error': 'Usuario no encontrado'
+            }), 404
+        
+        data = request.get_json()
+        if not data:
+            return jsonify({
+                'success': False,
+                'error': 'Datos JSON requeridos'
+            }), 400
+        
+        # Actualizar datos del usuario
+        user_data = user_found['data']
+        for field in ['name', 'description', 'skills', 'location', 'website']:
+            if field in data and data[field] is not None:
+                user_data[field] = data[field]
+        
+        user_data['updated_at'] = str(datetime.now())
+        
+        # Almacenar versión actualizada en IPFS
+        storage_result = decentralized_db.store_data(user_data)
+        
+        if not storage_result or 'ipfs_hash' not in storage_result:
+            return jsonify({
+                'success': False,
+                'error': 'Error almacenando datos actualizados en IPFS'
+            }), 500
+        
+        # Actualizar el hash en el almacenamiento temporal
+        if user_id is not None:
+            _temp_users[user_id]['data'] = user_data
+            _temp_users[user_id]['ipfs_hash'] = storage_result['ipfs_hash']
+        
+        return jsonify({
+            'success': True,
+            'message': 'Usuario actualizado exitosamente',
+            'ipfs_hash': storage_result['ipfs_hash'],
+            'user_data': user_data
+        }), 200
+        
+    except Exception as e:
+        print(f"❌ Error actualizando usuario por wallet: {e}")
         return jsonify({
             'success': False,
             'error': f'Error interno: {str(e)}'

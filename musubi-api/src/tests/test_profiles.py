@@ -1,7 +1,7 @@
 import pytest
 import requests
 
-API_URL = "http://localhost:5001/api/profiles"
+API_URL = "http://localhost:5003/api/profiles"
 
 # Usa una dirección de prueba de Hardhat
 TEST_ADDRESS = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"

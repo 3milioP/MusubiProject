@@ -131,66 +131,48 @@ const ProfileRegistration: React.FC<ProfileRegistrationProps> = ({ onComplete, o
     setIsRegistering(true);
 
     try {
-      console.log('🔍 ProfileRegistration - Iniciando registro de perfil...');
-      
-      // Debug: Verificar estado Web3
-      const web3Debug = debugWeb3State({ 
-        provider, 
-        signer, 
-        account, 
-        isConnected,
-        chainId: null,
-        connecting: false,
-        error: null
+      // Subir datos reales a la API para almacenarlos en IPFS
+      const response = await fetch('http://localhost:5003/api/users', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: formData.name.trim(),
+          email: `${account}@musubi.local`, // Email temporal basado en wallet
+          profile_type: profileType === 'company' ? 'company' : 'professional',
+          skills: [], // Puedes agregar skills si están en el formulario
+          description: formData.bio.trim(),
+          location: formData.location,
+          website: formData.website,
+          wallet_address: account
+        }),
       });
-      console.log('🔍 ProfileRegistration - Estado Web3:', web3Debug);
-      
-      // Debug: Verificar estado del contrato
-      const contractDebug = await debugProfileRegistryContract(provider, signer);
-      console.log('🔍 ProfileRegistration - Estado del contrato:', contractDebug);
-      
-      if (contractDebug.error) {
-        throw new Error(`Error en el contrato: ${contractDebug.error}`);
-      }
-      
-      // Debug: Simular registro antes de enviar
-      const metadataURI = `ipfs://example-hash-${Date.now()}`;
-      const profileTypeNumber = profileType === 'company' ? 1 : 0;
-      
-      const simulation = await simulateProfileRegistration(
-        provider,
-        signer,
-        formData.name.trim(),
-        formData.bio.trim(),
-        metadataURI,
-        profileTypeNumber,
-        acceptDisclaimer
-      );
-      
-      console.log('🔍 ProfileRegistration - Resultado de simulación:', simulation);
-      
-      if (simulation.error) {
-        throw new Error(`Error en simulación: ${simulation.error}`);
-      }
-      
-      console.log('🔍 ProfileRegistration - Simulación exitosa, procediendo con registro real...');
 
-      console.log('🔍 Debug - Llamando a registerProfile con:', {
-        name: formData.name.trim(),
-        description: formData.bio.trim(),
+      const result = await response.json();
+      if (!result.success) {
+        throw new Error(result.error || 'Error almacenando datos en IPFS');
+      }
+
+      console.log('🔍 Respuesta de la API:', result);
+      console.log('🔍 Tipo de ipfs_hash:', typeof result.ipfs_hash);
+      console.log('🔍 Valor de ipfs_hash:', result.ipfs_hash);
+
+      // Usar el hash IPFS real como metadataURI (sin prefijo ipfs://)
+      const metadataURI = result.ipfs_hash;
+      const profileTypeNumber = profileType === 'company' ? 1 : 0;
+
+      console.log('🔍 Enviando al contrato:', {
         metadataURI,
         profileTypeNumber,
-        acceptDisclaimer
+        metadataURIType: typeof metadataURI
       });
-      
+
       await registerProfile(
-        formData.name.trim(),
-        formData.bio.trim(),
         metadataURI,
-        profileTypeNumber,
-        acceptDisclaimer
+        profileTypeNumber
       );
-      
+
       // Recargar perfil y marcar como registrado
       await loadProfile();
       markProfileRegistered();

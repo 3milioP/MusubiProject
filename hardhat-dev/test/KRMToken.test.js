@@ -1,142 +1,166 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
 
-describe("KRMToken Contract", function () {
-  let krmToken;
-  let owner, treasury, addr1, addr2;
-
-  const MAX_SUPPLY = ethers.parseUnits("1000000000", 18); // 1,000,000,000 KRM
+describe("KRMToken", function () {
+  let KRMToken, krmToken;
+  let owner, treasury, user1, user2;
+  let addrs;
 
   beforeEach(async function () {
-    [owner, treasury, addr1, addr2] = await ethers.getSigners();
+    [owner, treasury, user1, user2, ...addrs] = await ethers.getSigners();
 
-    const KRMToken = await ethers.getContractFactory("KRMToken");
+    KRMToken = await ethers.getContractFactory("KRMToken");
     krmToken = await KRMToken.deploy(treasury.address);
     await krmToken.waitForDeployment();
   });
 
-  describe("Despliegue", function () {
-    it("Debería asignar el 10% inicial al treasuryWallet", async function () {
-      const treasuryBalance = await krmToken.balanceOf(treasury.address);
-      const totalSupply = await krmToken.totalSupply();
-      // treasuryBalance debe ser igual al totalSupply (que es 10% de MAX_SUPPLY)
-      expect(treasuryBalance).to.equal(totalSupply);
-      expect(totalSupply).to.equal(MAX_SUPPLY / 10n);
+  describe("Constructor", function () {
+    it("Debería establecer correctamente el treasury wallet", async function () {
+      expect(await krmToken.treasuryWallet()).to.equal(treasury.address);
     });
 
-    it("Debería establecer el nombre y símbolo correctos", async function () {
-      expect(await krmToken.name()).to.equal("Karma Token");
-      expect(await krmToken.symbol()).to.equal("KRM");
+    it("Debería otorgar roles correctamente al deployer", async function () {
+      const DEFAULT_ADMIN_ROLE = await krmToken.DEFAULT_ADMIN_ROLE();
+      const PAUSER_ROLE = await krmToken.PAUSER_ROLE();
+      const MINTER_ROLE = await krmToken.MINTER_ROLE();
+
+      expect(await krmToken.hasRole(DEFAULT_ADMIN_ROLE, owner.address)).to.be.true;
+      expect(await krmToken.hasRole(PAUSER_ROLE, owner.address)).to.be.true;
+      expect(await krmToken.hasRole(MINTER_ROLE, owner.address)).to.be.true;
+    });
+
+    it("Debería hacer mint inicial del 10% al treasury", async function () {
+      const maxSupply = await krmToken.MAX_SUPPLY();
+      const expectedInitialMint = maxSupply / 10n;
+      expect(await krmToken.balanceOf(treasury.address)).to.equal(expectedInitialMint);
     });
   });
 
-  describe("Transacciones", function () {
-    it("Debería transferir tokens entre cuentas descontando la comisión de reflexión", async function () {
-      const amount = ethers.parseUnits("1000", 18);
+  describe("Minting", function () {
+    it("Debería permitir mint a usuarios con rol MINTER_ROLE", async function () {
+      const amount = ethers.parseEther("1000");
+      await krmToken.connect(owner).mint(user1.address, amount);
+      expect(await krmToken.balanceOf(user1.address)).to.equal(amount);
+    });
 
-      // Primero el treasury transfiere tokens SIN fees (porque treasury está involucrado)
-      await krmToken.connect(treasury).transfer(addr1.address, amount);
+    it("Debería rechazar mint si excede el max supply", async function () {
+      const maxSupply = await krmToken.MAX_SUPPLY();
+      const currentSupply = await krmToken.totalSupply();
+      const remainingSupply = maxSupply - currentSupply;
+      
+      // Intentar mint más del supply restante
+      await expect(
+        krmToken.connect(owner).mint(user1.address, remainingSupply + 1n)
+      ).to.be.revertedWith("Exceeds max supply");
+    });
 
-      // addr1 transfiere a addr2 con fees aplicados
-      await krmToken.connect(addr1).transfer(addr2.address, amount);
+    it("Debería rechazar mint de usuarios sin rol MINTER_ROLE", async function () {
+      const amount = ethers.parseEther("1000");
+      await expect(
+        krmToken.connect(user1).mint(user2.address, amount)
+      ).to.be.reverted;
+    });
+  });
 
-      const reflectionFee = 100n; // 1% base 10000
-      const fee = amount * reflectionFee / 10000n;
-      const netAmount = amount - fee;
+  describe("Pausing", function () {
+    it("Debería permitir pausar y unpausar", async function () {
+      await krmToken.connect(owner).pause();
+      expect(await krmToken.paused()).to.be.true;
 
-      const addr2Balance = await krmToken.balanceOf(addr2.address);
-      expect(addr2Balance).to.equal(netAmount);
+      await krmToken.connect(owner).unpause();
+      expect(await krmToken.paused()).to.be.false;
+    });
+
+    it("Debería rechazar transferencias cuando está pausado", async function () {
+      await krmToken.connect(owner).mint(user1.address, ethers.parseEther("1000"));
+      await krmToken.connect(owner).pause();
+
+      await expect(
+        krmToken.connect(user1).transfer(user2.address, ethers.parseEther("100"))
+      ).to.be.reverted;
+    });
+  });
+
+  describe("Transfer with reflection fee", function () {
+    beforeEach(async function () {
+      await krmToken.connect(owner).mint(user1.address, ethers.parseEther("1000"));
+    });
+
+    it("Debería aplicar comisión de reflexión en transferencias normales", async function () {
+      const transferAmount = ethers.parseEther("100");
+      const treasuryBalanceBefore = await krmToken.balanceOf(treasury.address);
+      const user2BalanceBefore = await krmToken.balanceOf(user2.address);
+
+      await krmToken.connect(user1).transfer(user2.address, transferAmount);
 
       const treasuryBalanceAfter = await krmToken.balanceOf(treasury.address);
-      // treasury debe haber recibido la comisión
-      expect(treasuryBalanceAfter).to.equal((await krmToken.totalSupply()) - amount + fee);
+      const user2BalanceAfter = await krmToken.balanceOf(user2.address);
+
+      // Comisión del 1% = 1 KRM
+      const expectedFee = ethers.parseEther("1");
+      const expectedNetAmount = transferAmount - expectedFee;
+
+      expect(treasuryBalanceAfter - treasuryBalanceBefore).to.equal(expectedFee);
+      expect(user2BalanceAfter - user2BalanceBefore).to.equal(expectedNetAmount);
     });
 
-    it("Debería fallar si el remitente no tiene suficientes tokens", async function () {
-      const amount = ethers.parseUnits("100", 18);
-      await expect(
-        krmToken.connect(addr1).transfer(addr2.address, amount)
-      ).to.be.revertedWith("ERC20: transfer amount exceeds balance");
+    it("No debería aplicar comisión a transferencias del treasury", async function () {
+      const transferAmount = ethers.parseEther("100");
+      const user1BalanceBefore = await krmToken.balanceOf(user1.address);
+
+      await krmToken.connect(treasury).transfer(user1.address, transferAmount);
+
+      const user1BalanceAfter = await krmToken.balanceOf(user1.address);
+      expect(user1BalanceAfter - user1BalanceBefore).to.equal(transferAmount);
     });
 
-    it("Debería actualizar los balances después de las transferencias con fees", async function () {
-      const amount = ethers.parseUnits("500", 18);
+    it("No debería aplicar comisión a transferencias al treasury", async function () {
+      const transferAmount = ethers.parseEther("100");
+      const treasuryBalanceBefore = await krmToken.balanceOf(treasury.address);
 
-      await krmToken.connect(treasury).transfer(addr1.address, amount);
+      await krmToken.connect(user1).transfer(treasury.address, transferAmount);
 
-      await krmToken.connect(addr1).transfer(addr2.address, amount);
-
-      const reflectionFee = 100; // 1%
-      const fee = amount * 100n / 10000n;
-      const netAmount = amount - fee;
-
-      const addr1Balance = await krmToken.balanceOf(addr1.address);
-      const addr2Balance = await krmToken.balanceOf(addr2.address);
-      const treasuryBalance = await krmToken.balanceOf(treasury.address);
-
-      expect(addr1Balance).to.equal(0);
-      expect(addr2Balance).to.equal(netAmount);
-      expect(treasuryBalance).to.equal((await krmToken.totalSupply()) - netAmount);
-    });
-  });
-
-  describe("Allowances", function () {
-    it("Debería permitir a una cuenta gastar tokens de otra cuenta descontando la comisión", async function () {
-      const amount = ethers.parseUnits("1000", 18);
-
-      await krmToken.connect(treasury).transfer(addr1.address, amount);
-
-      await krmToken.connect(addr1).approve(addr2.address, amount);
-
-      await krmToken.connect(addr2).transferFrom(addr1.address, addr2.address, amount);
-
-      const reflectionFee = 100; // 1%
-      const fee = amount * 100n / 10000n;
-      const netAmount = amount - fee;
-
-      const addr2Balance = await krmToken.balanceOf(addr2.address);
-      expect(addr2Balance).to.equal(netAmount);
-
-      const treasuryBalance = await krmToken.balanceOf(treasury.address);
-      expect(treasuryBalance).to.equal((await krmToken.totalSupply()) - netAmount);
+      const treasuryBalanceAfter = await krmToken.balanceOf(treasury.address);
+      expect(treasuryBalanceAfter - treasuryBalanceBefore).to.equal(transferAmount);
     });
 
-    it("Debería fallar si intenta transferir más de lo permitido", async function () {
-      const amount = ethers.parseUnits("1000", 18);
-      await krmToken.connect(treasury).transfer(addr1.address, amount);
+    it("No debería aplicar comisión a usuarios con rol MINTER_ROLE", async function () {
+      const transferAmount = ethers.parseEther("100");
+      const user2BalanceBefore = await krmToken.balanceOf(user2.address);
 
-      await krmToken.connect(addr1).approve(addr2.address, amount - 1n);
-
-      await expect(
-        krmToken.connect(addr2).transferFrom(addr1.address, addr2.address, amount)
-      ).to.be.revertedWith("ERC20: insufficient allowance");
-    });
-  });
-
-  describe("Eventos", function () {
-    it("Debería emitir eventos Transfer en las transferencias", async function () {
-      const amount = ethers.parseUnits("100", 18);
-
-      await krmToken.connect(treasury).transfer(addr1.address, amount);
-
-      // Solo hacer una transferencia para verificar los eventos
-      const tx = await krmToken.connect(addr1).transfer(addr2.address, amount);
+      // Asegurar que el owner tiene tokens para transferir
+      await krmToken.connect(owner).mint(owner.address, ethers.parseEther("1000"));
       
-      // Verificar que se emitieron ambos eventos Transfer (fee y net amount)
-      await expect(tx)
-        .to.emit(krmToken, "Transfer")
-        .withArgs(addr1.address, treasury.address, amount * 100n / 10000n); // fee transfer to treasury
+      await krmToken.connect(owner).transfer(user2.address, transferAmount);
 
-      await expect(tx)
-        .to.emit(krmToken, "Transfer")
-        .withArgs(addr1.address, addr2.address, amount - (amount * 100n / 10000n)); // net transfer
+      const user2BalanceAfter = await krmToken.balanceOf(user2.address);
+      expect(user2BalanceAfter - user2BalanceBefore).to.equal(transferAmount);
+    });
+  });
+
+  describe("Admin functions", function () {
+    it("Debería permitir actualizar la comisión de reflexión", async function () {
+      const newFee = 200; // 2%
+      await krmToken.connect(owner).updateReflectionFee(newFee);
+      expect(await krmToken.reflectionFee()).to.equal(newFee);
     });
 
-    it("Debería emitir eventos Approval en las aprobaciones", async function () {
-      const amount = ethers.parseUnits("100", 18);
-      await expect(krmToken.connect(treasury).approve(addr1.address, amount))
-        .to.emit(krmToken, "Approval")
-        .withArgs(treasury.address, addr1.address, amount);
+    it("Debería rechazar comisión muy alta", async function () {
+      const highFee = 1500; // 15%
+      await expect(
+        krmToken.connect(owner).updateReflectionFee(highFee)
+      ).to.be.revertedWith("Fee too high");
+    });
+
+    it("Debería permitir actualizar el treasury wallet", async function () {
+      await krmToken.connect(owner).updateTreasuryWallet(user1.address);
+      expect(await krmToken.treasuryWallet()).to.equal(user1.address);
+    });
+
+    it("Debería rechazar treasury wallet zero address", async function () {
+      await expect(
+        krmToken.connect(owner).updateTreasuryWallet(ethers.ZeroAddress)
+      ).to.be.revertedWith("Treasury cannot be zero address");
     });
   });
 });

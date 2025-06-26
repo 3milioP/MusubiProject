@@ -2,7 +2,7 @@ import pytest
 import requests
 import uuid
 
-API_URL = "http://localhost:5001/api"
+API_URL = "http://localhost:5003/api"
 
 @pytest.fixture(scope="module")
 def user_payload():

@@ -23,23 +23,25 @@ def get_user_time_records(address):
         w3 = get_web3_instance(network)
         
         # Obtener registros del usuario
-        user_records = contract.functions.getUserTimeRecords(address).call()
+        user_records = contract.functions.getProfessionalEntries(address).call()
         
         # Formatear registros
         formatted_records = []
         for record_id in user_records:
-            record_data = contract.functions.getTimeRecord(record_id).call()
+            record_data = contract.functions.getTimeEntry(record_id).call()
             formatted_records.append({
                 'id': record_id,
-                'worker': record_data[0],
-                'company': record_data[1],
-                'description': record_data[2],
-                'duration': record_data[3],
-                'is_validated': record_data[4],
-                'validated_by': record_data[5],
-                'created_at': record_data[6],
-                'validated_at': record_data[7],
-                'duration_hours': round(record_data[3] / 3600, 2)  # Convertir a horas
+                'professional': record_data[0],
+                'skillId': record_data[1],
+                'timeDataHash': record_data[2],
+                'hoursWorked': record_data[3],
+                'hourlyRate': record_data[4],
+                'totalAmount': record_data[5],
+                'isValidated': record_data[6],
+                'validatedBy': record_data[7],
+                'createdAt': record_data[8],
+                'validatedAt': record_data[9],
+                'updatedAt': record_data[10]
             })
         
         return jsonify({
@@ -66,21 +68,23 @@ def get_time_record(record_id):
         contract = get_contract_instance('TimeRegistry', network)
         
         # Obtener datos del registro
-        record_data = contract.functions.getTimeRecord(record_id).call()
+        record_data = contract.functions.getTimeEntry(record_id).call()
         
         return jsonify({
             'success': True,
             'data': {
                 'id': record_id,
-                'worker': record_data[0],
-                'company': record_data[1],
-                'description': record_data[2],
-                'duration': record_data[3],
-                'is_validated': record_data[4],
-                'validated_by': record_data[5],
-                'created_at': record_data[6],
-                'validated_at': record_data[7],
-                'duration_hours': round(record_data[3] / 3600, 2),
+                'professional': record_data[0],
+                'skillId': record_data[1],
+                'timeDataHash': record_data[2],
+                'hoursWorked': record_data[3],
+                'hourlyRate': record_data[4],
+                'totalAmount': record_data[5],
+                'isValidated': record_data[6],
+                'validatedBy': record_data[7],
+                'createdAt': record_data[8],
+                'validatedAt': record_data[9],
+                'updatedAt': record_data[10],
                 'network': network
             }
         }), 200
@@ -146,7 +150,7 @@ def get_time_records_count():
         network = request.args.get('network', 'local')
         
         contract = get_contract_instance('TimeRegistry', network)
-        total_records = contract.functions.totalTimeRecords().call()
+        total_records = contract.functions.getTotalEntries().call()
         
         return jsonify({
             'success': True,
@@ -176,7 +180,7 @@ def get_user_stats(address):
         contract = get_contract_instance('TimeRegistry', network)
         
         # Obtener registros del usuario
-        user_records = contract.functions.getUserTimeRecords(address).call()
+        user_records = contract.functions.getProfessionalEntries(address).call()
         
         total_hours = 0
         validated_hours = 0
